@@ -1,0 +1,8 @@
+[package]
+name = "card-stack-example"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+card-game = { path = "../card-game" }
+thiserror = "2.0.14"
