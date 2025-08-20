@@ -1,27 +1,19 @@
-use card_game::{SuperCommand, cards::CardID, commands::Command, zones::ZoneCardID};
+use card_game::{
+    SuperCommand,
+    cards::CardID,
+    commands::Command,
+    zones::{FiniteZone, ZoneCardID},
+};
 
 use crate::{steps::MainStep, zones::hand::HandZone};
+
+mod play_card;
+
+pub use play_card::*;
 
 #[derive(SuperCommand)]
 pub enum Commands<'a> {
     PlayCard(PlayCardCommand<'a>),
-}
-
-pub struct PlayCardCommand<'a>(ZoneCardID<'a, HandZone>);
-
-impl<'a> Command for PlayCardCommand<'a> {
-    type Data = ZoneCardID<'a, HandZone>;
-    type InState = MainStep<'a>;
-    type OutState = MainStep<'a>;
-    fn new(card_id: Self::Data) -> Self {
-        PlayCardCommand(card_id)
-    }
-    fn execute(&mut self, state: Self::InState) -> Self::OutState {
-        state
-    }
-    fn undo(self, state: Self::OutState) -> Self::InState {
-        todo!()
-    }
 }
 
 #[cfg(test)]

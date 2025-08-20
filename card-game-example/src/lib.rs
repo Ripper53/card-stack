@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{
-    player::{Player, PlayerID},
-    steps::StartStep,
-    zones::Zones,
+use card_game::{
+    identifications::{PlayerID, PlayerManager},
+    zones::ZoneManager,
 };
+
+use crate::{commands::Commands, player::Player, steps::StartStep, zones::Zones};
 
 pub mod cards;
 pub mod commands;
@@ -13,36 +14,31 @@ pub mod steps;
 pub mod zones;
 
 pub struct Game<'a> {
-    players: HashMap<PlayerID, Player>,
-    zones: HashMap<PlayerID, Zones<'a>>,
+    player_manager: PlayerManager<Player>,
+    zone_manager: ZoneManager<Zones<'a>>,
 }
 
 impl<'a> Game<'a> {
-    pub fn start_step(players: HashMap<PlayerID, Player>) -> StartStep<'a> {
-        StartStep::new(Self::new(players), PlayerID::new(0))
+    pub fn start_step(player_manager: PlayerManager<Player>) -> StartStep<'a> {
+        StartStep::new(Self::new(player_manager))
     }
-    pub fn new(players: HashMap<PlayerID, Player>) -> Self {
-        let mut zones = HashMap::with_capacity(players.len());
-        for player_id in players.keys().copied() {
-            zones.insert(player_id, Zones::new());
+    pub fn new(player_manager: PlayerManager<Player>) -> Self {
+        Game {
+            zone_manager: ZoneManager::new(&player_manager),
+            player_manager,
         }
-        Game { players, zones }
+    }
+    pub fn active_player_zones(&self) -> &Zones<'a> {
+        let active_player_id = self.player_manager.active_player_id();
+        active_player_id.get(|id| self.zone_manager.get_zone(id.player_id()))
+    }
+    pub fn active_player_zones_mut(&mut self) -> &mut Zones<'a> {
+        let active_player_id = self.player_manager.active_player_id();
+        active_player_id.get_mut(|id| self.zone_manager.get_zone_mut(id.player_id()))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn game() {
-        let start_step = Game::start_step(two_players());
-    }
-
-    fn two_players() -> HashMap<PlayerID, Player> {
-        let mut players = HashMap::with_capacity(2);
-        players.insert(PlayerID::new(0), Player::new(PlayerID::new(0)));
-        players.insert(PlayerID::new(1), Player::new(PlayerID::new(1)));
-        players
-    }
 }

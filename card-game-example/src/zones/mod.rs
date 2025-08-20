@@ -1,3 +1,5 @@
+use card_game::identifications::PlayerID;
+
 use crate::zones::{
     deck::DeckZone, graveyard::GraveyardZone, hand::HandZone, monster::MonsterZone,
     spell::SpellZone,
@@ -10,11 +12,11 @@ pub mod monster;
 pub mod spell;
 
 pub struct Zones<'a> {
-    monster_zone: MonsterZone<'a>,
-    spell_zone: SpellZone<'a>,
-    graveyard_zone: GraveyardZone,
-    deck_zone: DeckZone<'a>,
-    hand_zone: HandZone,
+    pub(crate) monster_zone: MonsterZone<'a>,
+    pub(crate) spell_zone: SpellZone<'a>,
+    pub(crate) graveyard_zone: GraveyardZone,
+    pub(crate) deck_zone: DeckZone<'a>,
+    pub(crate) hand_zone: HandZone<'a>,
 }
 
 impl<'a> Zones<'a> {
@@ -26,5 +28,11 @@ impl<'a> Zones<'a> {
             deck_zone: DeckZone::new(),
             hand_zone: HandZone::new(),
         }
+    }
+}
+
+impl<'a> card_game::zones::Zones for Zones<'a> {
+    fn new(player_id: PlayerID) -> Self {
+        Zones::new()
     }
 }

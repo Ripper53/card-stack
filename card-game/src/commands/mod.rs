@@ -37,6 +37,9 @@ impl<C: Command> CommandManager<C> {
             Err(state.into())
         }
     }
+    pub fn command_history(&self) -> &[C] {
+        &self.history
+    }
 }
 
 #[cfg(test)]

@@ -1,9 +1,36 @@
+use std::collections::HashMap;
+
 use crate::{
     cards::{Card, CardID},
+    identifications::{PlayerID, PlayerManager},
     zones::slot::{Slot, SlotZone, ZoneSlotOccupiedError},
 };
 
 pub mod slot;
+
+pub struct ZoneManager<Z: Zones> {
+    zones: HashMap<PlayerID, Z>,
+}
+
+pub trait Zones {
+    fn new(player_id: PlayerID) -> Self;
+}
+
+impl<Z: Zones> ZoneManager<Z> {
+    pub fn new<P>(player_manager: &PlayerManager<P>) -> Self {
+        let mut zones = HashMap::with_capacity(player_manager.players.len());
+        for player_id in player_manager.players.keys().copied() {
+            zones.insert(player_id, Z::new(player_id));
+        }
+        ZoneManager { zones }
+    }
+    pub fn get_zone(&self, player_id: PlayerID) -> Option<&Z> {
+        self.zones.get(&player_id)
+    }
+    pub fn get_zone_mut(&mut self, player_id: PlayerID) -> Option<&mut Z> {
+        self.zones.get_mut(&player_id)
+    }
+}
 
 pub struct ZoneCardID<'a, Z: Zone>(CardID, std::marker::PhantomData<&'a Z>);
 impl<'a, Z: Zone> ZoneCardID<'a, Z> {
@@ -22,6 +49,12 @@ impl<'a, Z: Zone> std::fmt::Debug for ZoneCardID<'a, Z> {
         write!(f, "ZoneCardID({})", self.0)
     }
 }
+impl<'a, Z: Zone> Clone for ZoneCardID<'a, Z> {
+    fn clone(&self) -> Self {
+        self.clone_id()
+    }
+}
+impl<'a, Z: Zone> Copy for ZoneCardID<'a, Z> {}
 impl<'a, Z: Zone> PartialEq for ZoneCardID<'a, Z> {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq(&other.0)
@@ -53,6 +86,7 @@ where
             Err(ZoneFullError::new(card.id().clone_id()))
         }
     }
+    /// Use [`add_card`](Self::add_card) instead. Never call this method directly.
     fn add_card_unchecked(
         &mut self,
         zone_card_id: ZoneCardID<'a, Self>,
@@ -66,6 +100,7 @@ where
     fn add_card(&mut self, card: Card<Self::CardKind>) {
         self.add_card_with_id(ZoneCardID::new(card.id().clone_id()), card);
     }
+    /// Use [`add_card`](Self::add_card) instead. Never call this method directly.
     fn add_card_with_id(&mut self, zone_card_id: ZoneCardID<'a, Self>, card: Card<Self::CardKind>);
 }
 pub trait ArrayZone<'a>: Zone

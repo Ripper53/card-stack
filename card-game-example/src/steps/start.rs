@@ -1,18 +1,14 @@
 use card_game::{stack::priority::GetState, steps::Step};
 
-use crate::{Game, player::PlayerID, steps::MainStep};
+use crate::{Game, steps::MainStep};
 
 pub struct StartStep<'a> {
     game: Game<'a>,
-    active_player_id: PlayerID,
 }
 
 impl<'a> StartStep<'a> {
-    pub(crate) fn new(game: Game<'a>, active_player_id: PlayerID) -> Self {
-        StartStep {
-            game,
-            active_player_id,
-        }
+    pub fn new(game: Game<'a>) -> Self {
+        StartStep { game }
     }
 }
 
@@ -20,7 +16,7 @@ impl<'a> Step for StartStep<'a> {
     type State = Game<'a>;
     type NextStep = MainStep<'a>;
     fn next_step(self) -> Self::NextStep {
-        MainStep::new(self.game, self.active_player_id)
+        MainStep::new(self.game)
     }
 }
 impl<'a> GetState<Game<'a>> for StartStep<'a> {

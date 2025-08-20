@@ -1,7 +1,5 @@
 extern crate proc_macro;
 
-use std::env::var;
-
 use proc_macro::TokenStream;
 use syn::{
     Data, DeriveInput, GenericArgument, Ident, PathArguments, Type, parse_macro_input,
