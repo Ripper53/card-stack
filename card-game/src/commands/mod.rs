@@ -181,7 +181,7 @@ mod tests {
     #[test]
     fn command_history() {
         let mut command_history: CommandManager<Commands> = CommandManager::new();
-        command_history.push(CommandA);
+        command_history.execute::<CommandA>((), ());
         let r = command_history.undo(0);
         assert!(r.is_ok());
     }
@@ -189,7 +189,7 @@ mod tests {
     #[should_panic]
     fn command_history_incorrect_undo_state() {
         let mut command_history: CommandManager<Commands> = CommandManager::new();
-        command_history.push(CommandA);
+        command_history.execute::<CommandA>((), ());
         let _ = command_history.undo(format!("MEOW")); // Should panic!
     }
 }
