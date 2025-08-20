@@ -38,7 +38,7 @@ pub trait TurnState: Send + Sync {
     fn game(&self) -> &Game;
     fn game_mut(&mut self) -> &mut Game;
 }
-macro_rules! meow {
+macro_rules! impl_turn_state {
     ($step: ident) => {
         impl TurnState for $step {
             fn game(&self) -> &Game {
@@ -55,9 +55,9 @@ macro_rules! meow {
         }
     };
 }
-meow!(StartOfTurnState);
-meow!(ActionState);
-meow!(EndOfTurnState);
+impl_turn_state!(StartOfTurnState);
+impl_turn_state!(ActionState);
+impl_turn_state!(EndOfTurnState);
 
 #[cfg(test)]
 mod tests {

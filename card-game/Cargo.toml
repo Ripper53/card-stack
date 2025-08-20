@@ -4,4 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+card-game-derive = { path = "../card-game-derive", optional = true }
 card-stack = { path = "../card-stack" }
+thiserror = "2.0.14"
+
+[features]
+default = ["derive"]
+derive = ["dep:card-game-derive"]
