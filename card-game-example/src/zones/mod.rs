@@ -11,15 +11,15 @@ pub mod hand;
 pub mod monster;
 pub mod spell;
 
-pub struct Zones<'a> {
-    pub(crate) monster_zone: MonsterZone<'a>,
-    pub(crate) spell_zone: SpellZone<'a>,
+pub struct Zones {
+    pub(crate) monster_zone: MonsterZone,
+    pub(crate) spell_zone: SpellZone,
     pub(crate) graveyard_zone: GraveyardZone,
-    pub(crate) deck_zone: DeckZone<'a>,
-    pub(crate) hand_zone: HandZone<'a>,
+    pub(crate) deck_zone: DeckZone,
+    pub(crate) hand_zone: HandZone,
 }
 
-impl<'a> Zones<'a> {
+impl Zones {
     pub fn new() -> Self {
         Zones {
             monster_zone: MonsterZone::new(),
@@ -29,9 +29,12 @@ impl<'a> Zones<'a> {
             hand_zone: HandZone::new(),
         }
     }
+    pub fn hand_zone(&self) -> &HandZone {
+        &self.hand_zone
+    }
 }
 
-impl<'a> card_game::zones::Zones for Zones<'a> {
+impl card_game::zones::Zones for Zones {
     fn new(player_id: PlayerID) -> Self {
         Zones::new()
     }

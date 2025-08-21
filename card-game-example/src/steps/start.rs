@@ -2,25 +2,25 @@ use card_game::{stack::priority::GetState, steps::Step};
 
 use crate::{Game, steps::MainStep};
 
-pub struct StartStep<'a> {
-    game: Game<'a>,
+pub struct StartStep {
+    game: Game,
 }
 
-impl<'a> StartStep<'a> {
-    pub fn new(game: Game<'a>) -> Self {
+impl StartStep {
+    pub fn new(game: Game) -> Self {
         StartStep { game }
     }
 }
 
-impl<'a> Step for StartStep<'a> {
-    type State = Game<'a>;
-    type NextStep = MainStep<'a>;
+impl Step for StartStep {
+    type State = Game;
+    type NextStep = MainStep;
     fn next_step(self) -> Self::NextStep {
         MainStep::new(self.game)
     }
 }
-impl<'a> GetState<Game<'a>> for StartStep<'a> {
-    fn state(&self) -> &Game<'a> {
+impl GetState<Game> for StartStep {
+    fn state(&self) -> &Game {
         &self.game
     }
 }

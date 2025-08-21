@@ -6,10 +6,10 @@ use crate::{
 pub trait SlotZone: Zone {
     fn max_slots(&self) -> usize;
 }
-pub struct Slot<'a, Z: SlotZone, CardKind> {
-    card: Option<(ZoneCardID<'a, Z>, Card<CardKind>)>,
+pub struct Slot<CardKind> {
+    card: Option<Card<CardKind>>,
 }
-impl<'a, Z: SlotZone, CardKind> Slot<'a, Z, CardKind> {
+impl<CardKind> Slot<CardKind> {
     pub fn new() -> Self {
         Slot { card: None }
     }
@@ -17,20 +17,15 @@ impl<'a, Z: SlotZone, CardKind> Slot<'a, Z, CardKind> {
         self.card.is_some()
     }
     pub fn put(&mut self, card: Card<CardKind>) -> Option<Card<CardKind>> {
-        self.card
-            .replace((ZoneCardID::new(card.id().clone_id()), card))
-            .map(|(_, card)| card)
+        self.card.replace(card)
     }
-    pub fn card_id(&self) -> Option<ZoneCardID<'a, Z>> {
-        self.card.as_ref().map(|(id, _)| id.clone_id())
+    pub fn occupier(&self) -> Option<&Card<CardKind>> {
+        self.card.as_ref()
     }
-    pub fn occupier(&self) -> Option<(ZoneCardID<'a, Z>, &Card<CardKind>)> {
-        self.card.as_ref().map(|(id, card)| (id.clone_id(), card))
-    }
-    pub fn transfer_to_slot<ToZ: SlotZone, ToCardKind>(
+    pub fn transfer_to_slot<'a, ToCardKind>(
         &'a mut self,
-        to_slot: &'a mut Slot<'a, ToZ, ToCardKind>,
-    ) -> SlotToSlotTransport<'a, Z, ToZ, CardKind, ToCardKind>
+        to_slot: &'a mut Slot<ToCardKind>,
+    ) -> SlotToSlotTransport<'a, CardKind, ToCardKind>
     where
         Card<CardKind>: Into<Card<ToCardKind>>,
     {
@@ -39,10 +34,10 @@ impl<'a, Z: SlotZone, CardKind> Slot<'a, Z, CardKind> {
             to_slot,
         }
     }
-    pub fn transfer_to_infinite_zone<Zone: InfiniteZone<'a>>(
+    pub fn transfer_to_infinite_zone<'a, Zone: InfiniteZone>(
         &'a mut self,
         to_zone: &'a mut Zone,
-    ) -> SlotToInfiniteZoneTransport<'a, Z, CardKind, Zone>
+    ) -> SlotToInfiniteZoneTransport<'a, CardKind, Zone>
     where
         Card<CardKind>: Into<Card<Zone::CardKind>>,
     {
@@ -51,10 +46,10 @@ impl<'a, Z: SlotZone, CardKind> Slot<'a, Z, CardKind> {
             to_zone,
         }
     }
-    pub fn transfer_to_finite_zone<Zone: FiniteZone<'a>>(
+    pub fn transfer_to_finite_zone<'a, Zone: FiniteZone>(
         &'a mut self,
         to_zone: &'a mut Zone,
-    ) -> SlotToFiniteZoneTransport<'a, Z, CardKind, Zone>
+    ) -> SlotToFiniteZoneTransport<'a, CardKind, Zone>
     where
         Card<CardKind>: Into<Card<Zone::CardKind>>,
     {
@@ -65,30 +60,29 @@ impl<'a, Z: SlotZone, CardKind> Slot<'a, Z, CardKind> {
     }
 }
 
-pub struct SlotToSlotTransport<'a, FromZ: SlotZone, ToZ: SlotZone, FromCardKind, ToCardKind>
+pub struct SlotToSlotTransport<'a, FromCardKind, ToCardKind>
 where
     Card<FromCardKind>: Into<Card<ToCardKind>>,
 {
-    from_slot: &'a mut Slot<'a, FromZ, FromCardKind>,
-    to_slot: &'a mut Slot<'a, ToZ, ToCardKind>,
+    from_slot: &'a mut Slot<FromCardKind>,
+    to_slot: &'a mut Slot<ToCardKind>,
 }
-pub struct SlotToFiniteZoneTransport<'a, Z: SlotZone, FromCardKind, ToZone: FiniteZone<'a>>
+pub struct SlotToFiniteZoneTransport<'a, FromCardKind, ToZone: FiniteZone>
 where
     Card<FromCardKind>: Into<Card<<ToZone as Zone>::CardKind>>,
 {
-    from_slot: &'a mut Slot<'a, Z, FromCardKind>,
+    from_slot: &'a mut Slot<FromCardKind>,
     to_zone: &'a mut ToZone,
 }
-pub struct SlotToInfiniteZoneTransport<'a, Z: SlotZone, FromCardKind, ToZone: InfiniteZone<'a>>
+pub struct SlotToInfiniteZoneTransport<'a, FromCardKind, ToZone: InfiniteZone>
 where
     Card<FromCardKind>: Into<Card<<ToZone as Zone>::CardKind>>,
 {
-    from_slot: &'a mut Slot<'a, Z, FromCardKind>,
+    from_slot: &'a mut Slot<FromCardKind>,
     to_zone: &'a mut ToZone,
 }
 
-impl<'a, FromZ: SlotZone, ToZ: SlotZone, FromCardKind, ToCardKind>
-    SlotToSlotTransport<'a, FromZ, ToZ, FromCardKind, ToCardKind>
+impl<'a, FromCardKind, ToCardKind> SlotToSlotTransport<'a, FromCardKind, ToCardKind>
 where
     Card<FromCardKind>: Into<Card<ToCardKind>>,
 {
@@ -97,8 +91,8 @@ where
             Err(SlotToSlotTransportError::SlotOccupied(
                 ZoneSlotOccupiedError,
             ))
-        } else if let Some((_id, card)) = self.from_slot.card.take() {
-            self.to_slot.card = Some((ZoneCardID::new(card.id().clone_id()), card.into()));
+        } else if let Some(card) = self.from_slot.card.take() {
+            self.to_slot.card = Some(card.into());
             Ok(())
         } else {
             Err(SlotToSlotTransportError::NoSlotCard(CardNotInSlotError))
@@ -119,16 +113,14 @@ pub enum SlotToSlotTransportError {
     NoSlotCard(#[from] CardNotInSlotError),
 }
 
-impl<'a, Z: SlotZone, FromCardKind, ToZone: FiniteZone<'a>>
-    SlotToFiniteZoneTransport<'a, Z, FromCardKind, ToZone>
+impl<'a, FromCardKind, ToZone: FiniteZone> SlotToFiniteZoneTransport<'a, FromCardKind, ToZone>
 where
     Card<FromCardKind>: Into<Card<<ToZone as Zone>::CardKind>>,
 {
     pub fn transport(mut self) -> Result<(), SlotToFiniteZoneTransportError> {
         if self.to_zone.has_space() {
-            if let Some((zone_card_id, card)) = self.from_slot.card.take() {
-                self.to_zone
-                    .add_card_unchecked(ZoneCardID::new(zone_card_id.0), card.into());
+            if let Some(card) = self.from_slot.card.take() {
+                self.to_zone.add_card_unchecked(card.into());
                 Ok(())
             } else {
                 Err(SlotToFiniteZoneTransportError::CardNotInSlot(
@@ -148,17 +140,44 @@ pub enum SlotToFiniteZoneTransportError {
     CardNotInSlot(#[from] CardNotInSlotError),
 }
 
-impl<'a, FromZone: SlotZone, FromCardKind, ToZone: InfiniteZone<'a>>
-    SlotToInfiniteZoneTransport<'a, FromZone, FromCardKind, ToZone>
+impl<'a, FromCardKind, ToZone: InfiniteZone> SlotToInfiniteZoneTransport<'a, FromCardKind, ToZone>
 where
     Card<FromCardKind>: Into<Card<<ToZone as Zone>::CardKind>>,
 {
     pub fn transport(mut self) -> Result<(), CardNotInSlotError> {
-        if let Some((_id, card)) = self.from_slot.card.take() {
+        if let Some(card) = self.from_slot.card.take() {
             self.to_zone.add_card(card.into());
             Ok(())
         } else {
             Err(CardNotInSlotError)
         }
     }
+}
+
+#[macro_export]
+macro_rules! define_slot_iter {
+    ($iter_name: ident, $zone: ty, $card_type: ty, $($index: literal => $slots: ident,)+) => {
+        struct $iter_name<'a> {
+            index: usize,
+            zone: &'a $zone,
+        }
+        impl<'a> ::std::iter::Iterator for $iter_name<'a> {
+            type Item = &'a ::card_game::cards::Card<$card_type>;
+            fn next(&mut self) -> ::std::option::Option<Self::Item> {
+                loop {
+                    match self.index {
+                        $(
+                            $index => {
+                                self.index += 1;
+                                if let Some(occupier) = self.zone.$slots.occupier() {
+                                    break Some(occupier);
+                                }
+                            }
+                        )*
+                        _ => break None,
+                    }
+                }
+            }
+        }
+    };
 }

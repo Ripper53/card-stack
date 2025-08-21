@@ -2,7 +2,11 @@
 pub use card_game_derive::*;
 pub use card_stack as stack;
 
-use crate::{cards::CardBuilder, identifications::PlayerIDBuilder};
+use crate::{
+    cards::{CardBuilder, CardManager},
+    identifications::PlayerIDBuilder,
+    zones::Zone,
+};
 
 pub mod abilities;
 pub mod cards;
@@ -16,10 +20,14 @@ pub trait CardGameBuilder: Sized {
     type Game;
     fn generate(
         player_id_builder: PlayerIDBuilder,
-        card_builder: CardBuilder,
+        card_manager: CardManager,
         generation_data: Self::GenerationData,
     ) -> Self::Game;
     fn new(data: Self::GenerationData) -> Self::Game {
-        Self::generate(PlayerIDBuilder::new(), CardBuilder::new(), data)
+        Self::generate(
+            PlayerIDBuilder::new(),
+            CardManager::new(CardBuilder::new()),
+            data,
+        )
     }
 }

@@ -13,13 +13,13 @@ pub mod player;
 pub mod steps;
 pub mod zones;
 
-pub struct Game<'a> {
+pub struct Game {
     player_manager: PlayerManager<Player>,
-    zone_manager: ZoneManager<Zones<'a>>,
+    zone_manager: ZoneManager<Zones>,
 }
 
-impl<'a> Game<'a> {
-    pub fn start_step(player_manager: PlayerManager<Player>) -> StartStep<'a> {
+impl Game {
+    pub fn start_step(player_manager: PlayerManager<Player>) -> StartStep {
         StartStep::new(Self::new(player_manager))
     }
     pub fn new(player_manager: PlayerManager<Player>) -> Self {
@@ -28,11 +28,11 @@ impl<'a> Game<'a> {
             player_manager,
         }
     }
-    pub fn active_player_zones(&self) -> &Zones<'a> {
+    pub fn active_player_zones(&self) -> &Zones {
         let active_player_id = self.player_manager.active_player_id();
         active_player_id.get(|id| self.zone_manager.get_zone(id.player_id()))
     }
-    pub fn active_player_zones_mut(&mut self) -> &mut Zones<'a> {
+    pub fn active_player_zones_mut(&mut self) -> &mut Zones {
         let active_player_id = self.player_manager.active_player_id();
         active_player_id.get_mut(|id| self.zone_manager.get_zone_mut(id.player_id()))
     }

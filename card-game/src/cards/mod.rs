@@ -1,14 +1,19 @@
+mod manager;
+
+pub use manager::*;
+
 pub struct Card<Kind> {
     id: CardID,
     kind: Kind,
 }
 
 impl<Kind> Card<Kind> {
-    pub fn id(&self) -> &CardID {
-        &self.id
+    pub fn id(&self) -> CardID {
+        self.id
     }
 }
 
+// TODO: REMOVE CLONE AND COPY DERIVE
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
 impl CardID {

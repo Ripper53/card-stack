@@ -13,32 +13,32 @@ use crate::{
     zones::hand::HandZone,
 };
 
-pub struct MainStep<'a> {
-    pub(crate) game: Game<'a>,
+pub struct MainStep {
+    pub(crate) game: Game,
 }
 
-impl<'a> MainStep<'a> {
-    pub(crate) fn new(game: Game<'a>) -> Self {
+impl MainStep {
+    pub(crate) fn new(game: Game) -> Self {
         MainStep { game }
     }
 }
 
-impl<'a> Step for MainStep<'a> {
-    type State = Game<'a>;
-    type NextStep = EndStep<'a>;
+impl Step for MainStep {
+    type State = Game;
+    type NextStep = EndStep;
     fn next_step(self) -> Self::NextStep {
         EndStep::new(self.game)
     }
 }
 
-impl<'a> GetState<Game<'a>> for MainStep<'a> {
-    fn state(&self) -> &Game<'a> {
+impl GetState<Game> for MainStep {
+    fn state(&self) -> &Game {
         &self.game
     }
 }
 
-impl<'a> MainStep<'a> {
-    pub fn play_card(
+impl MainStep {
+    pub fn play_card<'a>(
         self,
         command_manager: &mut CommandManager<Commands<'a>>,
         hand_card_id: ZoneCardID<'a, HandZone>,

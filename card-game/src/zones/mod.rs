@@ -3,10 +3,14 @@ use std::collections::HashMap;
 use crate::{
     cards::{Card, CardID},
     identifications::{PlayerID, PlayerManager},
-    zones::slot::{Slot, SlotZone, ZoneSlotOccupiedError},
 };
 
-pub mod slot;
+mod context;
+mod slot;
+mod zone_card_id;
+pub use context::*;
+pub use slot::*;
+pub use zone_card_id::*;
 
 pub struct ZoneManager<Z: Zones> {
     zones: HashMap<PlayerID, Z>,
@@ -32,110 +36,60 @@ impl<Z: Zones> ZoneManager<Z> {
     }
 }
 
-pub struct ZoneCardID<'a, Z: Zone>(CardID, std::marker::PhantomData<&'a Z>);
-impl<'a, Z: Zone> ZoneCardID<'a, Z> {
-    pub(crate) fn new(card_id: CardID) -> Self {
-        ZoneCardID(card_id, std::marker::PhantomData::default())
-    }
-    pub(crate) fn clone_id(&self) -> Self {
-        ZoneCardID::new(self.0.clone_id())
-    }
-    pub fn remove<T>(&self, f: impl FnOnce(&Self) -> Option<T>) -> T {
-        f(self).unwrap()
-    }
-}
-impl<'a, Z: Zone> std::fmt::Debug for ZoneCardID<'a, Z> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ZoneCardID({})", self.0)
-    }
-}
-impl<'a, Z: Zone> Clone for ZoneCardID<'a, Z> {
-    fn clone(&self) -> Self {
-        self.clone_id()
-    }
-}
-impl<'a, Z: Zone> Copy for ZoneCardID<'a, Z> {}
-impl<'a, Z: Zone> PartialEq for ZoneCardID<'a, Z> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-impl<'a, Z: Zone> Eq for ZoneCardID<'a, Z> {}
-impl<'a, Z: Zone> std::hash::Hash for ZoneCardID<'a, Z> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
-}
-
 pub trait Zone: Sized {
     type CardKind;
     fn filled_count(&self) -> usize;
+    fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>>;
+    fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>>;
+    fn cards(&self) -> impl Iterator<Item = &Card<Self::CardKind>>;
 }
-pub trait FiniteZone<'a>: ArrayZone<'a>
-where
-    Self: 'a,
-{
+pub trait FiniteZone: ArrayZone {
     fn max_count(&self) -> usize;
     fn has_space(&self) -> bool {
         self.max_count() - self.filled_count() != 0
     }
-    fn add_card(&mut self, card: Card<Self::CardKind>) -> Result<(), ZoneFullError<'a, Self>> {
+    fn add_card(&mut self, card: Card<Self::CardKind>) -> Result<(), ZoneFullError> {
         if self.has_space() {
-            Ok(self.add_card_unchecked(ZoneCardID::new(card.id().clone_id()), card))
+            Ok(self.add_card_unchecked(card))
         } else {
-            Err(ZoneFullError::new(card.id().clone_id()))
+            Err(ZoneFullError::new(card.id()))
         }
     }
     /// Use [`add_card`](Self::add_card) instead. Never call this method directly.
-    fn add_card_unchecked(
-        &mut self,
-        zone_card_id: ZoneCardID<'a, Self>,
-        card: Card<Self::CardKind>,
-    );
+    fn add_card_unchecked(&mut self, card: Card<Self::CardKind>);
 }
-pub trait InfiniteZone<'a>: ArrayZone<'a>
-where
-    Self: 'a,
-{
-    fn add_card(&mut self, card: Card<Self::CardKind>) {
-        self.add_card_with_id(ZoneCardID::new(card.id().clone_id()), card);
-    }
-    /// Use [`add_card`](Self::add_card) instead. Never call this method directly.
-    fn add_card_with_id(&mut self, zone_card_id: ZoneCardID<'a, Self>, card: Card<Self::CardKind>);
+pub trait InfiniteZone: ArrayZone {
+    fn add_card(&mut self, card: Card<Self::CardKind>);
 }
-pub trait ArrayZone<'a>: Zone
-where
-    Self: 'a,
-{
-    fn remove_card(&mut self, zone_card_id: ZoneCardID<'a, Self>) -> Card<Self::CardKind>;
+pub trait ArrayZone: Zone {
+    fn remove_card<'id>(&mut self, zone_card_id: ZoneCardID<'id, Self>) -> Card<Self::CardKind>;
 }
 
 #[derive(thiserror::Error, Debug)]
 #[error("failed to add card to zone")]
-pub struct ZoneFullError<'a, Z: Zone>(ZoneCardID<'a, Z>);
+pub struct ZoneFullError(CardID);
 
-impl<'a, Z: Zone> ZoneFullError<'a, Z> {
+impl ZoneFullError {
     pub(crate) fn new(card_id: CardID) -> Self {
-        ZoneFullError(ZoneCardID::new(card_id))
+        ZoneFullError(card_id)
     }
-    pub fn take_card_id(self) -> ZoneCardID<'a, Z> {
+    pub fn card_id(self) -> CardID {
         self.0
     }
 }
 
-pub struct ZoneToSlotTransport<'a, FromZ: ArrayZone<'a>, ToZ: SlotZone, ToCardKind> {
+pub struct ZoneToSlotTransport<'a, FromZ: ArrayZone, ToCardKind> {
     from_zone: &'a mut FromZ,
-    to_zone: &'a mut Slot<'a, ToZ, ToCardKind>,
+    to_zone: &'a mut Slot<ToCardKind>,
 }
 
-impl<'a, FromZ: ArrayZone<'a>, ToZ: SlotZone, ToCardKind>
-    ZoneToSlotTransport<'a, FromZ, ToZ, ToCardKind>
+impl<'a, FromZ: ArrayZone, ToCardKind> ZoneToSlotTransport<'a, FromZ, ToCardKind>
 where
     Card<<FromZ as Zone>::CardKind>: Into<Card<ToCardKind>>,
 {
-    pub fn transport(mut self, zone_card_id: ZoneCardID<'a, FromZ>) -> Result<(), ZoneIsFullError> {
+    pub fn transport(mut self, zone_card_id: ZoneCardID<'a, FromZ>) -> Result<(), ZoneFullError> {
         if self.to_zone.is_occupied() {
-            Err(ZoneIsFullError)
+            Err(ZoneFullError(zone_card_id.card_id()))
         } else {
             let card = self.from_zone.remove_card(zone_card_id);
             let _ = self.to_zone.put(card.into());
@@ -143,32 +97,30 @@ where
         }
     }
 }
-pub struct ZoneToFiniteZoneTransport<'a, FromZ: ArrayZone<'a>, ToZ: FiniteZone<'a>> {
+pub struct ZoneToFiniteZoneTransport<'a, FromZ: ArrayZone, ToZ: FiniteZone> {
     from_zone: &'a mut FromZ,
     to_zone: &'a mut ToZ,
 }
-impl<'a, FromZ: ArrayZone<'a>, ToZ: FiniteZone<'a>> ZoneToFiniteZoneTransport<'a, FromZ, ToZ>
+impl<'a, FromZ: ArrayZone, ToZ: FiniteZone> ZoneToFiniteZoneTransport<'a, FromZ, ToZ>
 where
     Card<<FromZ as Zone>::CardKind>: Into<Card<<ToZ as Zone>::CardKind>>,
 {
-    pub fn transport(mut self, zone_card_id: ZoneCardID<'a, FromZ>) -> Result<(), ZoneIsFullError> {
+    pub fn transport(mut self, zone_card_id: ZoneCardID<'a, FromZ>) -> Result<(), ZoneFullError> {
         if self.to_zone.has_space() {
-            let card_id = zone_card_id.0.clone_id();
             let card = self.from_zone.remove_card(zone_card_id);
-            self.to_zone
-                .add_card_unchecked(ZoneCardID::new(card_id), card.into());
+            self.to_zone.add_card_unchecked(card.into());
             Ok(())
         } else {
-            Err(ZoneIsFullError)
+            Err(ZoneFullError(zone_card_id.card_id()))
         }
     }
 }
 
-pub struct ZoneToInfiniteZoneTransport<'a, FromZ: ArrayZone<'a>, ToZ: InfiniteZone<'a>> {
+pub struct ZoneToInfiniteZoneTransport<'a, FromZ: ArrayZone, ToZ: InfiniteZone> {
     from_zone: &'a mut FromZ,
     to_zone: &'a mut ToZ,
 }
-impl<'a, FromZ: ArrayZone<'a>, ToZ: InfiniteZone<'a>> ZoneToInfiniteZoneTransport<'a, FromZ, ToZ>
+impl<'a, FromZ: ArrayZone, ToZ: InfiniteZone> ZoneToInfiniteZoneTransport<'a, FromZ, ToZ>
 where
     Card<<FromZ as Zone>::CardKind>: Into<Card<<ToZ as Zone>::CardKind>>,
 {
@@ -177,7 +129,3 @@ where
         self.to_zone.add_card(card.into());
     }
 }
-
-#[derive(thiserror::Error, Debug)]
-#[error("zone is full")]
-pub struct ZoneIsFullError;

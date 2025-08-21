@@ -2,27 +2,27 @@ use card_game::{identifications::PlayerID, stack::priority::GetState, steps::Ste
 
 use crate::{Game, steps::StartStep};
 
-pub struct EndStep<'a> {
-    game: Game<'a>,
+pub struct EndStep {
+    game: Game,
 }
 
-impl<'a> EndStep<'a> {
-    pub(crate) fn new(game: Game<'a>) -> Self {
+impl EndStep {
+    pub(crate) fn new(game: Game) -> Self {
         EndStep { game }
     }
 }
 
-impl<'a> Step for EndStep<'a> {
-    type State = Game<'a>;
-    type NextStep = StartStep<'a>;
+impl Step for EndStep {
+    type State = Game;
+    type NextStep = StartStep;
     fn next_step(mut self) -> Self::NextStep {
         self.game.player_manager.next_player_id();
         StartStep::new(self.game)
     }
 }
 
-impl<'a> GetState<Game<'a>> for EndStep<'a> {
-    fn state(&self) -> &Game<'a> {
+impl GetState<Game> for EndStep {
+    fn state(&self) -> &Game {
         &self.game
     }
 }
