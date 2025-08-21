@@ -13,7 +13,6 @@ impl<Kind> Card<Kind> {
     }
 }
 
-// TODO: REMOVE CLONE AND COPY DERIVE
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
 impl CardID {
