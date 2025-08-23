@@ -1,18 +1,21 @@
 use card_game::{
     cards::{Card, CardID},
-    zones::{ArrayZone, InfiniteZone, Zone, ZoneCardID, ZoneContext},
+    identifications::PlayerID,
+    zones::{ArrayZone, InfiniteZone, ValidCardID, Zone, ZoneContext},
 };
 use indexmap::IndexMap;
 
 use crate::cards::CardKind;
 
 pub struct DeckZone {
+    player_id: PlayerID,
     cards: IndexMap<CardID, Card<CardKind>>,
 }
 
 impl DeckZone {
-    pub fn new() -> Self {
+    pub fn new(player_id: PlayerID) -> Self {
         DeckZone {
+            player_id,
             cards: IndexMap::new(),
         }
     }
@@ -24,12 +27,15 @@ impl InfiniteZone for DeckZone {
     }
 }
 impl ArrayZone for DeckZone {
-    fn remove_card<'id>(&mut self, zone_card_id: ZoneCardID<'id, Self>) -> Card<Self::CardKind> {
+    fn remove_card<'id>(&mut self, zone_card_id: ValidCardID<'id, Self>) -> Card<Self::CardKind> {
         zone_card_id.remove(|card| self.cards.shift_remove(&card.card_id()))
     }
 }
 impl Zone for DeckZone {
     type CardKind = CardKind;
+    fn player_id(&self) -> PlayerID {
+        self.player_id
+    }
     fn filled_count(&self) -> usize {
         self.cards.len()
     }

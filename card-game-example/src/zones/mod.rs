@@ -20,15 +20,6 @@ pub struct Zones {
 }
 
 impl Zones {
-    pub fn new() -> Self {
-        Zones {
-            monster_zone: MonsterZone::new(),
-            spell_zone: SpellZone::new(),
-            graveyard_zone: GraveyardZone::new(),
-            deck_zone: DeckZone::new(),
-            hand_zone: HandZone::new(),
-        }
-    }
     pub fn hand_zone(&self) -> &HandZone {
         &self.hand_zone
     }
@@ -36,6 +27,12 @@ impl Zones {
 
 impl card_game::zones::Zones for Zones {
     fn new(player_id: PlayerID) -> Self {
-        Zones::new()
+        Zones {
+            monster_zone: MonsterZone::new(player_id),
+            spell_zone: SpellZone::new(player_id),
+            graveyard_zone: GraveyardZone::new(player_id),
+            deck_zone: DeckZone::new(player_id),
+            hand_zone: HandZone::new(player_id),
+        }
     }
 }

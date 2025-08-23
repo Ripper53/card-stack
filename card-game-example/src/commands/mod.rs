@@ -2,7 +2,7 @@ use card_game::{
     SuperCommand,
     cards::CardID,
     commands::Command,
-    zones::{FiniteZone, ZoneCardID},
+    zones::{FiniteZone, ValidCardID},
 };
 
 use crate::{steps::MainStep, zones::hand::HandZone};

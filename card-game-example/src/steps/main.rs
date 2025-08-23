@@ -3,7 +3,8 @@ use card_game::{
     identifications::PlayerID,
     stack::priority::GetState,
     steps::Step,
-    zones::ZoneCardID,
+    validation::{CardIn, ValidState},
+    zones::{ArrayZone, ValidCardID},
 };
 
 use crate::{
@@ -38,11 +39,25 @@ impl GetState<Game> for MainStep {
 }
 
 impl MainStep {
-    pub fn play_card<'a>(
-        self,
-        command_manager: &mut CommandManager<Commands<'a>>,
-        hand_card_id: ZoneCardID<'a, HandZone>,
-    ) -> <PlayCardCommand<'a> as Command>::OutState {
-        command_manager.execute::<PlayCardCommand<'a>>(hand_card_id, self)
+    pub fn work_as_mut(&mut self) {
+        // PRETEND MUTATE
     }
+}
+impl<'a> PlayCardTrait for ValidState<'a, MainStep, CardIn<HandZone>> {
+    fn play_card(mut self) -> MainStep {
+        let (mut main_step, valid_player_id, valid_card_id) = self.take_all();
+        let card = main_step
+            .game
+            .active_player_zones_mut()
+            .hand_zone
+            .remove_card(valid_card_id);
+        main_step
+    }
+}
+pub trait PlayCardTrait {
+    fn play_card(self) -> MainStep;
+}
+
+pub struct PlayCard<'a> {
+    zone_card_id: ValidCardID<'a, HandZone>,
 }

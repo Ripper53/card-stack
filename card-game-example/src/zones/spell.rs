@@ -1,12 +1,14 @@
 use card_game::{
     cards::Card,
     define_slot_iter,
+    identifications::PlayerID,
     zones::{Slot, SlotZone, Zone},
 };
 
 use crate::cards::spell::SpellCard;
 
 pub struct SpellZone {
+    player_id: PlayerID,
     slot_a: Slot<SpellCard>,
     slot_b: Slot<SpellCard>,
     slot_c: Slot<SpellCard>,
@@ -15,8 +17,9 @@ pub struct SpellZone {
 }
 
 impl SpellZone {
-    pub fn new() -> Self {
+    pub fn new(player_id: PlayerID) -> Self {
         SpellZone {
+            player_id,
             slot_a: Slot::new(),
             slot_b: Slot::new(),
             slot_c: Slot::new(),
@@ -63,6 +66,9 @@ impl SlotZone for SpellZone {
 }
 impl Zone for SpellZone {
     type CardKind = SpellCard;
+    fn player_id(&self) -> PlayerID {
+        self.player_id
+    }
     fn filled_count(&self) -> usize {
         let mut count = 0;
         if self.slot_a.is_occupied() {

@@ -1,12 +1,14 @@
 use card_game::{
     cards::Card,
     define_slot_iter,
+    identifications::PlayerID,
     zones::{Slot, SlotZone, Zone},
 };
 
 use crate::cards::monster::MonsterCard;
 
 pub struct MonsterZone {
+    player_id: PlayerID,
     slot_a: Slot<MonsterCard>,
     slot_b: Slot<MonsterCard>,
     slot_c: Slot<MonsterCard>,
@@ -15,8 +17,9 @@ pub struct MonsterZone {
 }
 
 impl MonsterZone {
-    pub fn new() -> Self {
+    pub fn new(player_id: PlayerID) -> Self {
         MonsterZone {
+            player_id,
             slot_a: Slot::new(),
             slot_b: Slot::new(),
             slot_c: Slot::new(),
@@ -63,6 +66,9 @@ impl SlotZone for MonsterZone {
 }
 impl Zone for MonsterZone {
     type CardKind = MonsterCard;
+    fn player_id(&self) -> PlayerID {
+        self.player_id
+    }
     fn filled_count(&self) -> usize {
         let mut count = 0;
         if self.slot_a.is_occupied() {
