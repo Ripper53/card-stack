@@ -3,9 +3,9 @@ pub use card_game_derive::*;
 pub use card_stack as stack;
 
 use crate::{
-    cards::{CardBuilder, CardManager},
-    identifications::PlayerIDBuilder,
-    zones::Zone,
+    cards::{CardBuilder, CardID, CardManager},
+    identifications::{PlayerID, PlayerIDBuilder, ValidPlayerID},
+    zones::{ValidCardID, Zone},
 };
 
 pub mod abilities;
@@ -13,6 +13,7 @@ pub mod cards;
 pub mod commands;
 pub mod identifications;
 pub mod steps;
+pub mod validation;
 pub mod zones;
 
 pub trait CardGameBuilder: Sized {

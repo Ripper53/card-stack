@@ -1,6 +1,6 @@
 use crate::{
     cards::{Card, CardID},
-    zones::{ArrayZone, FiniteZone, InfiniteZone, Zone, ZoneCardID},
+    zones::{ArrayZone, FiniteZone, InfiniteZone, Zone, ValidCardID},
 };
 
 pub trait SlotZone: Zone {

@@ -1,10 +1,24 @@
 use std::collections::HashMap;
 
+use crate::validation::StateFilter;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerID(usize);
+impl StateFilter for PlayerID {
+    type Value = Self;
+}
 impl PlayerID {
     fn next_player_id(&self, max_players: usize) -> Self {
         PlayerID((self.0 + 1) % max_players)
+    }
+}
+pub struct ValidPlayerID<'a>(PlayerID, std::marker::PhantomData<(&'a (), *const ())>);
+impl<'a> ValidPlayerID<'a> {
+    pub(crate) fn new(player_id: PlayerID) -> Self {
+        ValidPlayerID(player_id, std::marker::PhantomData::default())
+    }
+    pub fn player_id(&self) -> PlayerID {
+        self.0
     }
 }
 
