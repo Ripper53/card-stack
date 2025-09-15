@@ -1,5 +1,5 @@
 use card_game::{
-    validation::{CardIn, ValidAction},
+    validation::{StateFilter, ValidAction, filters::CardIn},
     zones::ArrayZone,
 };
 

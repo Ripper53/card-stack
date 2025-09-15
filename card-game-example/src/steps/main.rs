@@ -3,14 +3,13 @@ use card_game::{
     identifications::PlayerID,
     stack::priority::GetState,
     steps::Step,
-    validation::{CardIn, ValidState},
+    validation::{ValidState, filters::CardIn},
     zones::{ArrayZone, ValidCardID},
 };
 
 use crate::{
     Game,
-    commands::{Commands, PlayCardCommand},
-    steps::EndStep,
+    steps::{EndStep, GetStateMut, StepMut},
     zones::hand::HandZone,
 };
 
@@ -31,30 +30,18 @@ impl Step for MainStep {
         EndStep::new(self.game)
     }
 }
-
+impl StepMut for MainStep {
+    fn state_mut(&mut self) -> &mut Self::State {
+        &mut self.game
+    }
+}
 impl GetState<Game> for MainStep {
     fn state(&self) -> &Game {
         &self.game
     }
 }
-
-impl<'a> PlayCardTrait for ValidState<'a, MainStep, CardIn<HandZone>> {
-    fn play_card(mut self) -> MainStep {
-        let (state, _) =
-            self.execute(|state: &mut MainStep, card_id: ValidCardID<'_, HandZone>| {
-                state
-                    .game
-                    .active_player_zones_mut()
-                    .hand_zone
-                    .remove_card(card_id)
-            });
-        state
+impl GetStateMut<Game> for MainStep {
+    fn state_mut(&mut self) -> &mut Game {
+        &mut self.game
     }
-}
-pub trait PlayCardTrait {
-    fn play_card(self) -> MainStep;
-}
-
-pub struct PlayCard<'a> {
-    zone_card_id: ValidCardID<'a, HandZone>,
 }

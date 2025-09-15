@@ -1,10 +1,7 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use syn::{
-    Data, DeriveInput, GenericArgument, Ident, PathArguments, Type, parse_macro_input,
-    spanned::Spanned,
-};
+use syn::{Data, DeriveInput, Ident, parse_macro_input, spanned::Spanned};
 
 #[proc_macro_derive(SuperCommand)]
 pub fn super_command(input: TokenStream) -> TokenStream {

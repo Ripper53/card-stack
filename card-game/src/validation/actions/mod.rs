@@ -1,4 +1,4 @@
-pub mod transfer;
+use crate::validation::StateFilter;
 
 pub trait ValidAction {
     type State;

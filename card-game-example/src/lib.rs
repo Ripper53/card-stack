@@ -5,13 +5,14 @@ use card_game::{
     zones::ZoneManager,
 };
 
-use crate::{commands::Commands, player::Player, steps::StartStep, zones::Zones};
+use crate::{player::Player, steps::StartStep, zones::Zones};
 
 pub mod cards;
-pub mod commands;
+pub mod filters;
 pub mod player;
 pub mod steps;
 pub mod valid_actions;
+pub mod validators;
 pub mod zones;
 
 pub struct Game {

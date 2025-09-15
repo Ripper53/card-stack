@@ -1,6 +1,9 @@
 use card_game::{identifications::PlayerID, stack::priority::GetState, steps::Step};
 
-use crate::{Game, steps::StartStep};
+use crate::{
+    Game,
+    steps::{GetStateMut, StartStep, StepMut},
+};
 
 pub struct EndStep {
     game: Game,
@@ -20,9 +23,18 @@ impl Step for EndStep {
         StartStep::new(self.game)
     }
 }
-
+impl StepMut for EndStep {
+    fn state_mut(&mut self) -> &mut Self::State {
+        &mut self.game
+    }
+}
 impl GetState<Game> for EndStep {
     fn state(&self) -> &Game {
         &self.game
+    }
+}
+impl GetStateMut<Game> for EndStep {
+    fn state_mut(&mut self) -> &mut Game {
+        &mut self.game
     }
 }

@@ -6,6 +6,7 @@ use crate::validation::StateFilter;
 pub struct PlayerID(usize);
 impl StateFilter for PlayerID {
     type Value = Self;
+    type Valid<'a> = ValidPlayerID<'a>;
 }
 impl PlayerID {
     fn next_player_id(&self, max_players: usize) -> Self {

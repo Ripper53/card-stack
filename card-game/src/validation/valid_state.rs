@@ -6,8 +6,8 @@ use crate::{
 };
 
 pub struct ValidState<'a, State, Filter: StateFilter> {
-    state: State,
-    value: Filter::Value,
+    pub(crate) state: State,
+    pub(crate) value: Filter::Value,
     _p: std::marker::PhantomData<&'a Filter>,
 }
 pub trait StateFilter {
@@ -16,7 +16,7 @@ pub trait StateFilter {
 }
 impl<F0: StateFilter, F1: StateFilter> StateFilter for (F0, F1) {
     type Value = (F0::Value, F1::Value);
-    type Valid = (F0::Valid, F1::Valid);
+    type Valid<'a> = (F0::Valid<'a>, F1::Valid<'a>);
 }
 impl<'a, State, Filter: StateFilter> ValidState<'a, State, Filter> {
     pub(crate) fn new(state: State, value: Filter::Value) -> Self {
@@ -36,10 +36,5 @@ impl<'a, State> ValidState<'a, State, PlayerID> {
     }
     pub fn player_id(&self) -> ValidPlayerID<'_> {
         ValidPlayerID::new(self.value)
-    }
-}
-impl<'a, State, Filter: StateFilter> ValidState<'a, State, Filter> {
-    pub fn state(&self) -> &State {
-        &self.state
     }
 }
