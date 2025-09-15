@@ -38,20 +38,17 @@ impl GetState<Game> for MainStep {
     }
 }
 
-impl MainStep {
-    pub fn work_as_mut(&mut self) {
-        // PRETEND MUTATE
-    }
-}
 impl<'a> PlayCardTrait for ValidState<'a, MainStep, CardIn<HandZone>> {
     fn play_card(mut self) -> MainStep {
-        let (mut main_step, valid_player_id, valid_card_id) = self.take_all();
-        let card = main_step
-            .game
-            .active_player_zones_mut()
-            .hand_zone
-            .remove_card(valid_card_id);
-        main_step
+        let (state, _) =
+            self.execute(|state: &mut MainStep, card_id: ValidCardID<'_, HandZone>| {
+                state
+                    .game
+                    .active_player_zones_mut()
+                    .hand_zone
+                    .remove_card(card_id)
+            });
+        state
     }
 }
 pub trait PlayCardTrait {

@@ -11,6 +11,7 @@ pub mod cards;
 pub mod commands;
 pub mod player;
 pub mod steps;
+pub mod valid_actions;
 pub mod zones;
 
 pub struct Game {
