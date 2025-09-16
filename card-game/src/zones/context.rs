@@ -10,7 +10,7 @@ pub struct ZoneContext<'a, Z: Zone, T> {
 
 macro_rules! impl_zone_context {
     ($($t: ident,)*) => {
-        impl<'a, Z: Zone + 'static $(, $t: 'static)*> ZoneContext<'a, Z, ($($t,)*)> {
+        impl<'a, Z: Zone + 'a $(, $t: 'static)*> ZoneContext<'a, Z, ($($t,)*)> {
             /// Should *NEVER* be created outside the crate
             /// *MUST* follow soundness, used only with [`ValidZoneCardContext`](crate::zones::ValidZoneCardContext).
             pub(crate) fn new(zone: &'a Z) -> Self {
@@ -19,10 +19,20 @@ macro_rules! impl_zone_context {
                     _m: std::marker::PhantomData::default(),
                 }
             }
+            pub fn get_zone_card(&self, card_id: CardID) -> Option<(ValidCardID<'a, (Z $(, $t)*)>, &crate::cards::Card<Z::CardKind>)> {
+                self.zone
+                    .get_card(card_id)
+                    .map(|card| (ValidCardID::new(card.id()), card))
+            }
             pub fn get_zone_card_id(&self, card_id: CardID) -> Option<ValidCardID<'a, (Z $(, $t)*)>> {
                 self.zone
                     .get_card(card_id)
                     .map(|card| ValidCardID::new(card.id()))
+            }
+            pub fn get_zone_card_from_index(&self, index: usize) -> Option<(ValidCardID<'a, (Z $(, $t)*)>, &crate::cards::Card<Z::CardKind>)> {
+                self.zone
+                    .get_card_from_index(index)
+                    .map(|card| (ValidCardID::new(card.id()), card))
             }
             pub fn get_zone_card_id_from_index(&self, index: usize) -> Option<ValidCardID<'a, (Z $(, $t)*)>> {
                 self.zone

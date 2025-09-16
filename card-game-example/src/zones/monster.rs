@@ -5,15 +5,15 @@ use card_game::{
     zones::{Slot, SlotZone, Zone},
 };
 
-use crate::cards::monster::MonsterCard;
+use crate::cards::monster::MonsterZoneCard;
 
 pub struct MonsterZone {
     player_id: PlayerID,
-    slot_a: Slot<MonsterCard>,
-    slot_b: Slot<MonsterCard>,
-    slot_c: Slot<MonsterCard>,
-    slot_d: Slot<MonsterCard>,
-    slot_e: Slot<MonsterCard>,
+    slot_a: Slot<MonsterZoneCard>,
+    slot_b: Slot<MonsterZoneCard>,
+    slot_c: Slot<MonsterZoneCard>,
+    slot_d: Slot<MonsterZoneCard>,
+    slot_e: Slot<MonsterZoneCard>,
 }
 
 impl MonsterZone {
@@ -27,34 +27,34 @@ impl MonsterZone {
             slot_e: Slot::new(),
         }
     }
-    pub fn slot_a(&self) -> &Slot<MonsterCard> {
+    pub fn slot_a(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_a
     }
-    pub fn slot_b(&self) -> &Slot<MonsterCard> {
+    pub fn slot_b(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_b
     }
-    pub fn slot_c(&self) -> &Slot<MonsterCard> {
+    pub fn slot_c(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_c
     }
-    pub fn slot_d(&self) -> &Slot<MonsterCard> {
+    pub fn slot_d(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_d
     }
-    pub fn slot_e(&self) -> &Slot<MonsterCard> {
+    pub fn slot_e(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_e
     }
-    pub fn slot_a_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn slot_a_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_a
     }
-    pub fn slot_b_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn slot_b_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_b
     }
-    pub fn slot_c_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn slot_c_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_c
     }
-    pub fn slot_d_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn slot_d_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_d
     }
-    pub fn slot_e_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn slot_e_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_e
     }
 }
@@ -65,7 +65,7 @@ impl SlotZone for MonsterZone {
     }
 }
 impl Zone for MonsterZone {
-    type CardKind = MonsterCard;
+    type CardKind = MonsterZoneCard;
     fn player_id(&self) -> PlayerID {
         self.player_id
     }
@@ -105,7 +105,7 @@ impl Zone for MonsterZone {
         define_slot_iter!(
             I,
             MonsterZone,
-            MonsterCard,
+            MonsterZoneCard,
             0 => slot_a,
             1 => slot_b,
             2 => slot_c,

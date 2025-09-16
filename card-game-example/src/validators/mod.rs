@@ -6,7 +6,11 @@ use card_game::{
 };
 
 use crate::{
-    Game, cards::monster::MonsterCard, filters::OfType, steps::GetStateMut, zones::hand::HandZone,
+    Game,
+    cards::{CardKind, monster::MonsterCard},
+    filters::OfType,
+    steps::GetStateMut,
+    zones::hand::HandZone,
 };
 
 pub fn monster_card_in_hand_validator<State: GetState<Game>>(
@@ -20,6 +24,14 @@ pub fn monster_card_in_hand_validator<State: GetState<Game>>(
                 .active_player_zones()
                 .hand_zone
         },
-        |zone_context| zone_context.get_zone_card_id(card_id),
+        |zone_context| {
+            if let Some((valid_card_id, card)) = zone_context.get_zone_card(card_id)
+                && let CardKind::Monster(_) = card.kind()
+            {
+                Some(valid_card_id)
+            } else {
+                None
+            }
+        },
     )
 }

@@ -11,6 +11,9 @@ impl<Kind> Card<Kind> {
     pub fn id(&self) -> CardID {
         self.id
     }
+    pub fn kind(&self) -> &Kind {
+        &self.kind
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -19,6 +19,19 @@ impl<'a, Z> ValidCardID<'a, Z> {
         f(self).unwrap()
     }
 }
+macro_rules! impl_from_valid_card_id {
+    ($($t: ident,)* | $last_t: ident) => {
+        impl<'a, Z0 $(, $t)*, $last_t> From<ValidCardID<'a, (Z0 $(, $t)*, $last_t)>> for ValidCardID<'a, (Z0 $(,$t)*)> {
+            fn from(valid_card_id: ValidCardID<'a, (Z0 $(, $t)*, $last_t)>) -> Self {
+                ValidCardID::new(valid_card_id.0)
+            }
+        }
+    };
+}
+impl_from_valid_card_id!(| Z1);
+impl_from_valid_card_id!(Z1, | Z2);
+impl_from_valid_card_id!(Z1, Z2, | Z3);
+impl_from_valid_card_id!(Z1, Z2, Z3, | Z4);
 
 impl<'a, Z> std::fmt::Debug for ValidCardID<'a, Z> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
