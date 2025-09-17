@@ -3,7 +3,6 @@ use card_game::{
     identifications::PlayerID,
     stack::priority::GetState,
     steps::Step,
-    validation::{ValidState, filters::CardIn},
     zones::{ArrayZone, ValidCardID},
 };
 

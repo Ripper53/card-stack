@@ -5,7 +5,7 @@ use card_game::{
     zones::{Slot, SlotZone, Zone},
 };
 
-use crate::cards::monster::MonsterZoneCard;
+use crate::{cards::monster::MonsterZoneCard, filters::CardIn};
 
 pub struct MonsterZone {
     player_id: PlayerID,
@@ -66,6 +66,7 @@ impl SlotZone for MonsterZone {
 }
 impl Zone for MonsterZone {
     type CardKind = MonsterZoneCard;
+    type CardFilter = CardIn<Self>;
     fn player_id(&self) -> PlayerID {
         self.player_id
     }

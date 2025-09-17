@@ -7,7 +7,7 @@ use card_game::{
 };
 use indexmap::{IndexMap, map::Slice};
 
-use crate::cards::CardKind;
+use crate::{cards::CardKind, filters::CardIn};
 
 pub struct HandZone {
     player_id: PlayerID,
@@ -32,12 +32,13 @@ impl FiniteZone for HandZone {
     }
 }
 impl ArrayZone for HandZone {
-    fn remove_card<'id>(&mut self, zone_card_id: ValidCardID<'id, Self>) -> Card<Self::CardKind> {
+    fn remove_card(&mut self, zone_card_id: ValidCardID<CardIn<Self>>) -> Card<Self::CardKind> {
         zone_card_id.remove(|id| self.cards.remove(&id.card_id()))
     }
 }
 impl Zone for HandZone {
     type CardKind = CardKind;
+    type CardFilter = CardIn<Self>;
     fn player_id(&self) -> PlayerID {
         self.player_id
     }

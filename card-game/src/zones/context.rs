@@ -19,27 +19,27 @@ macro_rules! impl_zone_context {
                     _m: std::marker::PhantomData::default(),
                 }
             }
-            pub fn get_zone_card(&self, card_id: CardID) -> Option<(ValidCardID<'a, (Z $(, $t)*)>, &crate::cards::Card<Z::CardKind>)> {
+            pub fn get_zone_card(&self, card_id: CardID) -> Option<(ValidCardID<(Z $(, $t)*)>, &crate::cards::Card<Z::CardKind>)> {
                 self.zone
                     .get_card(card_id)
                     .map(|card| (ValidCardID::new(card.id()), card))
             }
-            pub fn get_zone_card_id(&self, card_id: CardID) -> Option<ValidCardID<'a, (Z $(, $t)*)>> {
+            pub fn get_zone_card_id(&self, card_id: CardID) -> Option<ValidCardID<(Z $(, $t)*)>> {
                 self.zone
                     .get_card(card_id)
                     .map(|card| ValidCardID::new(card.id()))
             }
-            pub fn get_zone_card_from_index(&self, index: usize) -> Option<(ValidCardID<'a, (Z $(, $t)*)>, &crate::cards::Card<Z::CardKind>)> {
+            pub fn get_zone_card_from_index(&self, index: usize) -> Option<(ValidCardID<(Z $(, $t)*)>, &crate::cards::Card<Z::CardKind>)> {
                 self.zone
                     .get_card_from_index(index)
                     .map(|card| (ValidCardID::new(card.id()), card))
             }
-            pub fn get_zone_card_id_from_index(&self, index: usize) -> Option<ValidCardID<'a, (Z $(, $t)*)>> {
+            pub fn get_zone_card_id_from_index(&self, index: usize) -> Option<ValidCardID<(Z $(, $t)*)>> {
                 self.zone
                     .get_card_from_index(index)
                     .map(|card| ValidCardID::new(card.id()))
             }
-            pub fn zone_card_ids(&self) -> impl Iterator<Item = ValidCardID<'a, (Z $(, $t)*)>> {
+            pub fn zone_card_ids(&self) -> impl Iterator<Item = ValidCardID<(Z $(, $t)*)>> {
                 self.zone.cards().map(|card| ValidCardID::new(card.id()))
             }
         }

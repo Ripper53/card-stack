@@ -1,12 +1,11 @@
 use crate::validation::StateFilter;
 
-pub trait ValidAction {
-    type State;
-    type Filter: StateFilter;
+pub trait ValidAction<State> {
+    type Filter: StateFilter<State>;
     type Output;
     fn with_valid_input(
         self,
-        state: Self::State,
-        valid: <Self::Filter as StateFilter>::Valid<'_>,
+        state: State,
+        valid: <Self::Filter as StateFilter<State>>::ValidOutput,
     ) -> Self::Output;
 }

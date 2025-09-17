@@ -4,17 +4,16 @@ use crate::validation::StateFilter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerID(usize);
-impl StateFilter for PlayerID {
-    type Value = Self;
-    type Valid<'a> = ValidPlayerID<'a>;
-}
 impl PlayerID {
     fn next_player_id(&self, max_players: usize) -> Self {
         PlayerID((self.0 + 1) % max_players)
     }
 }
-pub struct ValidPlayerID<'a>(PlayerID, std::marker::PhantomData<(&'a (), *const ())>);
-impl<'a> ValidPlayerID<'a> {
+/*impl<F: StateFilter> ValidFor<F> for PlayerID {
+    type Valid<'a> = ValidPlayerID;
+}*/
+pub struct ValidPlayerID(PlayerID, std::marker::PhantomData<*const ()>);
+impl ValidPlayerID {
     pub(crate) fn new(player_id: PlayerID) -> Self {
         ValidPlayerID(player_id, std::marker::PhantomData::default())
     }

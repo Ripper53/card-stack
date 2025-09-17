@@ -5,7 +5,7 @@ use card_game::{
     zones::{Slot, SlotZone, Zone},
 };
 
-use crate::cards::spell::SpellCard;
+use crate::{cards::spell::SpellCard, filters::CardIn};
 
 pub struct SpellZone {
     player_id: PlayerID,
@@ -66,6 +66,7 @@ impl SlotZone for SpellZone {
 }
 impl Zone for SpellZone {
     type CardKind = SpellCard;
+    type CardFilter = CardIn<Self>;
     fn player_id(&self) -> PlayerID {
         self.player_id
     }

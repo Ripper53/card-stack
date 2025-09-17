@@ -5,7 +5,7 @@ use card_game::{
 };
 use indexmap::IndexMap;
 
-use crate::cards::CardKind;
+use crate::{cards::CardKind, filters::CardIn};
 
 pub struct DeckZone {
     player_id: PlayerID,
@@ -27,12 +27,13 @@ impl InfiniteZone for DeckZone {
     }
 }
 impl ArrayZone for DeckZone {
-    fn remove_card<'id>(&mut self, zone_card_id: ValidCardID<'id, Self>) -> Card<Self::CardKind> {
+    fn remove_card(&mut self, zone_card_id: ValidCardID<CardIn<Self>>) -> Card<Self::CardKind> {
         zone_card_id.remove(|card| self.cards.shift_remove(&card.card_id()))
     }
 }
 impl Zone for DeckZone {
     type CardKind = CardKind;
+    type CardFilter = CardIn<Self>;
     fn player_id(&self) -> PlayerID {
         self.player_id
     }
