@@ -9,9 +9,6 @@ impl PlayerID {
         PlayerID((self.0 + 1) % max_players)
     }
 }
-/*impl<F: StateFilter> ValidFor<F> for PlayerID {
-    type Valid<'a> = ValidPlayerID;
-}*/
 pub struct ValidPlayerID(PlayerID, std::marker::PhantomData<*const ()>);
 impl ValidPlayerID {
     pub(crate) fn new(player_id: PlayerID) -> Self {

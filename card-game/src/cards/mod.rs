@@ -20,9 +20,6 @@ impl<Kind> Card<Kind> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
-/*impl<F: StateFilter + 'static> ValidFor<F> for CardID {
-    type Valid<'a> = (ValidPlayerID, ValidCardID<F>);
-}*/
 impl CardID {
     pub(crate) const fn new(id: usize) -> Self {
         CardID(id)
