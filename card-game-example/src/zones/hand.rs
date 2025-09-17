@@ -2,12 +2,12 @@ use std::collections::BTreeMap;
 
 use card_game::{
     cards::{Card, CardID},
-    identifications::PlayerID,
+    identifications::{PlayerID, ValidPlayerID},
     zones::{ArrayZone, FiniteZone, InfiniteZone, ValidCardID, Zone},
 };
 use indexmap::{IndexMap, map::Slice};
 
-use crate::{cards::CardKind, filters::CardIn};
+use crate::{cards::CardKind, filters::CardIn, zones::GetZone};
 
 pub struct HandZone {
     player_id: PlayerID,
@@ -33,7 +33,7 @@ impl FiniteZone for HandZone {
 }
 impl ArrayZone for HandZone {
     fn remove_card(&mut self, zone_card_id: ValidCardID<CardIn<Self>>) -> Card<Self::CardKind> {
-        zone_card_id.remove(|id| self.cards.remove(&id.card_id()))
+        zone_card_id.remove(|id| self.cards.remove(&id.id()))
     }
 }
 impl Zone for HandZone {
@@ -53,5 +53,12 @@ impl Zone for HandZone {
     }
     fn cards(&self) -> impl Iterator<Item = &Card<Self::CardKind>> {
         self.cards.iter().map(|(card_id, card)| card)
+    }
+}
+impl GetZone for HandZone {
+    fn get_zone<'a>(game: &'a crate::Game, valid_player_id: &'a ValidPlayerID<()>) -> &'a Self {
+        game.zone_manager()
+            .get_valid_zone(valid_player_id)
+            .hand_zone()
     }
 }

@@ -5,17 +5,21 @@ pub use state_filter::*;
 
 use crate::zones::{ValidCardID, Zone, ZoneContext};
 
-pub struct Validator<State, Filter: StateFilter<State>> {
+pub struct Validator<
+    State,
+    Input,
+    Filter: StateFilter<State, Input>,
+    GetInput: for<'a> FnOnce(&'a State) -> Input,
+> {
     state: State,
     value: Filter::ValidOutput,
-    _p: std::marker::PhantomData<Filter>,
+    _p: std::marker::PhantomData<(Input, Filter, GetInput)>,
 }
 
-impl<State, Filter: StateFilter<State>> Validator<State, Filter> {
-    pub fn try_new(
-        state: State,
-        get_value: impl for<'b> FnOnce(&'b State) -> Filter::Input,
-    ) -> Option<Self> {
+impl<State, Input, Filter: StateFilter<State, Input>, GetInput: for<'a> FnOnce(&'a State) -> Input>
+    Validator<State, Input, Filter, GetInput>
+{
+    pub fn try_new(state: State, get_value: GetInput) -> Option<Self> {
         let value = get_value(&state);
         let value = Filter::filter(&state, value)?;
         Some(Validator {
@@ -24,7 +28,7 @@ impl<State, Filter: StateFilter<State>> Validator<State, Filter> {
             _p: std::marker::PhantomData::default(),
         })
     }
-    pub fn execute<Action: ValidAction<State, Filter = Filter>>(
+    pub fn execute<Action: ValidAction<State, Input, Filter = Filter>>(
         self,
         valid_action: Action,
     ) -> Action::Output {

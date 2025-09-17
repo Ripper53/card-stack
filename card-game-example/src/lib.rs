@@ -30,13 +30,21 @@ impl Game {
             player_manager,
         }
     }
+    pub fn player_manager(&self) -> &PlayerManager<Player> {
+        &self.player_manager
+    }
+    pub fn zone_manager(&self) -> &ZoneManager<Zones> {
+        &self.zone_manager
+    }
     pub fn active_player_zones(&self) -> &Zones {
         let active_player_id = self.player_manager.active_player_id();
-        active_player_id.get(|id| self.zone_manager.get_zone(id.player_id()))
+        self.zone_manager.get_zone(active_player_id.id()).unwrap()
     }
     pub fn active_player_zones_mut(&mut self) -> &mut Zones {
         let active_player_id = self.player_manager.active_player_id();
-        active_player_id.get_mut(|id| self.zone_manager.get_zone_mut(id.player_id()))
+        self.zone_manager
+            .get_zone_mut(active_player_id.id())
+            .unwrap()
     }
 }
 

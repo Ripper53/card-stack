@@ -1,8 +1,15 @@
-use card_game::identifications::PlayerID;
+use card_game::{
+    identifications::{PlayerID, ValidPlayerID},
+    zones::Zone,
+};
 
-use crate::zones::{
-    deck::DeckZone, graveyard::GraveyardZone, hand::HandZone, monster::MonsterZone,
-    spell::SpellZone,
+use crate::{
+    Game,
+    filters::CardIn,
+    zones::{
+        deck::DeckZone, graveyard::GraveyardZone, hand::HandZone, monster::MonsterZone,
+        spell::SpellZone,
+    },
 };
 
 pub mod deck;
@@ -35,4 +42,8 @@ impl card_game::zones::Zones for Zones {
             hand_zone: HandZone::new(player_id),
         }
     }
+}
+
+pub trait GetZone: Zone<CardFilter = CardIn<Self>> {
+    fn get_zone<'a>(game: &'a Game, player_id: &'a ValidPlayerID<()>) -> &'a Self;
 }

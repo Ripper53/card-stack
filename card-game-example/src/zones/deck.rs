@@ -28,7 +28,7 @@ impl InfiniteZone for DeckZone {
 }
 impl ArrayZone for DeckZone {
     fn remove_card(&mut self, zone_card_id: ValidCardID<CardIn<Self>>) -> Card<Self::CardKind> {
-        zone_card_id.remove(|card| self.cards.shift_remove(&card.card_id()))
+        zone_card_id.remove(|card| self.cards.shift_remove(&card.id()))
     }
 }
 impl Zone for DeckZone {

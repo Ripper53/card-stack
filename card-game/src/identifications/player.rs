@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::validation::StateFilter;
+use crate::{create_valid_identification, validation::StateFilter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerID(usize);
@@ -9,52 +9,33 @@ impl PlayerID {
         PlayerID((self.0 + 1) % max_players)
     }
 }
-pub struct ValidPlayerID(PlayerID, std::marker::PhantomData<*const ()>);
-impl ValidPlayerID {
+
+create_valid_identification!(ValidPlayerID, PlayerID);
+impl<F> ValidPlayerID<F> {
     pub(crate) fn new(player_id: PlayerID) -> Self {
         ValidPlayerID(player_id, std::marker::PhantomData::default())
     }
-    pub fn player_id(&self) -> PlayerID {
-        self.0
+}
+impl<F> ValidPlayerID<F> {
+    pub fn try_new<P>(player_manager: &PlayerManager<P>, player_id: PlayerID) -> Option<Self> {
+        if player_manager.players.contains_key(&player_id) {
+            Some(ValidPlayerID(
+                player_id,
+                std::marker::PhantomData::default(),
+            ))
+        } else {
+            None
+        }
     }
 }
+#[derive(Debug)]
+pub struct ActivePlayer;
 
 pub struct PlayerManager<P> {
     current_player_id: PlayerID,
     pub(crate) players: HashMap<PlayerID, P>,
 }
 
-pub struct ActivePlayerID<'a>(PlayerID, std::marker::PhantomData<&'a ()>);
-impl<'a> ActivePlayerID<'a> {
-    fn new(player_id: PlayerID) -> Self {
-        ActivePlayerID(player_id, std::marker::PhantomData::default())
-    }
-    pub fn player_id(&self) -> PlayerID {
-        self.0
-    }
-    pub fn get<'b, T>(self, f: impl FnOnce(Self) -> Option<&'b T>) -> &'b T {
-        f(self).unwrap()
-    }
-    pub fn get_mut<'b, T>(self, f: impl FnOnce(Self) -> Option<&'b mut T>) -> &'b mut T {
-        f(self).unwrap()
-    }
-}
-impl<'a> std::fmt::Debug for ActivePlayerID<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ActivePlayerID({:?})", self.0)
-    }
-}
-impl<'a> PartialEq for ActivePlayerID<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-impl<'a> Eq for ActivePlayerID<'a> {}
-impl<'a> std::hash::Hash for ActivePlayerID<'a> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
-}
 impl<P> PlayerManager<P> {
     /// `players`: must have at least one player
     pub fn new(players: HashMap<PlayerID, P>) -> Self {
@@ -63,12 +44,12 @@ impl<P> PlayerManager<P> {
             players,
         }
     }
-    pub fn active_player_id(&self) -> ActivePlayerID<'_> {
-        ActivePlayerID::new(self.current_player_id)
+    pub fn active_player_id(&self) -> ValidPlayerID<ActivePlayer> {
+        ValidPlayerID::new(self.current_player_id)
     }
-    pub fn next_player_id(&mut self) -> ActivePlayerID<'_> {
+    pub fn next_player_id(&mut self) -> ValidPlayerID<()> {
         self.current_player_id = self.current_player_id.next_player_id(self.players.len());
-        ActivePlayerID::new(self.current_player_id)
+        ValidPlayerID::new(self.current_player_id)
     }
     pub fn player_count(&self) -> usize {
         self.players.len()

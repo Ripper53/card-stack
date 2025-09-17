@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     cards::{Card, CardID},
-    identifications::{PlayerID, PlayerManager},
+    identifications::{PlayerID, PlayerManager, ValidPlayerID},
     validation::StateFilter,
 };
 
@@ -32,6 +32,9 @@ impl<Z: Zones> ZoneManager<Z> {
     pub fn get_zone(&self, player_id: PlayerID) -> Option<&Z> {
         self.zones.get(&player_id)
     }
+    pub fn get_valid_zone(&self, valid_player_id: &ValidPlayerID<()>) -> &Z {
+        self.get_zone(valid_player_id.id()).unwrap()
+    }
     pub fn get_zone_mut(&mut self, player_id: PlayerID) -> Option<&mut Z> {
         self.zones.get_mut(&player_id)
     }
@@ -43,6 +46,12 @@ pub trait Zone: Sized {
     fn player_id(&self) -> PlayerID;
     fn filled_count(&self) -> usize;
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>>;
+    fn get_valid_card(
+        &self,
+        valid_card_id: &ValidCardID<Self::CardFilter>,
+    ) -> &Card<Self::CardKind> {
+        self.get_card(valid_card_id.id()).unwrap()
+    }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>>;
     fn cards(&self) -> impl Iterator<Item = &Card<Self::CardKind>>;
 }
@@ -105,7 +114,7 @@ pub trait ArrayZone: Zone {
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("failed to add card to zone")]
+#[error("failed to add card {0} to zone")]
 pub struct ZoneFullError(CardID);
 
 impl ZoneFullError {
@@ -131,7 +140,7 @@ where
         zone_card_id: ValidCardID<FromZ::CardFilter>,
     ) -> Result<(), ZoneFullError> {
         if self.to_slot.is_occupied() {
-            Err(ZoneFullError(zone_card_id.card_id()))
+            Err(ZoneFullError(zone_card_id.id()))
         } else {
             let card = self.from_zone.remove_card(zone_card_id);
             let _ = self.to_slot.put(card.into());
@@ -161,7 +170,7 @@ where
             self.to_zone.add_card_unchecked(card.into());
             Ok(())
         } else {
-            Err(ZoneFullError(zone_card_id.card_id()))
+            Err(ZoneFullError(zone_card_id.id()))
         }
     }
 }
