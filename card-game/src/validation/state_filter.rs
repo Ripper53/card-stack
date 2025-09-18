@@ -10,10 +10,9 @@ where
         StateFilterCombination<<F0::ValidOutput as StateFilterInput<F1::Input>>::Remainder>,
 {
     type Input = F0::Input;
-    type ValidOutput = (
-        F1::ValidOutput,
+    type ValidOutput = <F1::ValidOutput as StateFilterCombination<
         <F0::ValidOutput as StateFilterInput<F1::Input>>::Remainder,
-    );
+    >>::Combined;
     fn filter(state: &State, value: Self::Input) -> Option<Self::ValidOutput> {
         F0::filter(state, value).and_then(|v| {
             let (input, remainder) = v.split_take();
@@ -25,35 +24,36 @@ impl<State, F0: StateFilter<State>, F1: StateFilter<State>, F2: StateFilter<Stat
     StateFilter<State> for (F0, F1, F2)
 where
     F0::ValidOutput: StateFilterInput<F1::Input>,
-    F1::ValidOutput: StateFilterInput<F2::Input>
-        + StateFilterInput<
-            F1::ValidOutput,
-            Remainder = <F0::ValidOutput as StateFilterInput<F1::Input>>::Remainder,
-        >,
-    F2::ValidOutput: StateFilterInput<
-            F2::ValidOutput,
-            Remainder = <F1::ValidOutput as StateFilterInput<F2::Input>>::Remainder,
-        >,
+    F1::ValidOutput:
+        StateFilterCombination<<F0::ValidOutput as StateFilterInput<F1::Input>>::Remainder>,
+    <F1::ValidOutput as StateFilterCombination<
+        <F0::ValidOutput as StateFilterInput<F1::Input>>::Remainder,
+    >>::Combined: StateFilterInput<F2::Input>,
+    F2::ValidOutput: StateFilterCombination<
+        <<F1::ValidOutput as StateFilterCombination<
+            <F0::ValidOutput as StateFilterInput<F1::Input>>::Remainder,
+        >>::Combined as StateFilterInput<F2::Input>>::Remainder,
+    >,
 {
     type Input = F0::Input;
-    type ValidOutput = F2::ValidOutput;
+    type ValidOutput = <F2::ValidOutput as StateFilterCombination<
+        <<F1::ValidOutput as StateFilterCombination<
+            <F0::ValidOutput as StateFilterInput<F1::Input>>::Remainder,
+        >>::Combined as StateFilterInput<F2::Input>>::Remainder,
+    >>::Combined;
     fn filter(state: &State, value: Self::Input) -> Option<Self::ValidOutput> {
         F0::filter(state, value)
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
-                F1::filter(state, input).map(|v| {
-                    <F1::ValidOutput as StateFilterInput<F1::ValidOutput>>::new(v, remainder)
-                })
+                F1::filter(state, input).map(|v| v.combine(remainder))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
-                F2::filter(state, input).map(|v| {
-                    <F2::ValidOutput as StateFilterInput<F2::ValidOutput>>::new(v, remainder)
-                })
+                F2::filter(state, input).map(|v| v.combine(remainder))
             })
     }
 }
-impl<
+/*impl<
     State,
     F0: StateFilter<State>,
     F1: StateFilter<State>,
@@ -63,19 +63,11 @@ impl<
 where
     F0::ValidOutput: StateFilterInput<F1::Input>,
     F1::ValidOutput: StateFilterInput<F2::Input>
-        + StateFilterInput<
-            F1::ValidOutput,
-            Remainder = <F0::ValidOutput as StateFilterInput<F1::Input>>::Remainder,
-        >,
+        + StateFilterCombination<<F0::ValidOutput as StateFilterInput<F1::Input>>::Remainder>,
     F2::ValidOutput: StateFilterInput<F3::Input>
-        + StateFilterInput<
-            F2::ValidOutput,
-            Remainder = <F1::ValidOutput as StateFilterInput<F2::Input>>::Remainder,
-        >,
-    F3::ValidOutput: StateFilterInput<
-            F3::ValidOutput,
-            Remainder = <F2::ValidOutput as StateFilterInput<F3::Input>>::Remainder,
-        >,
+        + StateFilterCombination<<F1::ValidOutput as StateFilterInput<F2::Input>>::Remainder>,
+    F3::ValidOutput:
+        StateFilterCombination<<F2::ValidOutput as StateFilterInput<F3::Input>>::Remainder>,
 {
     type Input = F0::Input;
     type ValidOutput = F3::ValidOutput;
@@ -83,24 +75,18 @@ where
         F0::filter(state, value)
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
-                F1::filter(state, input).map(|v| {
-                    <F1::ValidOutput as StateFilterInput<F1::ValidOutput>>::new(v, remainder)
-                })
+                F1::filter(state, input).map(|v| v.combine(remainder))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
-                F2::filter(state, input).map(|v| {
-                    <F2::ValidOutput as StateFilterInput<F2::ValidOutput>>::new(v, remainder)
-                })
+                F2::filter(state, input).map(|v| v.combine(remainder))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
-                F3::filter(state, input).map(|v| {
-                    <F3::ValidOutput as StateFilterInput<F3::ValidOutput>>::new(v, remainder)
-                })
+                F3::filter(state, input).map(|v| v.combine(remainder))
             })
     }
-}
+}*/
 
 pub trait StateFilterInput<T>: Sized {
     type Remainder;
@@ -127,11 +113,13 @@ impl<T, R> StateFilterInput<T> for (R, T) {
 }
 
 pub trait StateFilterCombination<T>: Sized {
-    fn combine(self, value: T) -> (Self, T);
+    type Combined;
+    fn combine(self, value: T) -> Self::Combined;
 }
 
 impl<T, U> StateFilterCombination<T> for U {
-    fn combine(self, value: T) -> (Self, T) {
+    type Combined = (Self, T);
+    fn combine(self, value: T) -> Self::Combined {
         (self, value)
     }
 }
