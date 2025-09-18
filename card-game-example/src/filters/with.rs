@@ -1,7 +1,7 @@
 use card_game::{
     identifications::{PlayerID, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
-    validation::StateFilter,
+    validation::{StateFilter, StateFilterInput},
     zones::Zone,
 };
 
@@ -10,14 +10,14 @@ use crate::{
     cards::monster::MonsterCard,
     filters::{CardIn, Free, In, MonsterSlot, OfType},
     identifications::ValidSlotID,
-    zones::{GetZone, hand::HandZone},
+    zones::{GetZone, SlotID, hand::HandZone},
 };
 
 pub struct With<T>(std::marker::PhantomData<T>);
 
 impl<State: GetState<Game>, Z: GetZone> StateFilter<State> for With<(Free<MonsterSlot>, In<Z>)> {
-    type Input = (usize, PlayerID);
-    type ValidOutput = (usize, ValidPlayerID<()>);
+    type Input = (PlayerID, SlotID);
+    type ValidOutput = (ValidPlayerID<()>, SlotID);
     fn filter(state: &State, _: Self::Input) -> Option<Self::ValidOutput> {
         //ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_index)
         //.map(|valid_slot_id| (valid_player_id, c, valid_slot_id))
@@ -26,7 +26,7 @@ impl<State: GetState<Game>, Z: GetZone> StateFilter<State> for With<(Free<Monste
 }
 
 impl<State: GetState<Game>> StateFilter<State> for With<MonsterSlot> {
-    type Input = usize;
+    type Input = SlotID;
     type ValidOutput = ValidSlotID<Free<MonsterSlot>>;
     fn filter(state: &State, valid_player_id: Self::Input) -> Option<Self::ValidOutput> {
         //ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_index)
@@ -34,3 +34,13 @@ impl<State: GetState<Game>> StateFilter<State> for With<MonsterSlot> {
         None
     }
 }
+
+/*impl StateFilterInput<SlotID> for (ValidPlayerID<()>, SlotID) {
+    type Remainder = ValidPlayerID<()>;
+    fn new(input: ValidPlayerID<()>, remainder: Self::Remainder) -> Self {
+        todo!()
+    }
+    fn split_take(self) -> (SlotID, Self::Remainder) {
+        todo!();
+    }
+}*/

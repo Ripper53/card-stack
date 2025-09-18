@@ -47,3 +47,11 @@ impl card_game::zones::Zones for Zones {
 pub trait GetZone: Zone<CardFilter = CardIn<Self>> {
     fn get_zone<'a, F>(game: &'a Game, player_id: &'a ValidPlayerID<F>) -> &'a Self;
 }
+
+#[derive(Debug)]
+pub struct SlotID(usize);
+impl SlotID {
+    pub fn new(id: usize) -> Self {
+        SlotID(id)
+    }
+}

@@ -15,7 +15,7 @@ use card_game_example::{
     player::Player,
     steps::{MainStep, StartStep},
     valid_actions::PlayMonsterCardValidAction,
-    zones::hand::HandZone,
+    zones::{SlotID, hand::HandZone},
 };
 
 use crate::utilities::GameBuilder;
@@ -35,6 +35,7 @@ fn game() {
         .unwrap()
         .id();
     let player_id = player_id.id();
-    let context = Validator::try_new(main, (0usize, player_id)).expect("expected a card in hand");
+    let context =
+        Validator::try_new(main, (player_id, SlotID::new(0))).expect("expected a card in hand");
     context.execute(PlayMonsterCardValidAction::new(Position::Attack));
 }
