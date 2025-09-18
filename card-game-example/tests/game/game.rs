@@ -24,15 +24,17 @@ use crate::utilities::GameBuilder;
 fn game() {
     let step = StartStep::new(GameBuilder::<'_, 2>::new(()));
     let mut main = step.next_step();
-    let player_id = main.state().player_manager().active_player_id().id();
+    let player_id = main.state().player_manager().active_player_id();
     let card_id = main
         .state()
-        .active_player_zones()
+        .zone_manager()
+        .get_valid_zone(&player_id)
         .hand_zone()
         .cards()
         .next()
         .unwrap()
         .id();
+    let player_id = player_id.id();
     let context = Validator::try_new(main, move |_state| (player_id, card_id))
         .expect("expected a card in hand");
     context.execute(PlayMonsterCardValidAction::new(0, Position::Attack));

@@ -1,6 +1,6 @@
 use card_game::{
     cards::CardID,
-    identifications::PlayerID,
+    identifications::{ActivePlayer, PlayerID},
     validation::{StateFilter, ValidAction},
     zones::{ArrayZone, Zone},
 };
@@ -8,7 +8,7 @@ use card_game::{
 use crate::{
     Game,
     cards::monster::{MonsterCard, Position},
-    filters::{CardIn, OfType},
+    filters::{CardIn, For, OfType},
     steps::MainStep,
     zones::hand::HandZone,
 };
@@ -27,7 +27,7 @@ impl PlayMonsterCardValidAction {
 }
 
 impl ValidAction<MainStep, (PlayerID, CardID)> for PlayMonsterCardValidAction {
-    type Filter = (CardIn<HandZone>, OfType<MonsterCard>);
+    type Filter = (CardIn<HandZone>, OfType<MonsterCard>, For<ActivePlayer>);
     type Output = MainStep;
     fn with_valid_input(
         self,
@@ -40,7 +40,8 @@ impl ValidAction<MainStep, (PlayerID, CardID)> for PlayMonsterCardValidAction {
         //if state.game.active_player_zones_mut().monster_zone.get_card_from_index(self.slot_index)
         let _ = state
             .game
-            .active_player_zones_mut()
+            .zone_manager_mut()
+            .get_valid_zone_mut(valid_player_id)
             .hand_zone
             .remove_card(valid_card_id.into());
         //state.game

@@ -32,11 +32,14 @@ impl<Z: Zones> ZoneManager<Z> {
     pub fn get_zone(&self, player_id: PlayerID) -> Option<&Z> {
         self.zones.get(&player_id)
     }
-    pub fn get_valid_zone(&self, valid_player_id: &ValidPlayerID<()>) -> &Z {
+    pub fn get_valid_zone<F>(&self, valid_player_id: &ValidPlayerID<F>) -> &Z {
         self.get_zone(valid_player_id.id()).unwrap()
     }
     pub fn get_zone_mut(&mut self, player_id: PlayerID) -> Option<&mut Z> {
         self.zones.get_mut(&player_id)
+    }
+    pub fn get_valid_zone_mut<F>(&mut self, valid_player_id: ValidPlayerID<F>) -> &mut Z {
+        self.get_zone_mut(valid_player_id.id()).unwrap()
     }
 }
 

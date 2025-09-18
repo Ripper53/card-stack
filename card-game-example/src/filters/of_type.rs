@@ -30,8 +30,7 @@ impl<State: GetState<Game>> StateFilter<State, (ValidPlayerID<()>, ValidCardID<C
             .hand_zone()
             .get_valid_card(&valid_card_id);
         if matches!(card.kind(), CardKind::Monster(_)) {
-            let a = valid_card_id.unchecked_replace_filter();
-            Some((valid_player_id, a))
+            Some((valid_player_id, valid_card_id.unchecked_replace_filter()))
         } else {
             None
         }
