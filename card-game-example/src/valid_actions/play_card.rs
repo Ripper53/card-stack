@@ -8,9 +8,9 @@ use card_game::{
 use crate::{
     Game,
     cards::monster::{MonsterCard, Position},
-    filters::{CardIn, For, OfType},
+    filters::{CardIn, For, Free, In, MonsterSlot, OfType, With},
     steps::MainStep,
-    zones::hand::HandZone,
+    zones::{hand::HandZone, monster::MonsterZone},
 };
 
 pub struct PlayMonsterCardValidAction {
@@ -26,15 +26,20 @@ impl PlayMonsterCardValidAction {
     }
 }
 
-impl ValidAction<MainStep, (PlayerID, CardID)> for PlayMonsterCardValidAction {
-    type Filter = (For<ActivePlayer>, CardIn<HandZone>, OfType<MonsterCard>);
+impl ValidAction<MainStep, (PlayerID, CardID, usize)> for PlayMonsterCardValidAction {
+    type Filter = (
+        For<ActivePlayer>,
+        CardIn<HandZone>,
+        OfType<MonsterCard>,
+        With<(Free<MonsterSlot>, In<MonsterZone>)>,
+    );
     type Output = MainStep;
     fn with_valid_input(
         self,
         mut state: MainStep,
-        (valid_player_id, valid_card_id): <Self::Filter as StateFilter<
+        (valid_player_id, valid_card_id, slot_index): <Self::Filter as StateFilter<
             MainStep,
-            (PlayerID, CardID),
+            (PlayerID, CardID, usize),
         >>::ValidOutput,
     ) -> Self::Output {
         //if state.game.active_player_zones_mut().monster_zone.get_card_from_index(self.slot_index)

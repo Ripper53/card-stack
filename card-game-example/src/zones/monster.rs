@@ -5,7 +5,7 @@ use card_game::{
     zones::{Slot, SlotZone, Zone},
 };
 
-use crate::{cards::monster::MonsterZoneCard, filters::CardIn};
+use crate::{cards::monster::MonsterZoneCard, filters::CardIn, zones::GetZone};
 
 pub struct MonsterZone {
     player_id: PlayerID,
@@ -117,5 +117,14 @@ impl Zone for MonsterZone {
             index: 0,
             zone: self,
         }
+    }
+}
+
+impl GetZone for MonsterZone {
+    fn get_zone<'a, F>(
+        game: &'a crate::Game,
+        player_id: &'a card_game::identifications::ValidPlayerID<F>,
+    ) -> &'a Self {
+        &game.zone_manager().get_valid_zone(player_id).monster_zone
     }
 }

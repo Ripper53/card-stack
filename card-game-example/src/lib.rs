@@ -9,6 +9,7 @@ use crate::{player::Player, steps::StartStep, zones::Zones};
 
 pub mod cards;
 pub mod filters;
+pub mod identifications;
 pub mod player;
 pub mod steps;
 pub mod valid_actions;

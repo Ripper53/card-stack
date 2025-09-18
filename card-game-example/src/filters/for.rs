@@ -32,15 +32,10 @@ impl<State: GetState<Game>> StateFilter<State, ValidPlayerID<()>> for For<Active
     }
 }
 
-impl<State: GetState<Game>, I> StateFilter<State, (PlayerID, I)> for For<ActivePlayer> {
-    type ValidOutput = (ValidPlayerID<ActivePlayer>, I);
-    fn filter(state: &State, (player_id, input): (PlayerID, I)) -> Option<Self::ValidOutput> {
-        let active_player_id = state.state().player_manager().active_player_id();
-        if active_player_id.id() == player_id {
-            Some((active_player_id, input))
-        } else {
-            None
-        }
+impl<State: GetState<Game>, I0, I1> StateFilter<State, (PlayerID, I0, I1)> for For<ActivePlayer> {
+    type ValidOutput = (ValidPlayerID<ActivePlayer>, I0, I1);
+    fn filter(state: &State, (player_id, v0, v1): (PlayerID, I0, I1)) -> Option<Self::ValidOutput> {
+        Self::filter(state, player_id).map(|v| (v, v0, v1))
     }
 }
 
@@ -50,11 +45,6 @@ impl<State: GetState<Game>, I> StateFilter<State, (ValidPlayerID<()>, I)> for Fo
         state: &State,
         (valid_player_id, input): (ValidPlayerID<()>, I),
     ) -> Option<Self::ValidOutput> {
-        let active_player_id = state.state().player_manager().active_player_id();
-        if active_player_id.id() == valid_player_id.id() {
-            Some((active_player_id, input))
-        } else {
-            None
-        }
+        Self::filter(state, valid_player_id).map(|v| (v, input))
     }
 }

@@ -1,8 +1,14 @@
 mod card_in;
 mod r#for;
+mod free;
+mod r#in;
 mod of_type;
+mod slot;
+mod with;
 pub use card_in::*;
 pub use r#for::*;
+pub use free::*;
+pub use r#in::*;
 pub use of_type::*;
-
-pub struct With<T>(std::marker::PhantomData<T>);
+pub use slot::*;
+pub use with::*;
