@@ -3,8 +3,6 @@ mod state_filter;
 pub use actions::*;
 pub use state_filter::*;
 
-use crate::zones::{ValidCardID, Zone, ZoneContext};
-
 pub struct Validator<
     State,
     Input,

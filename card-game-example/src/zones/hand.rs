@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use card_game::{
     cards::{Card, CardID},
-    identifications::{PlayerID, ValidPlayerID},
-    zones::{ArrayZone, FiniteZone, InfiniteZone, ValidCardID, Zone},
+    identifications::{PlayerID, ValidCardID, ValidPlayerID},
+    zones::{ArrayZone, FiniteZone, InfiniteZone, Zone},
 };
 use indexmap::{IndexMap, map::Slice};
 

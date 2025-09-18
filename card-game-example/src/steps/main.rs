@@ -3,7 +3,7 @@ use card_game::{
     identifications::PlayerID,
     stack::priority::GetState,
     steps::Step,
-    zones::{ArrayZone, ValidCardID},
+    zones::ArrayZone,
 };
 
 use crate::{

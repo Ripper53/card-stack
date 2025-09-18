@@ -1,10 +1,3 @@
-use crate::{
-    cards::CardID,
-    identifications::{PlayerID, ValidPlayerID},
-    validation::ValidAction,
-    zones::{ValidCardID, Zone},
-};
-
 pub trait StateFilter<State, Input>: Sized {
     type ValidOutput;
     fn filter(state: &State, value: Input) -> Option<Self::ValidOutput>;

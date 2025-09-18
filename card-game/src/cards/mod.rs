@@ -1,8 +1,5 @@
 mod manager;
-
 pub use manager::*;
-
-use crate::{identifications::ValidPlayerID, validation::StateFilter, zones::ValidCardID};
 
 pub struct Card<Kind> {
     id: CardID,

@@ -2,16 +2,14 @@ use std::collections::HashMap;
 
 use crate::{
     cards::{Card, CardID},
-    identifications::{PlayerID, PlayerManager, ValidPlayerID},
+    identifications::{PlayerID, PlayerManager, ValidCardID, ValidPlayerID},
     validation::StateFilter,
 };
 
 mod context;
 mod slot;
-mod valid_card_id;
 pub use context::*;
 pub use slot::*;
-pub use valid_card_id::*;
 
 pub struct ZoneManager<Z: Zones> {
     zones: HashMap<PlayerID, Z>,

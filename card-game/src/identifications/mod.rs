@@ -1,5 +1,7 @@
+mod card;
 mod player;
 
+pub use card::*;
 pub use player::*;
 
 #[macro_export]
