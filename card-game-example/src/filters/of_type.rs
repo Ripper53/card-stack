@@ -15,13 +15,13 @@ use crate::{
 
 pub struct OfType<T>(std::marker::PhantomData<T>);
 
-impl<State: GetState<Game>> StateFilter<State, (ValidPlayerID<()>, ValidCardID<CardIn<HandZone>>)>
+impl<State: GetState<Game>, F> StateFilter<State, (ValidPlayerID<F>, ValidCardID<CardIn<HandZone>>)>
     for OfType<MonsterCard>
 {
-    type ValidOutput = (ValidPlayerID<()>, ValidCardID<(CardIn<HandZone>, Self)>);
+    type ValidOutput = (ValidPlayerID<F>, ValidCardID<(CardIn<HandZone>, Self)>);
     fn filter(
         state: &State,
-        (valid_player_id, valid_card_id): (ValidPlayerID<()>, ValidCardID<CardIn<HandZone>>),
+        (valid_player_id, valid_card_id): (ValidPlayerID<F>, ValidCardID<CardIn<HandZone>>),
     ) -> Option<Self::ValidOutput> {
         let card = state
             .state()

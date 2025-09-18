@@ -27,7 +27,7 @@ impl PlayMonsterCardValidAction {
 }
 
 impl ValidAction<MainStep, (PlayerID, CardID)> for PlayMonsterCardValidAction {
-    type Filter = (CardIn<HandZone>, OfType<MonsterCard>, For<ActivePlayer>);
+    type Filter = (For<ActivePlayer>, CardIn<HandZone>, OfType<MonsterCard>);
     type Output = MainStep;
     fn with_valid_input(
         self,

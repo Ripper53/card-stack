@@ -33,17 +33,27 @@ impl<State: GetState<Game>> StateFilter<State, ValidPlayerID<()>> for For<Active
     }
 }
 
-impl<State: GetState<Game>, CardFilter>
-    StateFilter<State, (ValidPlayerID<()>, ValidCardID<CardFilter>)> for For<ActivePlayer>
-{
-    type ValidOutput = (ValidPlayerID<ActivePlayer>, ValidCardID<CardFilter>);
+impl<State: GetState<Game>, I> StateFilter<State, (PlayerID, I)> for For<ActivePlayer> {
+    type ValidOutput = (ValidPlayerID<ActivePlayer>, I);
+    fn filter(state: &State, (player_id, input): (PlayerID, I)) -> Option<Self::ValidOutput> {
+        let active_player_id = state.state().player_manager().active_player_id();
+        if active_player_id.id() == player_id {
+            Some((active_player_id, input))
+        } else {
+            None
+        }
+    }
+}
+
+impl<State: GetState<Game>, I> StateFilter<State, (ValidPlayerID<()>, I)> for For<ActivePlayer> {
+    type ValidOutput = (ValidPlayerID<ActivePlayer>, I);
     fn filter(
         state: &State,
-        (valid_player_id, valid_card_id): (ValidPlayerID<()>, ValidCardID<CardFilter>),
+        (valid_player_id, input): (ValidPlayerID<()>, I),
     ) -> Option<Self::ValidOutput> {
         let active_player_id = state.state().player_manager().active_player_id();
         if active_player_id.id() == valid_player_id.id() {
-            Some((active_player_id, valid_card_id))
+            Some((active_player_id, input))
         } else {
             None
         }
