@@ -28,14 +28,13 @@ fn game() {
     let card_id = main
         .state()
         .zone_manager()
-        .get_valid_zone(&player_id)
+        .valid_zone(&player_id)
         .hand_zone()
         .cards()
         .next()
         .unwrap()
         .id();
     let player_id = player_id.id();
-    let context =
-        Validator::try_new(main, (player_id, SlotID::new(0))).expect("expected a card in hand");
+    let context = Validator::try_new(main, (player_id, card_id)).expect("expected a card in hand");
     context.execute(PlayMonsterCardValidAction::new(Position::Attack));
 }

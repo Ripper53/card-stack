@@ -1,7 +1,7 @@
 use card_game::{
     cards::CardID,
-    identifications::{ActivePlayer, PlayerID},
-    validation::{StateFilter, ValidAction},
+    identifications::{ActivePlayer, PlayerID, ValidCardID, ValidPlayerID},
+    validation::{Condition, StateFilter, ValidAction},
     zones::{ArrayZone, Zone},
 };
 
@@ -10,7 +10,7 @@ use crate::{
     cards::monster::{MonsterCard, Position},
     filters::{CardIn, For, Free, In, MonsterSlot, OfType, With},
     steps::MainStep,
-    zones::{hand::HandZone, monster::MonsterZone},
+    zones::{SlotID, hand::HandZone, monster::MonsterZone},
 };
 
 pub struct PlayMonsterCardValidAction {
@@ -22,22 +22,19 @@ impl PlayMonsterCardValidAction {
     }
 }
 
-impl ValidAction<MainStep> for PlayMonsterCardValidAction {
+impl ValidAction<MainStep, (PlayerID, CardID)> for PlayMonsterCardValidAction {
     type Filter = (
-        With<(Free<MonsterSlot>, In<MonsterZone>)>,
-        With<MonsterSlot>,
+        Condition<(PlayerID, CardID), CardIn<HandZone>>,
+        Condition<(ValidPlayerID<()>, ValidCardID<CardIn<HandZone>>), CardIn<HandZone>>,
+        Condition<(ValidPlayerID<()>, ValidCardID<CardIn<HandZone>>), OfType<MonsterCard>>,
+        //With<(Free<MonsterSlot>, In<MonsterZone>)>,
+        //For<ActivePlayer>,
     );
-    /*type Filter = (
-        CardIn<HandZone>,
-        OfType<MonsterCard>,
-        With<(Free<MonsterSlot>, In<MonsterZone>)>,
-        For<ActivePlayer>,
-    );*/
     type Output = MainStep;
     fn with_valid_input(
         self,
         mut state: MainStep,
-        _: <Self::Filter as StateFilter<MainStep>>::ValidOutput,
+        _: <Self::Filter as StateFilter<MainStep, (PlayerID, CardID)>>::ValidOutput,
         /*(valid_player_id, valid_card_id, slot_index): <Self::Filter as StateFilter<
             MainStep,
         >>::ValidOutput,*/

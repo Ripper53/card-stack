@@ -1,7 +1,7 @@
 use card_game::{
     identifications::{PlayerID, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
-    validation::{StateFilter, StateFilterInput},
+    validation::{StateFilter, StateFilterInputConversion},
     zones::Zone,
 };
 
@@ -15,20 +15,20 @@ use crate::{
 
 pub struct With<T>(std::marker::PhantomData<T>);
 
-impl<State: GetState<Game>, Z: GetZone> StateFilter<State> for With<(Free<MonsterSlot>, In<Z>)> {
-    type Input = (PlayerID, SlotID);
-    type ValidOutput = (ValidPlayerID<()>, SlotID);
-    fn filter(state: &State, _: Self::Input) -> Option<Self::ValidOutput> {
+impl<State: GetState<Game>, Z: GetZone> StateFilter<State, PlayerID>
+    for With<(Free<MonsterSlot>, In<Z>)>
+{
+    type ValidOutput = ValidPlayerID<()>;
+    fn filter(state: &State, _: PlayerID) -> Option<Self::ValidOutput> {
         //ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_index)
         //.map(|valid_slot_id| (valid_player_id, c, valid_slot_id))
         None
     }
 }
 
-impl<State: GetState<Game>> StateFilter<State> for With<MonsterSlot> {
-    type Input = SlotID;
+impl<State: GetState<Game>> StateFilter<State, SlotID> for With<MonsterSlot> {
     type ValidOutput = ValidSlotID<Free<MonsterSlot>>;
-    fn filter(state: &State, valid_player_id: Self::Input) -> Option<Self::ValidOutput> {
+    fn filter(state: &State, valid_player_id: SlotID) -> Option<Self::ValidOutput> {
         //ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_index)
         //.map(|valid_slot_id| (valid_player_id, c, valid_slot_id))
         None

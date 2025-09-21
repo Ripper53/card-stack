@@ -1,5 +1,6 @@
 use crate::{cards::CardID, create_valid_identification, identifications::PlayerID, zones::Zone};
 
+use crate as card_game;
 create_valid_identification!(ValidCardID, CardID);
 impl<F> ValidCardID<F> {
     pub(crate) fn new(card_id: CardID) -> Self {

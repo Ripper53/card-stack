@@ -57,8 +57,6 @@ impl Zone for HandZone {
 }
 impl GetZone for HandZone {
     fn get_zone<'a, F>(game: &'a crate::Game, valid_player_id: &'a ValidPlayerID<F>) -> &'a Self {
-        game.zone_manager()
-            .get_valid_zone(valid_player_id)
-            .hand_zone()
+        game.zone_manager().valid_zone(valid_player_id).hand_zone()
     }
 }

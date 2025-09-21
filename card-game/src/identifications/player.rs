@@ -1,15 +1,18 @@
 use std::collections::HashMap;
 
+use crate::validation::StateFilterInput;
 use crate::{create_valid_identification, validation::StateFilter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerID(usize);
+impl StateFilterInput for PlayerID {}
 impl PlayerID {
     fn next_player_id(&self, max_players: usize) -> Self {
         PlayerID((self.0 + 1) % max_players)
     }
 }
 
+use crate as card_game;
 create_valid_identification!(ValidPlayerID, PlayerID);
 impl<F> ValidPlayerID<F> {
     pub(crate) fn new(player_id: PlayerID) -> Self {

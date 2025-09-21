@@ -125,6 +125,6 @@ impl GetZone for MonsterZone {
         game: &'a crate::Game,
         player_id: &'a card_game::identifications::ValidPlayerID<F>,
     ) -> &'a Self {
-        &game.zone_manager().get_valid_zone(player_id).monster_zone
+        &game.zone_manager().valid_zone(player_id).monster_zone
     }
 }

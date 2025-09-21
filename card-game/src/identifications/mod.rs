@@ -9,6 +9,7 @@ macro_rules! create_valid_identification {
     ($name: ident, $internal_id: ty) => {
         #[derive(Debug)]
         pub struct $name<F>($internal_id, ::std::marker::PhantomData<(F, *const ())>);
+        impl<F> card_game::validation::StateFilterInput for $name<F> {}
         impl<F> $name<F> {
             pub fn id(&self) -> $internal_id {
                 self.0

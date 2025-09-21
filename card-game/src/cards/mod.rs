@@ -1,6 +1,8 @@
 mod manager;
 pub use manager::*;
 
+use crate::validation::StateFilterInput;
+
 pub struct Card<Kind> {
     id: CardID,
     kind: Kind,
@@ -17,6 +19,7 @@ impl<Kind> Card<Kind> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
+impl StateFilterInput for CardID {}
 impl CardID {
     pub(crate) const fn new(id: usize) -> Self {
         CardID(id)

@@ -30,7 +30,7 @@ impl<Z: Zones> ZoneManager<Z> {
     pub fn get_zone(&self, player_id: PlayerID) -> Option<&Z> {
         self.zones.get(&player_id)
     }
-    pub fn get_valid_zone<F>(&self, valid_player_id: &ValidPlayerID<F>) -> &Z {
+    pub fn valid_zone<F>(&self, valid_player_id: &ValidPlayerID<F>) -> &Z {
         self.get_zone(valid_player_id.id()).unwrap()
     }
     pub fn get_zone_mut(&mut self, player_id: PlayerID) -> Option<&mut Z> {
@@ -47,10 +47,7 @@ pub trait Zone: Sized {
     fn player_id(&self) -> PlayerID;
     fn filled_count(&self) -> usize;
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>>;
-    fn get_valid_card(
-        &self,
-        valid_card_id: &ValidCardID<Self::CardFilter>,
-    ) -> &Card<Self::CardKind> {
+    fn valid_card(&self, valid_card_id: &ValidCardID<Self::CardFilter>) -> &Card<Self::CardKind> {
         self.get_card(valid_card_id.id()).unwrap()
     }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>>;
