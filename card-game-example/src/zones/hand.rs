@@ -28,7 +28,7 @@ impl FiniteZone for HandZone {
         10
     }
     fn add_card_unchecked(&mut self, card: Card<Self::CardKind>) {
-        self.cards.insert(card.id(), card).unwrap();
+        let _ = self.cards.insert(card.id(), card);
     }
 }
 impl ArrayZone for HandZone {

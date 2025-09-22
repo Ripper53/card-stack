@@ -6,6 +6,18 @@ pub mod monster;
 pub mod spell;
 
 pub enum CardKind {
-    Monster(Card<MonsterCard>),
-    Spell(Card<SpellCard>),
+    Monster(MonsterCard),
+    Spell(SpellCard),
+}
+
+impl From<MonsterCard> for CardKind {
+    fn from(card: MonsterCard) -> Self {
+        CardKind::Monster(card)
+    }
+}
+
+impl From<SpellCard> for CardKind {
+    fn from(spell: SpellCard) -> Self {
+        CardKind::Spell(spell)
+    }
 }

@@ -15,6 +15,15 @@ impl<Kind> Card<Kind> {
     pub fn kind(&self) -> &Kind {
         &self.kind
     }
+    pub fn into_kind<NewKind>(self) -> Card<NewKind>
+    where
+        Kind: Into<NewKind>,
+    {
+        Card {
+            id: self.id,
+            kind: self.kind.into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

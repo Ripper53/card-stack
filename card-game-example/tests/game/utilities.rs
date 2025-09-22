@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use card_game::{
     CardGameBuilder,
     cards::{Card, CardManager},
-    identifications::PlayerManager,
+    identifications::{PlayerID, PlayerManager},
+    zones::FiniteZone,
 };
 use card_game_example::{
     Game,
@@ -30,7 +31,15 @@ impl<'a, const PLAYER_COUNT: usize> CardGameBuilder for GameBuilder<'a, PLAYER_C
             players
         };
         let card_builder = card_manager.builder();
-        card_builder.build(MonsterCard::new());
-        Game::new(PlayerManager::new(players))
+        let mut game = Game::new(PlayerManager::new(players));
+        for valid_player_id in game.player_manager().players().collect::<Vec<_>>() {
+            let card = card_builder.build(MonsterCard::new());
+            game.zone_manager_mut()
+                .valid_zone_mut(valid_player_id)
+                .hand_zone_mut()
+                .add_card(card.into_kind())
+                .unwrap();
+        }
+        game
     }
 }

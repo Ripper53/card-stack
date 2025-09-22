@@ -26,6 +26,7 @@ impl ValidAction<MainStep, (PlayerID, CardID)> for PlayMonsterCardValidAction {
     type Filter = (
         Condition<(PlayerID, CardID), CardIn<HandZone>>,
         Condition<(ValidPlayerID<()>, ValidCardID<CardIn<HandZone>>), CardIn<HandZone>>,
+        Condition<(ValidPlayerID<()>, ValidCardID<CardIn<HandZone>>), CardIn<HandZone>>,
         Condition<(ValidPlayerID<()>, ValidCardID<CardIn<HandZone>>), OfType<MonsterCard>>,
         //With<(Free<MonsterSlot>, In<MonsterZone>)>,
         //For<ActivePlayer>,

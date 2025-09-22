@@ -57,6 +57,12 @@ impl<P> PlayerManager<P> {
     pub fn player_count(&self) -> usize {
         self.players.len()
     }
+    pub fn players(&self) -> impl Iterator<Item = ValidPlayerID<()>> {
+        self.players
+            .keys()
+            .copied()
+            .map(|player_id| ValidPlayerID::new(player_id))
+    }
 }
 
 pub struct PlayerIDBuilder {

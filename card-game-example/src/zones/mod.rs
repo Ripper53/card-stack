@@ -30,6 +30,9 @@ impl Zones {
     pub fn hand_zone(&self) -> &HandZone {
         &self.hand_zone
     }
+    pub fn hand_zone_mut(&mut self) -> &mut HandZone {
+        &mut self.hand_zone
+    }
 }
 
 impl card_game::zones::Zones for Zones {

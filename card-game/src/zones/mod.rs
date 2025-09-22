@@ -36,7 +36,7 @@ impl<Z: Zones> ZoneManager<Z> {
     pub fn get_zone_mut(&mut self, player_id: PlayerID) -> Option<&mut Z> {
         self.zones.get_mut(&player_id)
     }
-    pub fn get_valid_zone_mut<F>(&mut self, valid_player_id: ValidPlayerID<F>) -> &mut Z {
+    pub fn valid_zone_mut<F>(&mut self, valid_player_id: ValidPlayerID<F>) -> &mut Z {
         self.get_zone_mut(valid_player_id.id()).unwrap()
     }
 }
