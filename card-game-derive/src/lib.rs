@@ -1,7 +1,12 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use syn::{Data, DeriveInput, Ident, parse_macro_input, spanned::Spanned};
+use proc_macro2::{Literal, Span, TokenTree};
+use quote::format_ident;
+use syn::{
+    Data, DeriveInput, Ident, Index, Type, parse::Parse, parse_macro_input, spanned::Spanned,
+    token::Comma,
+};
 
 #[proc_macro_derive(SuperCommand)]
 pub fn super_command(input: TokenStream) -> TokenStream {
@@ -81,4 +86,181 @@ pub fn super_command(input: TokenStream) -> TokenStream {
         }
     }
     .into()
+}
+
+#[proc_macro_derive(StateFilterInput)]
+pub fn state_filter_input(input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as DeriveInput);
+    let name = &ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+    let mut generics_1 = ast.generics.clone();
+    generics_1
+        .params
+        .push(syn::GenericParam::Type(syn::TypeParam {
+            attrs: Vec::new(),
+            ident: Ident::new("T", Span::call_site()),
+            colon_token: None,
+            bounds: syn::punctuated::Punctuated::new(),
+            eq_token: None,
+            default: None,
+        }));
+    let (impl_generics_1, _ty_generics_1, _where_clause_1) = generics_1.split_for_impl();
+    let mut generics_2 = ast.generics.clone();
+    generics_2
+        .params
+        .push(syn::GenericParam::Type(syn::TypeParam {
+            attrs: Vec::new(),
+            ident: Ident::new("T0", Span::call_site()),
+            colon_token: None,
+            bounds: syn::punctuated::Punctuated::new(),
+            eq_token: None,
+            default: None,
+        }));
+    generics_2
+        .params
+        .push(syn::GenericParam::Type(syn::TypeParam {
+            attrs: Vec::new(),
+            ident: Ident::new("T1", Span::call_site()),
+            colon_token: None,
+            bounds: syn::punctuated::Punctuated::new(),
+            eq_token: None,
+            default: None,
+        }));
+    let (impl_generics_2, _ty_generics_2, _where_clause_2) = generics_2.split_for_impl();
+    quote::quote! {
+        impl #impl_generics card_game::validation::StateFilterInput for #name #ty_generics {}
+        /*impl #impl_generics_1 card_game::validation::StateFilterInputConversion<#name #ty_generics> for (#name #ty_generics, T) #where_clause {
+            type Remainder = (T,);
+            fn combine(input: #name #ty_generics, remainder: Self::Remainder) -> Self {
+                (input, remainder.0)
+            }
+            fn split_take(self) -> (#name #ty_generics, Self::Remainder) {
+                (self.0, (self.1,))
+            }
+        }
+        impl #impl_generics_2 card_game::validation::StateFilterInputConversion<#name #ty_generics> for (#name #ty_generics, T0, T1) #where_clause {
+            type Remainder = (T0, T1);
+            fn combine(input: #name #ty_generics, remainder: Self::Remainder) -> Self {
+                (input, remainder.0, remainder.1)
+            }
+            fn split_take(self) -> (#name #ty_generics, Self::Remainder) {
+                (self.0, (self.1, self.2))
+            }
+        }
+        impl #impl_generics_2 card_game::validation::StateFilterInputConversion<(#name #ty_generics, T0)> for (#name #ty_generics, T0, T1) #where_clause {
+            type Remainder = (T1,);
+            fn combine(input: (#name #ty_generics, T0), remainder: Self::Remainder) -> Self {
+                (input.0, input.1, remainder.0)
+            }
+            fn split_take(self) -> ((#name #ty_generics, T0), Self::Remainder) {
+                ((self.0, self.1), (self.2,))
+            }
+        }*/
+        /*impl #impl_generics_1 card_game::validation::StateFilterInputConversion<T> for (#name #ty_generics, T) #where_clause {
+            type Remainder = (#name #ty_generics,);
+            fn combine(input: T, remainder: Self::Remainder) -> Self {
+                (remainder.0, input)
+            }
+            fn split_take(self) -> (T, Self::Remainder) {
+                (self.0, (self.1,))
+            }
+        }*/
+        /*impl #impl_generics_2 card_game::validation::StateFilterInputConversion<(#name #ty_generics, T0)> for (#name #ty_generics, T0, T1) #where_clause {
+            type Remainder = (T1,);
+            fn combine(input: (#name #ty_generics, T0), remainder: Self::Remainder) -> Self {
+                (input.0, input.1, remainder.0)
+            }
+            fn split_take(self) -> ((#name #ty_generics, T0), Self::Remainder) {
+                ((self.0, self.1), (self.2,))
+            }
+        }*/
+        /*impl #impl_generics_2 card_game::validation::StateFilterInputConversion<(T0, T1)> for (T0, #name #ty_generics, T1) #where_clause {
+            type Remainder = (#name #ty_generics,);
+            fn combine(input: (T0, T1), remainder: Self::Remainder) -> Self {
+                (input.0, remainder.0, input.1)
+            }
+            fn split_take(self) -> ((T0, T1), Self::Remainder) {
+                ((self.0, self.2), (self.1,))
+            }
+        }
+        impl #impl_generics_2 card_game::validation::StateFilterInputConversion<(T0, T1)> for (#name #ty_generics, T0, T1) #where_clause {
+            type Remainder = (#name #ty_generics,);
+            fn combine(input: (T0, T1), remainder: Self::Remainder) -> Self {
+                (remainder.0, input.0, input.1)
+            }
+            fn split_take(self) -> ((T0, T1), Self::Remainder) {
+                ((self.1, self.2), (self.0,))
+            }
+        }*/
+    }
+    .into()
+}
+
+struct StateFilterInputs {
+    input_name: Ident,
+    all_types: Vec<Type>,
+}
+
+impl Parse for StateFilterInputs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let input_name = input.parse::<Ident>()?;
+        input.parse::<Comma>()?;
+
+        let mut all_types = vec![input.parse::<Type>()?];
+        while input.parse::<Comma>().is_ok() {
+            all_types.push(input.parse::<Type>()?);
+        }
+
+        Ok(StateFilterInputs {
+            input_name,
+            all_types,
+        })
+    }
+}
+
+#[proc_macro]
+pub fn impl_state_filter_inputs(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as StateFilterInputs);
+    let input_name = input.input_name;
+    let mut all_types = input.all_types;
+    let mut input = Vec::with_capacity(all_types.len());
+    let mut input_index = Vec::with_capacity(all_types.len());
+    let mut tuples = Vec::with_capacity(all_types.len());
+    let mut tuple_indexes = Vec::with_capacity(all_types.len());
+    let mut remainder_tuples = Vec::with_capacity(all_types.len());
+    for rotate_i in 0..all_types.len() {
+        all_types.rotate_right(rotate_i);
+        for (i, ty_0) in all_types.iter().enumerate() {
+            input.push(ty_0.clone());
+            let i_name = Index::from(i);
+            input_index.push(quote::quote!(self.#i_name));
+            let mut tys = Vec::with_capacity(all_types.len());
+            let mut tuple_i = Vec::with_capacity(all_types.len() - 1);
+            let mut remainders = Vec::with_capacity(all_types.len() - 1);
+            for (i_1, ty_1) in all_types.iter().enumerate() {
+                tys.push(ty_1);
+                if i_1 != i {
+                    tuple_i.push(Index::from(i_1));
+                    remainders.push(ty_1);
+                }
+            }
+            remainder_tuples.push(quote::quote!((#(#remainders),*)));
+            tuple_indexes.push(quote::quote!((#(self.#tuple_i),*)));
+            tuples.push(quote::quote!((#(#tys),*)));
+        }
+    }
+    quote::quote! {
+        pub struct #input_name<T: card_game::validation::StateFilterInput>(T);
+        impl<T: card_game::validation::StateFilterInput> card_game::validation::StateFilterInput for #input_name<T> {}
+
+        #(
+            impl card_game::validation::StateFilterInputConversion<#input> for #input_name<#tuples>
+            {
+                type Remainder = #remainder_tuples;
+                fn split_take(self) -> (#input, Self::Remainder) {
+                    (#input_index, #tuple_indexes)
+                }
+            }
+        )*
+    }.into()
 }

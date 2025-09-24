@@ -1,4 +1,5 @@
 mod manager;
+use card_game_derive::{StateFilterInput, impl_state_filter_inputs};
 pub use manager::*;
 
 use crate::validation::StateFilterInput;
@@ -9,11 +10,17 @@ pub struct Card<Kind> {
 }
 
 impl<Kind> Card<Kind> {
+    pub fn new(card_id: CardID, kind: Kind) -> Self {
+        Card { id: card_id, kind }
+    }
     pub fn id(&self) -> CardID {
         self.id
     }
     pub fn kind(&self) -> &Kind {
         &self.kind
+    }
+    pub fn take_kind(self) -> Kind {
+        self.kind
     }
     pub fn into_kind<NewKind>(self) -> Card<NewKind>
     where
@@ -26,9 +33,9 @@ impl<Kind> Card<Kind> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+use crate as card_game;
+#[derive(StateFilterInput, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
-impl StateFilterInput for CardID {}
 impl CardID {
     pub(crate) const fn new(id: usize) -> Self {
         CardID(id)
@@ -54,6 +61,6 @@ impl CardBuilder {
     pub fn build<Kind>(&mut self, kind: Kind) -> Card<Kind> {
         let id = CardID::new(self.next_id);
         self.next_id += 1;
-        Card { id, kind }
+        Card::new(id, kind)
     }
 }

@@ -1,3 +1,3 @@
-use crate::validation::StateFilter;
+use crate::validation::StateFilterInput;
 
-pub struct Condition<Input, Filter>(std::marker::PhantomData<(Input, Filter)>);
+pub struct Condition<Input: StateFilterInput, Filter>(std::marker::PhantomData<(Input, Filter)>);

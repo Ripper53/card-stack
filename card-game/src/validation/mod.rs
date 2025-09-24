@@ -5,13 +5,15 @@ pub use actions::*;
 pub use condition::*;
 pub use state_filter::*;
 
-pub struct Validator<State, Input, Filter: StateFilter<State, Input>> {
+pub struct Validator<State, Input: StateFilterInput, Filter: StateFilter<State, Input>> {
     state: State,
     value: Filter::ValidOutput,
     _p: std::marker::PhantomData<(Input, Filter)>,
 }
 
-impl<State, Input, Filter: StateFilter<State, Input>> Validator<State, Input, Filter> {
+impl<State, Input: StateFilterInput, Filter: StateFilter<State, Input>>
+    Validator<State, Input, Filter>
+{
     pub fn try_new(state: State, input: Input) -> Option<Self> {
         let value = Filter::filter(&state, input)?;
         Some(Validator {

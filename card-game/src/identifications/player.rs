@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use crate::validation::StateFilterInput;
+use crate::identifications::ValidCardID;
+use crate::validation::{StateFilterInput, StateFilterInputConversion};
 use crate::{create_valid_identification, validation::StateFilter};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -14,6 +15,14 @@ impl PlayerID {
 
 use crate as card_game;
 create_valid_identification!(ValidPlayerID, PlayerID);
+impl<F0, F1, T> StateFilterInputConversion<(ValidPlayerID<F0>, ValidCardID<F1>)>
+    for (ValidPlayerID<F0>, ValidCardID<F1>, T)
+{
+    type Remainder = (T,);
+    fn split_take(self) -> ((ValidPlayerID<F0>, ValidCardID<F1>), Self::Remainder) {
+        ((self.0, self.1), (self.2,))
+    }
+}
 impl<F> ValidPlayerID<F> {
     pub(crate) fn new(player_id: PlayerID) -> Self {
         ValidPlayerID(player_id, std::marker::PhantomData::default())
