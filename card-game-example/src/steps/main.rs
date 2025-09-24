@@ -14,11 +14,23 @@ use crate::{
 
 pub struct MainStep {
     pub(crate) game: Game,
+    available_normal_summons: usize,
 }
 
 impl MainStep {
     pub(crate) fn new(game: Game) -> Self {
-        MainStep { game }
+        MainStep {
+            game,
+            available_normal_summons: 1,
+        }
+    }
+    pub fn use_normal_summon(&mut self) -> bool {
+        if self.available_normal_summons == 0 {
+            false
+        } else {
+            self.available_normal_summons -= 1;
+            true
+        }
     }
 }
 

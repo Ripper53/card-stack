@@ -7,7 +7,10 @@ use card_game::{
 
 use crate::{
     Game,
-    cards::{CardKind, monster::MonsterCard},
+    cards::{
+        CardKind,
+        monster::{MonsterCard, MonsterCardType},
+    },
     filters::{CardIn, FilterInput},
     steps::MainStep,
     zones::hand::HandZone,
@@ -33,7 +36,7 @@ impl<State: GetState<Game>, F>
             .valid_zone(&valid_player_id)
             .hand_zone()
             .valid_card(&valid_card_id);
-        if matches!(card.kind(), CardKind::Monster(_)) {
+        if matches!(card.kind(), CardKind::Monster(MonsterCardType::Monster(_))) {
             Some(FilterInput((
                 valid_player_id,
                 valid_card_id.unchecked_replace_filter(),

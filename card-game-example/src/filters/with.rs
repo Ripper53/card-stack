@@ -1,5 +1,5 @@
 use card_game::{
-    identifications::{PlayerID, ValidCardID, ValidPlayerID},
+    identifications::{CastTo, PlayerID, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
     validation::{StateFilter, StateFilterInputConversion},
     zones::Zone,
@@ -7,7 +7,10 @@ use card_game::{
 
 use crate::{
     Game,
-    cards::monster::MonsterCard,
+    cards::{
+        CardKind,
+        monster::{MonsterCard, MonsterCardType},
+    },
     filters::{CardIn, FilterInput, Free, In, MonsterSlot, OfType},
     identifications::ValidSlotID,
     zones::{GetZone, SlotID, hand::HandZone},
@@ -26,6 +29,46 @@ impl<State: GetState<Game>, Z: GetZone, F>
     ) -> Option<Self::ValidOutput> {
         ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_id)
             .map(|valid_slot_id| FilterInput((valid_player_id, valid_slot_id)))
+    }
+}
+
+pub struct EqualOrLowerThan<T>(std::marker::PhantomData<T>);
+pub struct Level<const LEVEL: usize>;
+
+impl<State: GetState<Game>, F, const LEVEL: usize>
+    StateFilter<
+        State,
+        FilterInput<(
+            ValidPlayerID<F>,
+            ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
+        )>,
+    > for With<EqualOrLowerThan<Level<LEVEL>>>
+{
+    type ValidOutput = (
+        ValidPlayerID<F>,
+        ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>, Self)>,
+    );
+    fn filter(
+        state: &State,
+        FilterInput((valid_player_id, valid_card_id)): FilterInput<(
+            ValidPlayerID<F>,
+            ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
+        )>,
+    ) -> Option<Self::ValidOutput> {
+        let card = state
+            .state()
+            .zone_manager()
+            .valid_zone(&valid_player_id)
+            .hand_zone
+            .valid_card(&valid_card_id.cast_ref());
+        let CardKind::Monster(MonsterCardType::Monster(monster)) = card.kind() else {
+            unreachable!();
+        };
+        if monster.level() > crate::cards::monster::Level::new(LEVEL) {
+            None
+        } else {
+            Some((valid_player_id, valid_card_id.unchecked_replace_filter()))
+        }
     }
 }
 

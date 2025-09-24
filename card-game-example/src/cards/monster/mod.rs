@@ -36,6 +36,7 @@ pub struct MonsterCard {
     attack: Attack,
     defense: Defense,
 }
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Level(usize);
 impl Level {
     pub fn new(level: usize) -> Self {
@@ -63,6 +64,9 @@ impl MonsterCard {
             attack: power,
             defense,
         }
+    }
+    pub fn level(&self) -> Level {
+        self.level
     }
 }
 

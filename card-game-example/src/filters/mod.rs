@@ -126,3 +126,17 @@ impl<F> StateFilterInputConversion<FilterInput<(ValidPlayerID<F>, CardID)>>
         (FilterInput((self.0.0, self.0.1)), FilterInput(self.0.2))
     }
 }
+
+/*impl<F0, F1> StateFilterInputConversion<FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>)>>
+    for FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, SlotID)>
+{
+    type Remainder = FilterInput<SlotID>;
+    fn split_take(
+        self,
+    ) -> (
+        FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>)>,
+        Self::Remainder,
+    ) {
+        (FilterInput((self.0, self.1)), FilterInput(self.2))
+    }
+}*/

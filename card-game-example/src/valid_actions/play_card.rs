@@ -8,27 +8,38 @@ use card_game::{
 use crate::{
     Game,
     cards::monster::{MonsterCard, MonsterZoneCard, Position},
-    filters::{CardIn, FilterInput, For, Free, In, MonsterSlot, OfType, With},
+    filters::{
+        CardIn, EqualOrLowerThan, FilterInput, For, Free, In, Level, MonsterSlot, OfType, With,
+    },
     steps::MainStep,
     zones::{SlotID, hand::HandZone, monster::MonsterZone},
 };
 
-pub struct PlayMonsterCardValidAction {
+pub struct NormalSummonMonsterValidAction {
     position: Position,
 }
-impl PlayMonsterCardValidAction {
+impl NormalSummonMonsterValidAction {
     pub fn new(position: Position) -> Self {
-        PlayMonsterCardValidAction { position }
+        NormalSummonMonsterValidAction { position }
     }
 }
 
-impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>> for PlayMonsterCardValidAction {
+impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>>
+    for NormalSummonMonsterValidAction
+{
     type Filter = (
         Condition<FilterInput<PlayerID>, For<ActivePlayer>>,
         Condition<FilterInput<(ValidPlayerID<ActivePlayer>, CardID)>, CardIn<HandZone>>,
         Condition<
             FilterInput<(ValidPlayerID<ActivePlayer>, ValidCardID<CardIn<HandZone>>)>,
             OfType<MonsterCard>,
+        >,
+        Condition<
+            FilterInput<(
+                ValidPlayerID<ActivePlayer>,
+                ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
+            )>,
+            With<EqualOrLowerThan<Level<4>>>,
         >,
         Condition<
             FilterInput<(ValidPlayerID<ActivePlayer>, SlotID)>,
@@ -44,11 +55,16 @@ impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>> for PlayMons
             FilterInput<(PlayerID, CardID, SlotID)>,
         >>::ValidOutput,
     ) -> Self::Output {
+        if !state.use_normal_summon() {
+            return state;
+        }
         let zones = state
             .game
             .zone_manager_mut()
             .valid_zone_mut(valid_player_id);
-        let card = zones.hand_zone_mut().remove_monster_card(valid_card_id);
+        let card = zones
+            .hand_zone_mut()
+            .remove_monster_card(valid_card_id.into());
         let card_id = card.id();
         let card = MonsterZoneCard::new(card.take_kind().into(), self.position);
         let _ = zones

@@ -1,6 +1,9 @@
 use card_game::cards::Card;
 
-use crate::cards::{monster::MonsterCard, spell::SpellCard};
+use crate::cards::{
+    monster::{MonsterCard, MonsterCardType},
+    spell::SpellCard,
+};
 
 pub mod monster;
 pub mod specifics;
@@ -16,13 +19,18 @@ impl Name {
 }
 
 pub enum CardKind {
-    Monster(MonsterCard),
+    Monster(MonsterCardType),
     Spell(SpellCard),
 }
 
+impl From<MonsterCardType> for CardKind {
+    fn from(card: MonsterCardType) -> Self {
+        CardKind::Monster(card)
+    }
+}
 impl From<MonsterCard> for CardKind {
     fn from(card: MonsterCard) -> Self {
-        CardKind::Monster(card)
+        CardKind::Monster(MonsterCardType::Monster(card))
     }
 }
 

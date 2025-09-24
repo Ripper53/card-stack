@@ -8,7 +8,10 @@ use card_game::{
 use indexmap::IndexMap;
 
 use crate::{
-    cards::{CardKind, monster::MonsterCard},
+    cards::{
+        CardKind,
+        monster::{MonsterCard, MonsterCardType},
+    },
     filters::{CardIn, OfType},
     zones::GetZone,
 };
@@ -47,10 +50,10 @@ impl HandZone {
     ) -> Card<MonsterCard> {
         let card = zone_card_id.remove(|id| self.cards.remove(&id.id()));
         let id = card.id();
-        if let CardKind::Monster(monster_card) = card.take_kind() {
+        if let CardKind::Monster(MonsterCardType::Monster(monster_card)) = card.take_kind() {
             Card::new(id, monster_card)
         } else {
-            panic!("expected monster card");
+            unreachable!();
         }
     }
 }

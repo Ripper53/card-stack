@@ -4,6 +4,10 @@ mod player;
 pub use card::*;
 pub use player::*;
 
+pub trait CastTo<T> {
+    fn cast_ref(&self) -> &T;
+}
+
 #[macro_export]
 macro_rules! create_valid_identification {
     ($name: ident, $internal_id: ty) => {
@@ -82,6 +86,28 @@ macro_rules! create_valid_identification {
         {
             fn from(valid_id: $name<(F0, F1, F2, F3, F4, F5, F6, F7)>) -> Self {
                 Self(valid_id.0, ::std::marker::PhantomData::default())
+            }
+        }
+        impl<F0, F1> card_game::identifications::CastTo<$name<F0>> for $name<(F0, F1)> {
+            fn cast_ref(&self) -> &$name<F0> {
+                // SAFETY: only type changing the phantom type
+                unsafe { ::std::mem::transmute(self) }
+            }
+        }
+        impl<F0, F1, F2> card_game::identifications::CastTo<$name<(F0, F1)>>
+            for $name<(F0, F1, F2)>
+        {
+            fn cast_ref(&self) -> &$name<(F0, F1)> {
+                // SAFETY: only type changing the phantom type
+                unsafe { ::std::mem::transmute(self) }
+            }
+        }
+        impl<F0, F1, F2, F3> card_game::identifications::CastTo<$name<(F0, F1, F2)>>
+            for $name<(F0, F1, F2, F3)>
+        {
+            fn cast_ref(&self) -> &$name<(F0, F1, F2)> {
+                // SAFETY: only type changing the phantom type
+                unsafe { ::std::mem::transmute(self) }
             }
         }
 
