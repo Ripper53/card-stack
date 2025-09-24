@@ -8,14 +8,7 @@ use card_game::{
 };
 use card_game_example::{
     Game,
-    cards::{
-        CardKind,
-        monster::MonsterCard,
-        specifics::{
-            BlueEyesWhiteDestinyConstructedDeck,
-            blue_eyes_white_destiny::BlueEyesWhiteDestinyConstructedDeck,
-        },
-    },
+    cards::{CardKind, monster::MonsterCard, specifics::BlueEyesWhiteDestinyConstructedDeck},
     player::Player,
 };
 

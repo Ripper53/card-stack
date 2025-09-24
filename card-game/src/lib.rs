@@ -110,6 +110,7 @@
 #[cfg(feature = "derive")]
 pub use card_game_derive::*;
 pub use card_stack as stack;
+pub use variadics_please;
 
 use crate::{
     cards::{CardBuilder, CardManager},

@@ -1,7 +1,8 @@
 use card_game::{
     StateFilterInput,
     identifications::{PlayerID, ValidPlayerID},
-    validation::StateFilterInput,
+    impl_state_filter_combination,
+    validation::{StateFilterCombination, StateFilterInput},
     zones::Zone,
 };
 
@@ -63,3 +64,4 @@ impl SlotID {
         self.0
     }
 }
+impl_state_filter_combination!(SlotID, 1, 8, T);

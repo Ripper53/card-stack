@@ -4,8 +4,8 @@ use proc_macro::TokenStream;
 use proc_macro2::{Literal, Span, TokenTree};
 use quote::format_ident;
 use syn::{
-    Data, DeriveInput, Ident, Index, Type, parse::Parse, parse_macro_input, spanned::Spanned,
-    token::Comma,
+    Data, DeriveInput, Ident, Index, LitInt, Type, parse::Parse, parse_macro_input,
+    spanned::Spanned, token::Comma,
 };
 
 #[proc_macro_derive(SuperCommand)]
@@ -263,4 +263,57 @@ pub fn impl_state_filter_inputs(input: TokenStream) -> TokenStream {
             }
         )*
     }.into()
+}
+
+struct StateFilterCombination {
+    name: Ident,
+    start: LitInt,
+    end: LitInt,
+    generic: Ident,
+}
+
+impl Parse for StateFilterCombination {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let name = input.parse::<Ident>()?;
+        input.parse::<Comma>()?;
+
+        let start = input.parse::<LitInt>()?;
+        input.parse::<Comma>()?;
+
+        let end = input.parse::<LitInt>()?;
+        input.parse::<Comma>()?;
+
+        let generic = input.parse::<Ident>()?;
+
+        Ok(StateFilterCombination {
+            name,
+            start,
+            end,
+            generic,
+        })
+    }
+}
+
+#[proc_macro]
+pub fn impl_state_filter_combination(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as StateFilterCombination);
+    let name = input.name;
+    let macro_name = format_ident!("impl_state_filter_combination_for_{name}");
+    let start = input.start;
+    let end = input.end;
+    let generic = input.generic;
+    quote::quote! {
+        macro_rules! #macro_name {
+            ($(($i: tt, $t: ident)),*) => {
+                impl<$($t,)*> card_game::validation::StateFilterCombination<($($t,)*)> for #name {
+                    type Combined = ($($t,)* Self);
+                    fn combine(self, value: ($($t,)*)) -> Self::Combined {
+                        ($(value.$i,)* self)
+                    }
+                }
+            };
+        }
+        card_game::variadics_please::all_tuples_enumerated!(#macro_name, #start, #end, #generic);
+    }
+    .into()
 }

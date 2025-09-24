@@ -11,7 +11,7 @@ use card_game::{
 use card_game_example::{
     Game,
     cards::monster::{MonsterCard, Position},
-    filters::{CardIn, OfType},
+    filters::{CardIn, FilterInput, OfType},
     player::Player,
     steps::{MainStep, StartStep},
     valid_actions::PlayMonsterCardValidAction,
@@ -35,7 +35,7 @@ fn game() {
         .unwrap()
         .id();
     let player_id = player_id.id();
-    let context = Validator::try_new(main, (player_id, card_id, SlotID::new(0)))
+    let context = Validator::try_new(main, FilterInput((player_id, card_id, SlotID::new(0))))
         .expect("expected a card in hand");
     context.execute(PlayMonsterCardValidAction::new(Position::Attack));
 }

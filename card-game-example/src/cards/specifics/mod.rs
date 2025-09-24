@@ -1,1 +1,2 @@
-pub mod blue_eyes_white_destiny;
+mod blue_eyes_white_destiny;
+pub use blue_eyes_white_destiny::*;
