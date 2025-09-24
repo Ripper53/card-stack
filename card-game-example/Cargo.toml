@@ -7,3 +7,4 @@ edition = "2024"
 card-game = { path = "../card-game" }
 indexmap = "2.10.0"
 thiserror = "2.0.14"
+variadics_please = "1.1.0"

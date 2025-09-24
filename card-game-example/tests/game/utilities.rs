@@ -8,7 +8,14 @@ use card_game::{
 };
 use card_game_example::{
     Game,
-    cards::{CardKind, monster::MonsterCard},
+    cards::{
+        CardKind,
+        monster::MonsterCard,
+        specifics::{
+            BlueEyesWhiteDestinyConstructedDeck,
+            blue_eyes_white_destiny::BlueEyesWhiteDestinyConstructedDeck,
+        },
+    },
     player::Player,
 };
 
@@ -33,7 +40,7 @@ impl<'a, const PLAYER_COUNT: usize> CardGameBuilder for GameBuilder<'a, PLAYER_C
         let card_builder = card_manager.builder();
         let mut game = Game::new(PlayerManager::new(players));
         for valid_player_id in game.player_manager().players().collect::<Vec<_>>() {
-            let card = card_builder.build(MonsterCard::new());
+            let card = card_builder.blue_eyes_white_dragon();
             game.zone_manager_mut()
                 .valid_zone_mut(valid_player_id)
                 .hand_zone_mut()

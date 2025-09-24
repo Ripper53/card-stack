@@ -2,21 +2,21 @@ use card_game::{create_valid_identification, identifications::ValidPlayerID, zon
 
 use crate::{
     Game,
-    zones::{GetZone, Zones},
+    zones::{GetZone, SlotID, Zones},
 };
 
-create_valid_identification!(ValidSlotID, usize);
+create_valid_identification!(ValidSlotID, SlotID);
 impl<F> ValidSlotID<F> {
     pub fn try_new<Z: GetZone, F0>(
         game: &Game,
         valid_player_id: &ValidPlayerID<F0>,
-        slot_index: usize,
+        slot_id: SlotID,
     ) -> Option<Self> {
         if Z::get_zone(game, valid_player_id)
-            .get_card_from_index(slot_index)
+            .get_card_from_index(slot_id.index())
             .is_none()
         {
-            Some(ValidSlotID(slot_index, std::marker::PhantomData::default()))
+            Some(ValidSlotID(slot_id, std::marker::PhantomData::default()))
         } else {
             None
         }

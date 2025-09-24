@@ -8,20 +8,24 @@ use card_game::{
 use crate::{
     Game,
     cards::{CardKind, monster::MonsterCard},
-    filters::CardIn,
+    filters::{CardIn, FilterInput},
     steps::MainStep,
     zones::hand::HandZone,
 };
 
 pub struct OfType<T>(std::marker::PhantomData<T>);
 
-impl<State: GetState<Game>, F> StateFilter<State, (ValidPlayerID<F>, ValidCardID<CardIn<HandZone>>)>
+impl<State: GetState<Game>, F>
+    StateFilter<State, FilterInput<(ValidPlayerID<F>, ValidCardID<CardIn<HandZone>>)>>
     for OfType<MonsterCard>
 {
     type ValidOutput = (ValidPlayerID<F>, ValidCardID<(CardIn<HandZone>, Self)>);
     fn filter(
         state: &State,
-        (valid_player_id, valid_card_id): (ValidPlayerID<F>, ValidCardID<CardIn<HandZone>>),
+        FilterInput((valid_player_id, valid_card_id)): FilterInput<(
+            ValidPlayerID<F>,
+            ValidCardID<CardIn<HandZone>>,
+        )>,
     ) -> Option<Self::ValidOutput> {
         let card = state
             .state()

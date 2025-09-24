@@ -1,5 +1,7 @@
 use card_game::{
+    StateFilterInput,
     identifications::{PlayerID, ValidPlayerID},
+    validation::StateFilterInput,
     zones::Zone,
 };
 
@@ -51,10 +53,13 @@ pub trait GetZone: Zone<CardFilter = CardIn<Self>> {
     fn get_zone<'a, F>(game: &'a Game, player_id: &'a ValidPlayerID<F>) -> &'a Self;
 }
 
-#[derive(Debug)]
+#[derive(StateFilterInput, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct SlotID(usize);
 impl SlotID {
     pub fn new(id: usize) -> Self {
         SlotID(id)
+    }
+    pub fn index(&self) -> usize {
+        self.0
     }
 }

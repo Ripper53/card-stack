@@ -1,0 +1,73 @@
+use card_game::cards::{Card, CardBuilder};
+
+use crate::cards::{
+    Name,
+    monster::{
+        Attack, Defense, FusionMonsterCard, Level, LinkMonsterCard, MonsterCard, RitualMonsterCard,
+        SynchroMonsterCard, XyzMonsterCard,
+    },
+    spell::SpellCard,
+    trap::TrapCard,
+};
+
+pub trait BlueEyesWhiteDestinyConstructedDeck {
+    fn blue_eyes_white_dragon(&mut self) -> Card<MonsterCard>;
+    fn neo_kaiser_sea_horse(&mut self) -> Card<MonsterCard>;
+    /*fn blue_eyes_alternative_white_dragon(&mut self) -> Card<MonsterCard>;
+    fn blue_eyes_jet_dragon(&mut self) -> Card<MonsterCard>;
+    fn blue_eyes_abyss_dragon(&mut self) -> Card<MonsterCard>;
+    fn dragon_spirit_of_white(&mut self) -> Card<MonsterCard>;
+    fn blue_eyes_chaos_max_dragon(&mut self) -> Card<RitualMonsterCard>;
+    fn blue_eyes_chaos_dragon(&mut self) -> Card<RitualMonsterCard>;
+    fn the_white_stone_of_legend(&mut self) -> Card<MonsterCard>;
+    fn the_white_stone_of_ancients(&mut self) -> Card<MonsterCard>;
+    fn sage_with_eyes_of_blue(&mut self) -> Card<MonsterCard>;
+    fn master_with_eyes_of_blue(&mut self) -> Card<MonsterCard>;
+    fn dictator_of_d(&mut self) -> Card<MonsterCard>;
+    fn nibiru_the_primal_being(&mut self) -> Card<MonsterCard>;
+    fn ash_blossom_and_joyous_spring(&mut self) -> Card<MonsterCard>;
+    fn effect_veiler(&mut self) -> Card<MonsterCard>;
+    fn roar_of_the_blue_eyed_dragons(&mut self) -> Card<SpellCard>;
+    fn chaos_form(&mut self) -> Card<SpellCard>;
+    fn ultimate_fusion(&mut self) -> Card<SpellCard>;
+    fn the_melody_of_awakening_dragon(&mut self) -> Card<SpellCard>;
+    fn mausoleum_of_white(&mut self) -> Card<SpellCard>;
+    fn burst_stream_of_destruction(&mut self) -> Card<SpellCard>;
+    fn trade_in(&mut self) -> Card<SpellCard>;
+    fn called_by_the_grave(&mut self) -> Card<SpellCard>;
+    fn majesty_of_the_white_dragon(&mut self) -> Card<TrapCard>;
+    fn true_light(&mut self) -> Card<TrapCard>;
+    fn the_ultimate_creature_of_destruction(&mut self) -> Card<TrapCard>;
+    fn infinite_imperpanence(&mut self) -> Card<TrapCard>;
+    fn indigo_eyes_silver_dragon(&mut self) -> Card<XyzMonsterCard>;
+    fn spirit_with_eyes_of_blue(&mut self) -> Card<LinkMonsterCard>;
+    fn blue_eyes_ultimate_dragon(&mut self) -> Card<FusionMonsterCard>;
+    fn neo_blue_eyes_ultimate_dragon(&mut self) -> Card<FusionMonsterCard>;
+    fn blue_eyes_twin_burst_dragon(&mut self) -> Card<FusionMonsterCard>;
+    fn blue_eyes_tyrant_dragon(&mut self) -> Card<FusionMonsterCard>;
+    fn blue_eyes_spirit_dragon(&mut self) -> Card<SynchroMonsterCard>;
+    fn azure_eyes_silver_dragon(&mut self) -> Card<SynchroMonsterCard>;
+    fn hieratic_seal_of_the_heavenly_spheres(&mut self) -> Card<LinkMonsterCard>;
+    fn maiden_of_white(&mut self) -> Card<MonsterCard>;
+    fn wishes_for_eyes_of_blue(&mut self) -> Card<SpellCard>;
+    fn blue_eyes_ultimate_spirit_dragon(&mut self) -> Card<SynchroMonsterCard>;*/
+}
+
+impl BlueEyesWhiteDestinyConstructedDeck for CardBuilder {
+    fn blue_eyes_white_dragon(&mut self) -> Card<MonsterCard> {
+        self.build(MonsterCard::new(
+            Name::new("Blue-Eyes White Dragon".into()),
+            Level::new(8),
+            Attack::new(3000),
+            Defense::new(2500),
+        ))
+    }
+    fn neo_kaiser_sea_horse(&mut self) -> Card<MonsterCard> {
+        self.build(MonsterCard::new(
+            Name::new("Neo Kaiser Sea Horse".into()),
+            Level::new(4),
+            Attack::new(1700),
+            Defense::new(1650),
+        ))
+    }
+}

@@ -5,9 +5,13 @@ use card_game::{
     identifications::{PlayerID, ValidCardID, ValidPlayerID},
     zones::{ArrayZone, FiniteZone, InfiniteZone, Zone},
 };
-use indexmap::{IndexMap, map::Slice};
+use indexmap::IndexMap;
 
-use crate::{cards::CardKind, filters::CardIn, zones::GetZone};
+use crate::{
+    cards::{CardKind, monster::MonsterCard},
+    filters::{CardIn, OfType},
+    zones::GetZone,
+};
 
 pub struct HandZone {
     player_id: PlayerID,
@@ -34,6 +38,20 @@ impl FiniteZone for HandZone {
 impl ArrayZone for HandZone {
     fn remove_card(&mut self, zone_card_id: ValidCardID<CardIn<Self>>) -> Card<Self::CardKind> {
         zone_card_id.remove(|id| self.cards.remove(&id.id()))
+    }
+}
+impl HandZone {
+    pub fn remove_monster_card(
+        &mut self,
+        zone_card_id: ValidCardID<CardIn<(Self, OfType<MonsterCard>)>>,
+    ) -> Card<MonsterCard> {
+        let card = zone_card_id.remove(|id| self.cards.remove(&id.id()));
+        let id = card.id();
+        if let CardKind::Monster(monster_card) = card.take_kind() {
+            Card::new(id, monster_card)
+        } else {
+            panic!("expected monster card");
+        }
     }
 }
 impl Zone for HandZone {
