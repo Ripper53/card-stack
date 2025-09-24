@@ -20,7 +20,7 @@ pub use of_type::*;
 pub use slot::*;
 pub use with::*;
 
-use crate::zones::SlotID;
+use crate::{identifications::ValidSlotID, zones::SlotID};
 
 #[derive(StateFilterInput)]
 pub struct FilterInput<T>(pub T);
@@ -34,6 +34,19 @@ impl StateFilterInputConversion<FilterInput<(PlayerID, CardID)>>
     }
 }
 
+impl<T> StateFilterCombination<T> for FilterInput<T> {
+    type Combined = Self;
+    fn combine(self, value: T) -> Self::Combined {
+        FilterInput(value)
+    }
+}
+impl<T> StateFilterCombination<FilterInput<T>> for FilterInput<T> {
+    type Combined = Self;
+    fn combine(self, value: FilterInput<T>) -> Self::Combined {
+        value
+    }
+}
+
 impl<F0, F1> StateFilterCombination<(ValidPlayerID<F0>, ValidCardID<F1>)> for FilterInput<SlotID> {
     type Combined = FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, SlotID)>;
     fn combine(self, value: (ValidPlayerID<F0>, ValidCardID<F1>)) -> Self::Combined {
@@ -41,23 +54,75 @@ impl<F0, F1> StateFilterCombination<(ValidPlayerID<F0>, ValidCardID<F1>)> for Fi
     }
 }
 
+impl<F0, F1> StateFilterInputConversion<FilterInput<(ValidPlayerID<F0>, SlotID)>>
+    for FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, SlotID)>
+{
+    type Remainder = FilterInput<ValidCardID<F1>>;
+    fn split_take(self) -> (FilterInput<(ValidPlayerID<F0>, SlotID)>, Self::Remainder) {
+        (FilterInput((self.0.0, self.0.2)), FilterInput(self.0.1))
+    }
+}
+
+impl<F0, F1> StateFilterCombination<FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>)>>
+    for FilterInput<SlotID>
+{
+    type Combined = FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, SlotID)>;
+    fn combine(self, value: FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>)>) -> Self::Combined {
+        FilterInput((value.0.0, value.0.1, self.0))
+    }
+}
+
+impl<F0, F1, F2> StateFilterCombination<FilterInput<(ValidPlayerID<F0>, ValidSlotID<F2>)>>
+    for FilterInput<ValidCardID<F1>>
+{
+    type Combined = FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, ValidSlotID<F2>)>;
+    fn combine(self, value: FilterInput<(ValidPlayerID<F0>, ValidSlotID<F2>)>) -> Self::Combined {
+        FilterInput((value.0.0, self.0, value.0.1))
+    }
+}
+
+impl StateFilterInputConversion<FilterInput<PlayerID>> for FilterInput<(PlayerID, CardID, SlotID)> {
+    type Remainder = FilterInput<(CardID, SlotID)>;
+    fn split_take(self) -> (FilterInput<PlayerID>, Self::Remainder) {
+        (FilterInput(self.0.0), FilterInput((self.0.1, self.0.2)))
+    }
+}
+
+impl<F> StateFilterCombination<ValidPlayerID<F>> for FilterInput<(CardID, SlotID)> {
+    type Combined = FilterInput<(ValidPlayerID<F>, CardID, SlotID)>;
+    fn combine(self, value: ValidPlayerID<F>) -> Self::Combined {
+        FilterInput((value, self.0.0, self.0.1))
+    }
+}
+
 impl<F0, F1> StateFilterInputConversion<FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>)>>
     for FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, SlotID)>
 {
-    type Remainder = SlotID;
+    type Remainder = FilterInput<SlotID>;
     fn split_take(
         self,
     ) -> (
         FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>)>,
         Self::Remainder,
     ) {
-        (FilterInput((self.0.0, self.0.1)), self.0.2)
+        (FilterInput((self.0.0, self.0.1)), FilterInput(self.0.2))
     }
 }
 
-impl<T> StateFilterCombination<T> for FilterInput<T> {
-    type Combined = Self;
-    fn combine(self, value: T) -> Self::Combined {
-        FilterInput(value)
+impl<F0, F1> StateFilterInputConversion<(ValidPlayerID<F0>, SlotID)>
+    for FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, SlotID)>
+{
+    type Remainder = FilterInput<ValidCardID<F1>>;
+    fn split_take(self) -> ((ValidPlayerID<F0>, SlotID), Self::Remainder) {
+        ((self.0.0, self.0.2), FilterInput(self.0.1))
+    }
+}
+
+impl<F> StateFilterInputConversion<FilterInput<(ValidPlayerID<F>, CardID)>>
+    for FilterInput<(ValidPlayerID<F>, CardID, SlotID)>
+{
+    type Remainder = FilterInput<SlotID>;
+    fn split_take(self) -> (FilterInput<(ValidPlayerID<F>, CardID)>, Self::Remainder) {
+        (FilterInput((self.0.0, self.0.1)), FilterInput(self.0.2))
     }
 }

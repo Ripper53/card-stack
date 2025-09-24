@@ -19,7 +19,7 @@ impl<State: GetState<Game>, F>
     StateFilter<State, FilterInput<(ValidPlayerID<F>, ValidCardID<CardIn<HandZone>>)>>
     for OfType<MonsterCard>
 {
-    type ValidOutput = (ValidPlayerID<F>, ValidCardID<(CardIn<HandZone>, Self)>);
+    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidCardID<(CardIn<HandZone>, Self)>)>;
     fn filter(
         state: &State,
         FilterInput((valid_player_id, valid_card_id)): FilterInput<(
@@ -34,7 +34,10 @@ impl<State: GetState<Game>, F>
             .hand_zone()
             .valid_card(&valid_card_id);
         if matches!(card.kind(), CardKind::Monster(_)) {
-            Some((valid_player_id, valid_card_id.unchecked_replace_filter()))
+            Some(FilterInput((
+                valid_player_id,
+                valid_card_id.unchecked_replace_filter(),
+            )))
         } else {
             None
         }

@@ -11,6 +11,25 @@ pub use xyz::*;
 
 use crate::cards::Name;
 
+pub enum MonsterCardType {
+    Monster(MonsterCard),
+    Special(SpecialMonsterCardType),
+}
+
+impl From<MonsterCard> for MonsterCardType {
+    fn from(monster_card: MonsterCard) -> Self {
+        MonsterCardType::Monster(monster_card)
+    }
+}
+
+pub enum SpecialMonsterCardType {
+    Fusion(FusionMonsterCard),
+    Ritual(RitualMonsterCard),
+    Synchro(SynchroMonsterCard),
+    Xyz(XyzMonsterCard),
+    Link(LinkMonsterCard),
+}
+
 pub struct MonsterCard {
     name: Name,
     level: Level,
@@ -48,7 +67,12 @@ impl MonsterCard {
 }
 
 pub struct MonsterZoneCard {
-    monster_card: MonsterCard,
+    monster_card: MonsterCardType,
+    position: Position,
+}
+
+pub struct SpecialMonsterZoneCard {
+    monster_card: SpecialMonsterCardType,
     position: Position,
 }
 
@@ -59,7 +83,7 @@ pub enum Position {
 }
 
 impl MonsterZoneCard {
-    pub fn new(monster_card: MonsterCard, position: Position) -> Self {
+    pub fn new(monster_card: MonsterCardType, position: Position) -> Self {
         MonsterZoneCard {
             monster_card,
             position,

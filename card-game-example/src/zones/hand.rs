@@ -43,7 +43,7 @@ impl ArrayZone for HandZone {
 impl HandZone {
     pub fn remove_monster_card(
         &mut self,
-        zone_card_id: ValidCardID<CardIn<(Self, OfType<MonsterCard>)>>,
+        zone_card_id: ValidCardID<(CardIn<Self>, OfType<MonsterCard>)>,
     ) -> Card<MonsterCard> {
         let card = zone_card_id.remove(|id| self.cards.remove(&id.id()));
         let id = card.id();

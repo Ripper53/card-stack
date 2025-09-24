@@ -21,4 +21,7 @@ impl<F> ValidSlotID<F> {
             None
         }
     }
+    pub fn index(&self) -> usize {
+        self.0.index()
+    }
 }

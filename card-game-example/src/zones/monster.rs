@@ -5,10 +5,16 @@ use card_game::{
     zones::{Slot, SlotZone, Zone},
 };
 
-use crate::{cards::monster::MonsterZoneCard, filters::CardIn, zones::GetZone};
+use crate::{
+    cards::monster::{MonsterZoneCard, SpecialMonsterZoneCard},
+    filters::CardIn,
+    identifications::ValidSlotID,
+    zones::GetZone,
+};
 
 pub struct MonsterZone {
     player_id: PlayerID,
+    special_slot: Slot<SpecialMonsterZoneCard>,
     slot_a: Slot<MonsterZoneCard>,
     slot_b: Slot<MonsterZoneCard>,
     slot_c: Slot<MonsterZoneCard>,
@@ -20,12 +26,16 @@ impl MonsterZone {
     pub fn new(player_id: PlayerID) -> Self {
         MonsterZone {
             player_id,
+            special_slot: Slot::new(),
             slot_a: Slot::new(),
             slot_b: Slot::new(),
             slot_c: Slot::new(),
             slot_d: Slot::new(),
             slot_e: Slot::new(),
         }
+    }
+    pub fn special_slot(&self) -> &Slot<SpecialMonsterZoneCard> {
+        &self.special_slot
     }
     pub fn slot_a(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_a
@@ -42,6 +52,9 @@ impl MonsterZone {
     pub fn slot_e(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_e
     }
+    pub fn special_slot_mut(&mut self) -> &mut Slot<SpecialMonsterZoneCard> {
+        &mut self.special_slot
+    }
     pub fn slot_a_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_a
     }
@@ -56,6 +69,16 @@ impl MonsterZone {
     }
     pub fn slot_e_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_e
+    }
+    pub fn valid_slot<F>(&mut self, slot_id: ValidSlotID<F>) -> &mut Slot<MonsterZoneCard> {
+        match slot_id.index() {
+            0 => &mut self.slot_a,
+            1 => &mut self.slot_b,
+            2 => &mut self.slot_c,
+            3 => &mut self.slot_d,
+            4 => &mut self.slot_e,
+            _ => unreachable!(),
+        }
     }
 }
 

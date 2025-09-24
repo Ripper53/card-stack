@@ -4,15 +4,18 @@ use card_game::{
     validation::StateFilter,
 };
 
-use crate::Game;
+use crate::{Game, filters::FilterInput};
 
 pub struct For<F>(std::marker::PhantomData<F>);
 
-impl<State: GetState<Game>> StateFilter<State, ValidPlayerID<()>> for For<ActivePlayer> {
+impl<State: GetState<Game>> StateFilter<State, FilterInput<PlayerID>> for For<ActivePlayer> {
     type ValidOutput = ValidPlayerID<ActivePlayer>;
-    fn filter(state: &State, valid_player_id: ValidPlayerID<()>) -> Option<Self::ValidOutput> {
+    fn filter(
+        state: &State,
+        FilterInput(player_id): FilterInput<PlayerID>,
+    ) -> Option<Self::ValidOutput> {
         let active_player_id = state.state().player_manager().active_player_id();
-        if active_player_id.id() == valid_player_id.id() {
+        if active_player_id.id() == player_id {
             Some(active_player_id)
         } else {
             None
