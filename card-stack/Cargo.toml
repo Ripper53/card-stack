@@ -3,6 +3,8 @@ name = "card-stack"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+authors = ["Albar <albarjob@gmail.com>"]
+exclude = [".gitignore"]
 
 [dependencies]
 thiserror = "2.0.14"
