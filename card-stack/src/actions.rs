@@ -7,15 +7,6 @@ pub trait ActionSource: Send + Sync + Sized {
     /// Where this action originates from.
     type Source: Send + Sync;
 }
-/// To be replaced with `!` never value when stabilized.
-#[derive(Debug)]
-pub struct NeverError;
-impl std::error::Error for NeverError {}
-impl std::fmt::Display for NeverError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "this error should be impossible to reach")
-    }
-}
 /// An action that must be put on an empty stack.
 ///
 /// **NOTE:** if it implements `StackAction` in addition to this trait,

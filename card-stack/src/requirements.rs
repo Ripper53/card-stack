@@ -1,5 +1,5 @@
 use crate::{
-    actions::{ActionSource, NeverError},
+    actions::ActionSource,
     priority::{
         IncitingPriority, Priority, PriorityError, PriorityMut, PriorityStack, StackPriority,
     },
@@ -23,7 +23,7 @@ pub trait SatisfyRequirement<Priority>: Send + Sync {
 }
 impl<Priority> SatisfyRequirement<Priority> for () {
     type Value = ();
-    type RequirementError = NeverError;
+    type RequirementError = std::convert::Infallible;
     fn satisfy(
         &self,
         _priority: &Priority,
@@ -97,7 +97,7 @@ pub trait ActionRequirement<Priority, Action: crate::actions::ActionSource>: Sen
 }
 impl<Priority, Action: crate::actions::ActionSource> ActionRequirement<Priority, Action> for () {
     type Satisfy = ();
-    type RequirementError = NeverError;
+    type RequirementError = std::convert::Infallible;
     fn can_satisfy(
         &self,
         priority: Priority,
