@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 authors = ["Albar <albarjob@gmail.com>"]
+description = "The Stack for card games"
 exclude = [".gitignore"]
 
 [dependencies]
