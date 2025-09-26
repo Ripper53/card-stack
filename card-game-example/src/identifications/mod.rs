@@ -11,17 +11,20 @@ impl<F> ValidSlotID<F> {
         game: &Game,
         valid_player_id: &ValidPlayerID<F0>,
         slot_id: SlotID,
-    ) -> Option<Self> {
+    ) -> Result<Self, SlotDoesNotExistError> {
         if Z::get_zone(game, valid_player_id)
             .get_card_from_index(slot_id.index())
             .is_none()
         {
-            Some(ValidSlotID(slot_id, std::marker::PhantomData::default()))
+            Ok(ValidSlotID(slot_id, std::marker::PhantomData::default()))
         } else {
-            None
+            Err(SlotDoesNotExistError(slot_id))
         }
     }
     pub fn index(&self) -> usize {
         self.0.index()
     }
 }
+#[derive(thiserror::Error, Debug)]
+#[error("slot {0} does not exist")]
+pub struct SlotDoesNotExistError(SlotID);

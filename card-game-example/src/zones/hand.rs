@@ -13,7 +13,7 @@ use crate::{
         monster::{MonsterCard, MonsterCardType},
     },
     filters::{CardIn, OfType},
-    zones::GetZone,
+    zones::{ContainsMonsterCards, GetZone},
 };
 
 pub struct HandZone {
@@ -43,8 +43,13 @@ impl ArrayZone for HandZone {
         zone_card_id.remove(|id| self.cards.remove(&id.id()))
     }
 }
-impl HandZone {
-    pub fn remove_monster_card(
+impl ContainsMonsterCards for HandZone {
+    fn get_zone_mut<'a, F>(game: &'a mut crate::Game, player_id: ValidPlayerID<F>) -> &'a mut Self {
+        game.zone_manager_mut()
+            .valid_zone_mut(player_id)
+            .hand_zone_mut()
+    }
+    fn remove_monster_card(
         &mut self,
         zone_card_id: ValidCardID<(CardIn<Self>, OfType<MonsterCard>)>,
     ) -> Card<MonsterCard> {

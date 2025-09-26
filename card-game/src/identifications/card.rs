@@ -8,14 +8,17 @@ impl<F> ValidCardID<F> {
     }
 }
 pub trait GetValidCardIDFromZone<Z: Zone>: Sized {
-    fn try_new(card_id: CardID, zone: &Z) -> Option<Self>;
+    fn try_new(card_id: CardID, zone: &Z) -> Result<Self, CardDoesNotExist>;
 }
 impl<Z: Zone> GetValidCardIDFromZone<Z> for ValidCardID<Z::CardFilter> {
-    fn try_new(card_id: CardID, zone: &Z) -> Option<Self> {
+    fn try_new(card_id: CardID, zone: &Z) -> Result<Self, CardDoesNotExist> {
         if zone.get_card(card_id).is_some() {
-            Some(ValidCardID(card_id, std::marker::PhantomData::default()))
+            Ok(ValidCardID::new(card_id))
         } else {
-            None
+            Err(CardDoesNotExist(card_id))
         }
     }
 }
+#[derive(thiserror::Error, Debug)]
+#[error("card {0} does not exist")]
+pub struct CardDoesNotExist(pub CardID);

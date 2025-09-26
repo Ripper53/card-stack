@@ -12,6 +12,11 @@ impl PlayerID {
         PlayerID((self.0 + 1) % max_players)
     }
 }
+impl std::fmt::Display for PlayerID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 use crate as card_game;
 create_valid_identification!(ValidPlayerID, PlayerID);
@@ -29,17 +34,23 @@ impl<F> ValidPlayerID<F> {
     }
 }
 impl<F> ValidPlayerID<F> {
-    pub fn try_new<P>(player_manager: &PlayerManager<P>, player_id: PlayerID) -> Option<Self> {
+    pub fn try_new<P>(
+        player_manager: &PlayerManager<P>,
+        player_id: PlayerID,
+    ) -> Result<Self, PlayerDoesNotExist> {
         if player_manager.players.contains_key(&player_id) {
-            Some(ValidPlayerID(
+            Ok(ValidPlayerID(
                 player_id,
                 std::marker::PhantomData::default(),
             ))
         } else {
-            None
+            Err(PlayerDoesNotExist(player_id))
         }
     }
 }
+#[derive(thiserror::Error, Debug)]
+#[error("player {0} does not exist")]
+pub struct PlayerDoesNotExist(PlayerID);
 #[derive(Debug)]
 pub struct ActivePlayer;
 

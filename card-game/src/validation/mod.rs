@@ -14,9 +14,9 @@ pub struct Validator<State, Input: StateFilterInput, Filter: StateFilter<State, 
 impl<State, Input: StateFilterInput, Filter: StateFilter<State, Input>>
     Validator<State, Input, Filter>
 {
-    pub fn try_new(state: State, input: Input) -> Option<Self> {
+    pub fn try_new(state: State, input: Input) -> Result<Self, Filter::Error> {
         let value = Filter::filter(&state, input)?;
-        Some(Validator {
+        Ok(Validator {
             state,
             value,
             _p: std::marker::PhantomData::default(),

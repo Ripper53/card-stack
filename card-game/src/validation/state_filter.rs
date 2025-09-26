@@ -2,7 +2,8 @@ use crate::validation::Condition;
 
 pub trait StateFilter<State, Input: StateFilterInput>: Sized {
     type ValidOutput;
-    fn filter(state: &State, value: Input) -> Option<Self::ValidOutput>;
+    type Error: std::error::Error;
+    fn filter(state: &State, value: Input) -> Result<Self::ValidOutput, Self::Error>;
 }
 impl<
     State,
@@ -28,15 +29,25 @@ where
         F0::ValidOutput,
         >>::Combined as StateFilterInputConversion<Input1>>::Remainder as
         StateFilterCombination<F1::ValidOutput>>::Combined;
-    fn filter(state: &State, value: InitialInput) -> Option<Self::ValidOutput> {
+    type Error = StateFilterTwoChainError<F0::Error, F1::Error>;
+    fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
         let (input, remainder) = value.split_take();
         F0::filter(state, input)
             .map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterTwoChainError::Filter0(e))
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F1::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterTwoChainError::Filter1(e))
             })
     }
+}
+#[derive(thiserror::Error, Debug)]
+pub enum StateFilterTwoChainError<E0: std::error::Error, E1: std::error::Error> {
+    #[error(transparent)]
+    Filter0(E0),
+    #[error(transparent)]
+    Filter1(E1),
 }
 impl<
     State,
@@ -85,19 +96,32 @@ where
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
         StateFilterCombination<F2::ValidOutput>>::Combined
     ;
-    fn filter(state: &State, value: InitialInput) -> Option<Self::ValidOutput> {
+    type Error = StateFilterThreeChainError<F0::Error, F1::Error, F2::Error>;
+    fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
         let (input, remainder) = value.split_take();
         F0::filter(state, input)
             .map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterThreeChainError::Filter0(e))
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F1::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterThreeChainError::Filter1(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F2::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterThreeChainError::Filter2(e))
             })
     }
+}
+#[derive(thiserror::Error, Debug)]
+pub enum StateFilterThreeChainError<E0: std::error::Error, E1: std::error::Error, E2: std::error::Error> {
+    #[error(transparent)]
+    Filter0(E0),
+    #[error(transparent)]
+    Filter1(E1),
+    #[error(transparent)]
+    Filter2(E2),
 }
 impl<
     State,
@@ -164,23 +188,39 @@ where
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
         StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined
     ;
-    fn filter(state: &State, value: InitialInput) -> Option<Self::ValidOutput> {
+    type Error = StateFilterFourChainError<F0::Error, F1::Error, F2::Error, F3::Error>;
+    fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
         let (input, remainder) = value.split_take();
         F0::filter(state, input)
             .map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterFourChainError::Filter0(e))
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F1::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterFourChainError::Filter1(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F2::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterFourChainError::Filter2(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F3::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterFourChainError::Filter3(e))
             })
     }
+}
+#[derive(thiserror::Error, Debug)]
+pub enum StateFilterFourChainError<E0: std::error::Error, E1: std::error::Error, E2: std::error::Error, E3: std::error::Error> {
+    #[error(transparent)]
+    Filter0(E0),
+    #[error(transparent)]
+    Filter1(E1),
+    #[error(transparent)]
+    Filter2(E2),
+    #[error(transparent)]
+    Filter3(E3),
 }
 impl<
     State,
@@ -264,27 +304,46 @@ where
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
         StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined
     ;
-    fn filter(state: &State, value: InitialInput) -> Option<Self::ValidOutput> {
+    type Error = StateFilterFiveChainError<F0::Error, F1::Error, F2::Error, F3::Error, F4::Error>;
+    fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
         let (input, remainder) = value.split_take();
         F0::filter(state, input)
             .map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterFiveChainError::Filter0(e))
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F1::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterFiveChainError::Filter1(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F2::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterFiveChainError::Filter2(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F3::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterFiveChainError::Filter3(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F4::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterFiveChainError::Filter4(e))
             })
     }
+}
+#[derive(thiserror::Error, Debug)]
+pub enum StateFilterFiveChainError<E0: std::error::Error, E1: std::error::Error, E2: std::error::Error, E3: std::error::Error, E4: std::error::Error> {
+    #[error(transparent)]
+    Filter0(E0),
+    #[error(transparent)]
+    Filter1(E1),
+    #[error(transparent)]
+    Filter2(E2),
+    #[error(transparent)]
+    Filter3(E3),
+    #[error(transparent)]
+    Filter4(E4),
 }
 impl<
     State,
@@ -385,31 +444,53 @@ where
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
         StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined
     ;
-    fn filter(state: &State, value: InitialInput) -> Option<Self::ValidOutput> {
+    type Error = StateFilterSixChainError<F0::Error, F1::Error, F2::Error, F3::Error, F4::Error, F5::Error>;
+    fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
         let (input, remainder) = value.split_take();
         F0::filter(state, input)
             .map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSixChainError::Filter0(e))
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F1::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSixChainError::Filter1(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F2::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSixChainError::Filter2(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F3::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSixChainError::Filter3(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F4::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSixChainError::Filter4(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F5::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSixChainError::Filter5(e))
             })
     }
+}
+#[derive(thiserror::Error, Debug)]
+pub enum StateFilterSixChainError<E0: std::error::Error, E1: std::error::Error, E2: std::error::Error, E3: std::error::Error, E4: std::error::Error, E5: std::error::Error> {
+    #[error(transparent)]
+    Filter0(E0),
+    #[error(transparent)]
+    Filter1(E1),
+    #[error(transparent)]
+    Filter2(E2),
+    #[error(transparent)]
+    Filter3(E3),
+    #[error(transparent)]
+    Filter4(E4),
+    #[error(transparent)]
+    Filter5(E5),
 }
 impl<
     State,
@@ -527,35 +608,60 @@ where
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
         StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterCombination<F6::ValidOutput>>::Combined
     ;
-    fn filter(state: &State, value: InitialInput) -> Option<Self::ValidOutput> {
+    type Error = StateFilterSevenChainError<F0::Error, F1::Error, F2::Error, F3::Error, F4::Error, F5::Error, F6::Error>;
+    fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
         let (input, remainder) = value.split_take();
         F0::filter(state, input)
             .map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSevenChainError::Filter0(e))
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F1::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSevenChainError::Filter1(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F2::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSevenChainError::Filter2(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F3::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSevenChainError::Filter3(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F4::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSevenChainError::Filter4(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F5::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSevenChainError::Filter5(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F6::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterSevenChainError::Filter6(e))
             })
     }
+}
+#[derive(thiserror::Error, Debug)]
+pub enum StateFilterSevenChainError<E0: std::error::Error, E1: std::error::Error, E2: std::error::Error, E3: std::error::Error, E4: std::error::Error, E5: std::error::Error, E6: std::error::Error> {
+    #[error(transparent)]
+    Filter0(E0),
+    #[error(transparent)]
+    Filter1(E1),
+    #[error(transparent)]
+    Filter2(E2),
+    #[error(transparent)]
+    Filter3(E3),
+    #[error(transparent)]
+    Filter4(E4),
+    #[error(transparent)]
+    Filter5(E5),
+    #[error(transparent)]
+    Filter6(E6),
 }
 impl<
     State,
@@ -690,39 +796,67 @@ where
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
         StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterCombination<F6::ValidOutput>>::Combined as StateFilterInputConversion<Input7>>::Remainder as StateFilterCombination<F7::ValidOutput>>::Combined
         ;
-    fn filter(state: &State, value: InitialInput) -> Option<Self::ValidOutput> {
+    type Error = StateFilterEightChainError<F0::Error, F1::Error, F2::Error, F3::Error, F4::Error, F5::Error, F6::Error, F7::Error>;
+    fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
         let (input, remainder) = value.split_take();
         F0::filter(state, input)
             .map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterEightChainError::Filter0(e))
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F1::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterEightChainError::Filter1(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F2::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterEightChainError::Filter2(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F3::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterEightChainError::Filter3(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F4::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterEightChainError::Filter4(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F5::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterEightChainError::Filter5(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F6::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterEightChainError::Filter6(e))
             })
             .and_then(|v| {
                 let (input, remainder) = v.split_take();
                 F7::filter(state, input).map(|v| remainder.combine(v))
+            .map_err(|e| StateFilterEightChainError::Filter7(e))
             })
     }
+}
+#[derive(thiserror::Error, Debug)]
+pub enum StateFilterEightChainError<E0: std::error::Error, E1: std::error::Error, E2: std::error::Error, E3: std::error::Error, E4: std::error::Error, E5: std::error::Error, E6: std::error::Error, E7: std::error::Error> {
+    #[error(transparent)]
+    Filter0(E0),
+    #[error(transparent)]
+    Filter1(E1),
+    #[error(transparent)]
+    Filter2(E2),
+    #[error(transparent)]
+    Filter3(E3),
+    #[error(transparent)]
+    Filter4(E4),
+    #[error(transparent)]
+    Filter5(E5),
+    #[error(transparent)]
+    Filter6(E6),
+    #[error(transparent)]
+    Filter7(E7),
 }
 
 pub trait StateFilterInput {}

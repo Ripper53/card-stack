@@ -38,6 +38,9 @@ macro_rules! create_valid_identification {
             ) -> T {
                 f(self).unwrap()
             }
+            pub fn unchecked_clone(&self) -> Self {
+                $name(self.0, ::std::marker::PhantomData::default())
+            }
         }
         impl<F> ::std::convert::From<$name<F>> for $internal_id {
             fn from(valid_id: $name<F>) -> Self {

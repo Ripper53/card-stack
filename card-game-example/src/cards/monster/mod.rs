@@ -9,11 +9,20 @@ pub use ritual::*;
 pub use synchro::*;
 pub use xyz::*;
 
-use crate::cards::Name;
+use crate::cards::{CardName, Name};
 
 pub enum MonsterCardType {
     Monster(MonsterCard),
     Special(SpecialMonsterCardType),
+}
+
+impl CardName for MonsterCardType {
+    fn name(&self) -> &Name {
+        match self {
+            MonsterCardType::Monster(monster) => monster.name(),
+            MonsterCardType::Special(special_monster) => special_monster.name(),
+        }
+    }
 }
 
 impl From<MonsterCard> for MonsterCardType {
@@ -29,12 +38,22 @@ pub enum SpecialMonsterCardType {
     Xyz(XyzMonsterCard),
     Link(LinkMonsterCard),
 }
+impl CardName for SpecialMonsterCardType {
+    fn name(&self) -> &Name {
+        todo!()
+    }
+}
 
 pub struct MonsterCard {
     name: Name,
     level: Level,
     attack: Attack,
     defense: Defense,
+}
+impl CardName for MonsterCard {
+    fn name(&self) -> &Name {
+        &self.name
+    }
 }
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Level(usize);
@@ -73,6 +92,12 @@ impl MonsterCard {
 pub struct MonsterZoneCard {
     monster_card: MonsterCardType,
     position: Position,
+}
+
+impl CardName for MonsterZoneCard {
+    fn name(&self) -> &Name {
+        self.monster_card.name()
+    }
 }
 
 pub struct SpecialMonsterZoneCard {

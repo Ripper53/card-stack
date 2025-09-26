@@ -1,4 +1,5 @@
 use card_game::{
+    cards::CardID,
     identifications::{ValidCardID, ValidPlayerID},
     stack::priority::GetState,
     validation::StateFilter,
@@ -23,13 +24,14 @@ impl<State: GetState<Game>, F>
     for OfType<MonsterCard>
 {
     type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidCardID<(CardIn<HandZone>, Self)>)>;
+    type Error = CardIsNotMonsterError;
     fn filter(
         state: &State,
         FilterInput((valid_player_id, valid_card_id)): FilterInput<(
             ValidPlayerID<F>,
             ValidCardID<CardIn<HandZone>>,
         )>,
-    ) -> Option<Self::ValidOutput> {
+    ) -> Result<Self::ValidOutput, Self::Error> {
         let card = state
             .state()
             .zone_manager()
@@ -37,12 +39,15 @@ impl<State: GetState<Game>, F>
             .hand_zone()
             .valid_card(&valid_card_id);
         if matches!(card.kind(), CardKind::Monster(MonsterCardType::Monster(_))) {
-            Some(FilterInput((
+            Ok(FilterInput((
                 valid_player_id,
                 valid_card_id.unchecked_replace_filter(),
             )))
         } else {
-            None
+            Err(CardIsNotMonsterError(valid_card_id.id()))
         }
     }
 }
+#[derive(thiserror::Error, Debug)]
+#[error("card {0} does not exist")]
+pub struct CardIsNotMonsterError(CardID);

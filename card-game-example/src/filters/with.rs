@@ -1,4 +1,5 @@
 use card_game::{
+    cards::CardID,
     identifications::{CastTo, PlayerID, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
     validation::{StateFilter, StateFilterInputConversion},
@@ -12,7 +13,7 @@ use crate::{
         monster::{MonsterCard, MonsterCardType},
     },
     filters::{CardIn, FilterInput, Free, In, MonsterSlot, OfType},
-    identifications::ValidSlotID,
+    identifications::{SlotDoesNotExistError, ValidSlotID},
     zones::{GetZone, SlotID, hand::HandZone},
 };
 
@@ -23,10 +24,11 @@ impl<State: GetState<Game>, Z: GetZone, F>
     for With<(Free<MonsterSlot>, In<Z>)>
 {
     type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidSlotID<In<Z>>)>;
+    type Error = SlotDoesNotExistError;
     fn filter(
         state: &State,
         FilterInput((valid_player_id, slot_id)): FilterInput<(ValidPlayerID<F>, SlotID)>,
-    ) -> Option<Self::ValidOutput> {
+    ) -> Result<Self::ValidOutput, Self::Error> {
         ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_id)
             .map(|valid_slot_id| FilterInput((valid_player_id, valid_slot_id)))
     }
@@ -48,13 +50,14 @@ impl<State: GetState<Game>, F, const LEVEL: usize>
         ValidPlayerID<F>,
         ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>, Self)>,
     );
+    type Error = MonsterLevelIsNotEqualOrLessThanError;
     fn filter(
         state: &State,
         FilterInput((valid_player_id, valid_card_id)): FilterInput<(
             ValidPlayerID<F>,
             ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
         )>,
-    ) -> Option<Self::ValidOutput> {
+    ) -> Result<Self::ValidOutput, Self::Error> {
         let card = state
             .state()
             .zone_manager()
@@ -65,11 +68,20 @@ impl<State: GetState<Game>, F, const LEVEL: usize>
             unreachable!();
         };
         if monster.level() > crate::cards::monster::Level::new(LEVEL) {
-            None
+            Err(MonsterLevelIsNotEqualOrLessThanError {
+                card_id: valid_card_id.id(),
+                level: LEVEL,
+            })
         } else {
-            Some((valid_player_id, valid_card_id.unchecked_replace_filter()))
+            Ok((valid_player_id, valid_card_id.unchecked_replace_filter()))
         }
     }
+}
+#[derive(thiserror::Error, Debug)]
+#[error("monster {card_id} level is not equal to or less than {level}")]
+pub struct MonsterLevelIsNotEqualOrLessThanError {
+    card_id: CardID,
+    level: usize,
 }
 
 /*impl<State: GetState<Game>> StateFilter<State, (SlotID,)> for With<MonsterSlot> {

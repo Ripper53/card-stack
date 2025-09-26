@@ -10,11 +10,14 @@ use card_game::{
 };
 use card_game_example::{
     Game,
-    cards::monster::{MonsterCard, Position},
+    cards::{
+        monster::{MonsterCard, Position},
+        specifics::NeoKaiserSeaHorseSpecialSummon,
+    },
     filters::{CardIn, FilterInput, OfType},
     player::Player,
     steps::{MainStep, StartStep},
-    valid_actions::NormalSummonMonsterValidAction,
+    valid_actions::{NormalSummonMonsterValidAction, SpecialSummonValidAction},
     zones::{SlotID, hand::HandZone},
 };
 
@@ -37,5 +40,15 @@ fn game() {
     let player_id = player_id.id();
     let context = Validator::try_new(main, FilterInput((player_id, card_id, SlotID::new(0))))
         .expect("expected a card in hand");
-    context.execute(NormalSummonMonsterValidAction::new(Position::Attack));
+    let main = context.execute(NormalSummonMonsterValidAction::new(Position::Attack));
+    let context = Validator::try_new(
+        main,
+        NeoKaiserSeaHorseSpecialSummon {
+            player_id,
+            card_id,
+            slot_id: SlotID::new(0),
+        },
+    )
+    .unwrap();
+    context.execute(SpecialSummonValidAction::new(Position::Attack));
 }

@@ -1,6 +1,7 @@
 use card_game::{
     StateFilterInput,
-    identifications::{PlayerID, ValidPlayerID},
+    cards::Card,
+    identifications::{PlayerID, ValidCardID, ValidPlayerID},
     impl_state_filter_combination,
     validation::{StateFilterCombination, StateFilterInput},
     zones::Zone,
@@ -8,7 +9,8 @@ use card_game::{
 
 use crate::{
     Game,
-    filters::CardIn,
+    cards::monster::MonsterCard,
+    filters::{CardIn, OfType},
     zones::{
         deck::DeckZone, graveyard::GraveyardZone, hand::HandZone, monster::MonsterZone,
         spell::SpellZone,
@@ -53,6 +55,13 @@ impl card_game::zones::Zones for Zones {
 pub trait GetZone: Zone<CardFilter = CardIn<Self>> {
     fn get_zone<'a, F>(game: &'a Game, player_id: &'a ValidPlayerID<F>) -> &'a Self;
 }
+pub trait ContainsMonsterCards: Zone<CardFilter = CardIn<Self>> {
+    fn get_zone_mut<'a, F>(game: &'a mut Game, player_id: ValidPlayerID<F>) -> &'a mut Self;
+    fn remove_monster_card(
+        &mut self,
+        zone_card_id: ValidCardID<(CardIn<Self>, OfType<MonsterCard>)>,
+    ) -> Card<MonsterCard>;
+}
 
 #[derive(StateFilterInput, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct SlotID(usize);
@@ -62,6 +71,11 @@ impl SlotID {
     }
     pub fn index(&self) -> usize {
         self.0
+    }
+}
+impl std::fmt::Display for SlotID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }
 impl_state_filter_combination!(SlotID, 1, 8, T);

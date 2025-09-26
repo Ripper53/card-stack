@@ -1,13 +1,26 @@
-use card_game::cards::{Card, CardBuilder};
+use card_game::{
+    StateFilterInput,
+    cards::{Card, CardBuilder, CardID},
+    identifications::{ActivePlayer, PlayerID, ValidPlayerID},
+    stack::priority::GetState,
+    validation::{Condition, StateFilterInput, StateFilterInputConversion},
+};
 
-use crate::cards::{
-    Name,
-    monster::{
-        Attack, Defense, FusionMonsterCard, Level, LinkMonsterCard, MonsterCard, RitualMonsterCard,
-        SynchroMonsterCard, XyzMonsterCard,
+use crate::{
+    Game,
+    cards::{
+        Name,
+        monster::{
+            Attack, Defense, FusionMonsterCard, Level, LinkMonsterCard, MonsterCard,
+            RitualMonsterCard, SynchroMonsterCard, XyzMonsterCard,
+        },
+        spell::SpellCard,
+        trap::TrapCard,
     },
-    spell::SpellCard,
-    trap::TrapCard,
+    filters::{Any, FilterInput, For, In, StaticName, With},
+    steps::MainStep,
+    valid_actions::SpecialSummonRequirement,
+    zones::{SlotID, hand::HandZone, monster::MonsterZone},
 };
 
 pub trait BlueEyesWhiteDestinyConstructedDeck {
@@ -69,5 +82,49 @@ impl BlueEyesWhiteDestinyConstructedDeck for CardBuilder {
             Attack::new(1700),
             Defense::new(1650),
         ))
+    }
+}
+
+#[derive(StateFilterInput)]
+pub struct NeoKaiserSeaHorseSpecialSummon {
+    pub player_id: PlayerID,
+    pub card_id: CardID,
+    pub slot_id: SlotID,
+}
+impl StateFilterInputConversion<FilterInput<PlayerID>> for NeoKaiserSeaHorseSpecialSummon {
+    type Remainder = FilterInput<(CardID, SlotID)>;
+    fn split_take(self) -> (FilterInput<PlayerID>, Self::Remainder) {
+        (
+            FilterInput(self.player_id),
+            FilterInput((self.card_id, self.slot_id)),
+        )
+    }
+}
+impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
+    type Filter = (
+        Condition<FilterInput<PlayerID>, For<ActivePlayer>>,
+        Condition<
+            FilterInput<ValidPlayerID<ActivePlayer>>,
+            Any<(With<BlueEyesWhiteDragonName>, In<MonsterZone>)>,
+        >,
+    );
+    type Zone = HandZone;
+    fn handle_summon(
+        FilterInput((valid_player_id, card_id, slot_id)): <Self::Filter as card_game::validation::StateFilter<MainStep, Self>>::ValidOutput,
+    ) -> (
+        card_game::identifications::ValidPlayerID<()>,
+        card_game::identifications::ValidCardID<(
+            crate::filters::CardIn<Self::Zone>,
+            crate::filters::OfType<MonsterCard>,
+        )>,
+        crate::identifications::ValidSlotID<crate::filters::In<crate::zones::monster::MonsterZone>>,
+    ) {
+        todo!()
+    }
+}
+pub struct BlueEyesWhiteDragonName;
+impl StaticName for BlueEyesWhiteDragonName {
+    fn name() -> &'static str {
+        "Blue-Eyes White Dragon"
     }
 }
