@@ -3,6 +3,8 @@ name = "card-game-derive"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+authors = ["Albar <albarjob@gmail.com>"]
+description = "Macros for card-game crate"
 
 [lib]
 proc-macro = true
