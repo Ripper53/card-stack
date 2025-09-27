@@ -134,10 +134,6 @@ pub trait CardGameBuilder: Sized {
         generation_data: Self::GenerationData,
     ) -> Self::Game;
     fn new(data: Self::GenerationData) -> Self::Game {
-        Self::generate(
-            PlayerIDBuilder::new(),
-            CardManager::new(CardBuilder::new()),
-            data,
-        )
+        Self::generate(PlayerIDBuilder::new(), CardManager::new(), data)
     }
 }

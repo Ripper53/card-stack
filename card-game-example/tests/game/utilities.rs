@@ -30,10 +30,15 @@ impl<'a, const PLAYER_COUNT: usize> CardGameBuilder for GameBuilder<'a, PLAYER_C
             }
             players
         };
-        let card_builder = card_manager.builder();
-        let mut game = Game::new(PlayerManager::new(players));
+        let mut game = Game::new(PlayerManager::new(players), card_manager);
         for valid_player_id in game.player_manager().players().collect::<Vec<_>>() {
-            let card = card_builder.neo_kaiser_sea_horse();
+            let card = game.card_manager_mut().builder().neo_kaiser_sea_horse();
+            game.zone_manager_mut()
+                .valid_zone_mut(valid_player_id.unchecked_clone())
+                .hand_zone_mut()
+                .add_card(card.into_kind())
+                .unwrap();
+            let card = game.card_manager_mut().builder().blue_eyes_white_dragon();
             game.zone_manager_mut()
                 .valid_zone_mut(valid_player_id)
                 .hand_zone_mut()

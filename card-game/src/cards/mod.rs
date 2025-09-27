@@ -1,8 +1,13 @@
 mod manager;
 use card_game_derive::{StateFilterInput, impl_state_filter_inputs};
+use card_stack::priority::GetState;
 pub use manager::*;
 
-use crate::validation::StateFilterInput;
+use crate::identifications::{SourceCardID, ValidCardID};
+use crate::validation::{
+    Condition, StateFilter, StateFilterCombination, StateFilterInput, StateFilterInputConversion,
+    ValidAction,
+};
 
 pub struct Card<Kind> {
     id: CardID,
@@ -50,17 +55,74 @@ impl std::fmt::Display for CardID {
     }
 }
 
-pub struct CardBuilder {
-    next_id: usize,
+pub struct CardBuilder<'a> {
+    card_actions: &'a mut CardActions,
+    next_id: &'a mut usize,
 }
 
-impl CardBuilder {
-    pub(crate) fn new() -> Self {
-        CardBuilder { next_id: 0 }
+impl<'a> CardBuilder<'a> {
+    pub(crate) fn new(card_actions: &'a mut CardActions, next_id: &'a mut usize) -> Self {
+        CardBuilder {
+            card_actions,
+            next_id,
+        }
     }
-    pub fn build<Kind>(&mut self, kind: Kind) -> Card<Kind> {
-        let id = CardID::new(self.next_id);
-        self.next_id += 1;
-        Card::new(id, kind)
+    pub fn build<Kind>(&mut self, kind: Kind) -> CardKindBuilder<'_, Kind> {
+        let id = CardID::new(*self.next_id);
+        *self.next_id += 1;
+        CardKindBuilder {
+            card_actions: self.card_actions,
+            card: Card::new(id, kind),
+        }
     }
 }
+
+pub struct CardKindBuilder<'a, Kind> {
+    card_actions: &'a mut CardActions,
+    card: Card<Kind>,
+}
+
+impl<'a, Kind> CardKindBuilder<'a, Kind> {
+    pub fn with_action<
+        State,
+        Input: StateFilterInput + StateFilterInputConversion<SourceCardID>,
+        Action: ValidAction<State, Input>,
+    >(
+        self,
+    ) -> Self {
+        self.card_actions
+            .insert(Action::action_id(), self.card.id());
+        self
+    }
+    pub fn finish(self) -> Card<Kind> {
+        self.card
+    }
+}
+
+pub struct SourceCardFilter<Action>(std::marker::PhantomData<Action>);
+impl<
+    Input: StateFilterInput + StateFilterInputConversion<SourceCardID>,
+    Action: ValidAction<State, Input>,
+    State: GetState<CardManager>,
+> StateFilter<State, Input> for SourceCardFilter<Action>
+where
+    Input::Remainder: StateFilterCombination<ValidCardID<()>>,
+{
+    type ValidOutput = <Input::Remainder as StateFilterCombination<ValidCardID<()>>>::Combined;
+    type Error = InvalidSourceCardError;
+    fn filter(state: &State, value: Input) -> Result<Self::ValidOutput, Self::Error> {
+        let (source_card_id, remainder) = value.split_take();
+        if state
+            .state()
+            .card_actions()
+            .can_execute(Action::action_id(), source_card_id.0)
+        {
+            Ok(remainder.combine(ValidCardID::new(source_card_id.0)))
+        } else {
+            Err(InvalidSourceCardError(source_card_id))
+        }
+    }
+}
+#[derive(thiserror::Error, Debug)]
+#[error("invalid source card {0}")]
+pub struct InvalidSourceCardError(SourceCardID);

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use card_game::{
+    cards::CardManager,
     identifications::{PlayerID, PlayerManager},
     zones::ZoneManager,
 };
@@ -19,16 +20,21 @@ pub mod zones;
 pub struct Game {
     player_manager: PlayerManager<Player>,
     zone_manager: ZoneManager<Zones>,
+    card_manager: CardManager,
 }
 
 impl Game {
-    pub fn start_step(player_manager: PlayerManager<Player>) -> StartStep {
-        StartStep::new(Self::new(player_manager))
+    pub fn start_step(
+        player_manager: PlayerManager<Player>,
+        card_manager: CardManager,
+    ) -> StartStep {
+        StartStep::new(Self::new(player_manager, card_manager))
     }
-    pub fn new(player_manager: PlayerManager<Player>) -> Self {
+    pub fn new(player_manager: PlayerManager<Player>, card_manager: CardManager) -> Self {
         Game {
             zone_manager: ZoneManager::new(&player_manager),
             player_manager,
+            card_manager,
         }
     }
     pub fn player_manager(&self) -> &PlayerManager<Player> {
@@ -39,6 +45,12 @@ impl Game {
     }
     pub fn zone_manager_mut(&mut self) -> &mut ZoneManager<Zones> {
         &mut self.zone_manager
+    }
+    pub fn card_manager(&self) -> &CardManager {
+        &self.card_manager
+    }
+    pub fn card_manager_mut(&mut self) -> &mut CardManager {
+        &mut self.card_manager
     }
 }
 

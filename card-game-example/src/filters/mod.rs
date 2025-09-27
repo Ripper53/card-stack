@@ -1,7 +1,7 @@
 use card_game::{
     StateFilterInput,
     cards::CardID,
-    identifications::{PlayerID, ValidCardID, ValidPlayerID},
+    identifications::{PlayerID, SourceCardID, ValidCardID, ValidPlayerID},
     validation::{StateFilterCombination, StateFilterInput, StateFilterInputConversion},
 };
 
@@ -234,6 +234,75 @@ impl<F0, F1, F2> StateFilterCombination<(ValidPlayerID<F0>, ValidTribute)>
     )>;
     fn combine(self, value: (ValidPlayerID<F0>, ValidTribute)) -> Self::Combined {
         FilterInput((value.0, self.0.0, self.0.1, value.1))
+    }
+}
+
+impl<F> StateFilterCombination<ValidPlayerID<F>> for FilterInput<(SourceCardID, SlotID)> {
+    type Combined = FilterInput<(ValidPlayerID<F>, SourceCardID, SlotID)>;
+    fn combine(self, value: ValidPlayerID<F>) -> Self::Combined {
+        FilterInput((value, self.0.0, self.0.1))
+    }
+}
+
+impl<F> StateFilterInputConversion<FilterInput<ValidPlayerID<F>>>
+    for FilterInput<(ValidPlayerID<F>, SourceCardID, CardID)>
+{
+    type Remainder = FilterInput<(SourceCardID, CardID)>;
+    fn split_take(self) -> (FilterInput<ValidPlayerID<F>>, Self::Remainder) {
+        (FilterInput(self.0.0), FilterInput((self.0.1, self.0.2)))
+    }
+}
+
+impl StateFilterInputConversion<SourceCardID> for FilterInput<(PlayerID, SourceCardID)> {
+    type Remainder = FilterInput<PlayerID>;
+    fn split_take(self) -> (SourceCardID, Self::Remainder) {
+        (self.0.1, FilterInput(self.0.0))
+    }
+}
+
+impl<F> StateFilterCombination<ValidCardID<F>> for FilterInput<PlayerID> {
+    type Combined = FilterInput<(PlayerID, ValidCardID<F>)>;
+    fn combine(self, value: ValidCardID<F>) -> Self::Combined {
+        FilterInput((self.0, value))
+    }
+}
+
+impl<F> StateFilterCombination<FilterInput<(PlayerID, ValidCardID<F>)>> for FilterInput<SlotID> {
+    type Combined = FilterInput<(PlayerID, ValidCardID<F>, SlotID)>;
+    fn combine(self, value: FilterInput<(PlayerID, ValidCardID<F>)>) -> Self::Combined {
+        FilterInput((value.0.0, value.0.1, self.0))
+    }
+}
+
+impl<F> StateFilterInputConversion<FilterInput<PlayerID>>
+    for FilterInput<(PlayerID, ValidCardID<F>, SlotID)>
+{
+    type Remainder = FilterInput<(ValidCardID<F>, SlotID)>;
+    fn split_take(self) -> (FilterInput<PlayerID>, Self::Remainder) {
+        (FilterInput(self.0.0), FilterInput((self.0.1, self.0.2)))
+    }
+}
+
+impl<F0, F1> StateFilterCombination<ValidPlayerID<F0>> for FilterInput<(ValidCardID<F1>, SlotID)> {
+    type Combined = FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, SlotID)>;
+    fn combine(self, value: ValidPlayerID<F0>) -> Self::Combined {
+        FilterInput((value, self.0.0, self.0.1))
+    }
+}
+
+impl<F> StateFilterCombination<ValidCardID<F>> for FilterInput<(PlayerID, SlotID)> {
+    type Combined = FilterInput<(PlayerID, ValidCardID<F>, SlotID)>;
+    fn combine(self, value: ValidCardID<F>) -> Self::Combined {
+        FilterInput((self.0.0, value, self.0.1))
+    }
+}
+
+impl<F0, F1> StateFilterInputConversion<FilterInput<ValidPlayerID<F0>>>
+    for FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, SlotID)>
+{
+    type Remainder = FilterInput<(ValidCardID<F1>, SlotID)>;
+    fn split_take(self) -> (FilterInput<ValidPlayerID<F0>>, Self::Remainder) {
+        (FilterInput(self.0.0), FilterInput((self.0.1, self.0.2)))
     }
 }
 

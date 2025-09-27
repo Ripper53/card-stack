@@ -1,4 +1,5 @@
 use card_game::{
+    cards::CardManager,
     commands::{Command, CommandManager},
     identifications::PlayerID,
     stack::priority::GetState,
@@ -16,6 +17,11 @@ pub struct MainStep {
     pub(crate) game: Game,
     available_normal_summons: usize,
 }
+impl GetState<CardManager> for MainStep {
+    fn state(&self) -> &CardManager {
+        self.game.card_manager()
+    }
+}
 
 impl MainStep {
     pub(crate) fn new(game: Game) -> Self {
@@ -23,6 +29,9 @@ impl MainStep {
             game,
             available_normal_summons: 1,
         }
+    }
+    pub fn game(&self) -> &Game {
+        &self.game
     }
     pub fn use_normal_summon(&mut self) -> bool {
         if self.available_normal_summons == 0 {

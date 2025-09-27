@@ -1,4 +1,7 @@
-use crate::validation::{StateFilter, StateFilterInput};
+use crate::{
+    cards::ActionID,
+    validation::{StateFilter, StateFilterInput},
+};
 
 pub trait ValidAction<State, Input: StateFilterInput> {
     type Filter: StateFilter<State, Input>;
@@ -8,4 +11,5 @@ pub trait ValidAction<State, Input: StateFilterInput> {
         state: State,
         valid: <Self::Filter as StateFilter<State, Input>>::ValidOutput,
     ) -> Self::Output;
+    fn action_id() -> ActionID;
 }

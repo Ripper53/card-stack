@@ -1,3 +1,5 @@
+use card_game_derive::StateFilterInput;
+
 use crate::{cards::CardID, create_valid_identification, identifications::PlayerID, zones::Zone};
 
 use crate as card_game;
@@ -22,3 +24,11 @@ impl<Z: Zone> GetValidCardIDFromZone<Z> for ValidCardID<Z::CardFilter> {
 #[derive(thiserror::Error, Debug)]
 #[error("card {0} does not exist")]
 pub struct CardDoesNotExist(pub CardID);
+
+#[derive(StateFilterInput, Hash, PartialEq, Eq, Clone, Copy, Debug)]
+pub struct SourceCardID(pub CardID);
+impl std::fmt::Display for SourceCardID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}

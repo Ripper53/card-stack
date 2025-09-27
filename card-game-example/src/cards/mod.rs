@@ -30,6 +30,11 @@ impl Name {
         self.0.contains(name)
     }
 }
+impl std::fmt::Display for Name {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 pub enum CardKind {
     Monster(MonsterCardType),

@@ -1,5 +1,5 @@
 use card_game::{
-    cards::{Card, CardID},
+    cards::{ActionID, Card, CardID},
     identifications::{ActivePlayer, PlayerID, ValidCardID, ValidPlayerID},
     validation::{Condition, StateFilter, ValidAction},
     zones::{ArrayZone, Zone},
@@ -15,18 +15,16 @@ use crate::{
     zones::{ContainsMonsterCards, SlotID, hand::HandZone, monster::MonsterZone},
 };
 
-pub struct NormalSummonMonsterValidAction {
+pub struct NormalSummonMonster {
     position: Position,
 }
-impl NormalSummonMonsterValidAction {
+impl NormalSummonMonster {
     pub fn new(position: Position) -> Self {
-        NormalSummonMonsterValidAction { position }
+        NormalSummonMonster { position }
     }
 }
 
-impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>>
-    for NormalSummonMonsterValidAction
-{
+impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>> for NormalSummonMonster {
     type Filter = (
         Condition<FilterInput<PlayerID>, For<ActivePlayer>>,
         Condition<FilterInput<(ValidPlayerID<ActivePlayer>, CardID)>, CardIn<HandZone>>,
@@ -72,5 +70,8 @@ impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>>
             .valid_slot(valid_slot_id)
             .put(Card::new(card_id, card).into_kind());
         state
+    }
+    fn action_id() -> card_game::cards::ActionID {
+        ActionID::new("normal_summon_monster")
     }
 }

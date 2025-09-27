@@ -1,6 +1,6 @@
 use card_game::{
     StateFilterInput,
-    cards::CardID,
+    cards::{ActionID, CardID},
     identifications::{ActivePlayer, PlayerID, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
     validation::{Condition, StateFilter, ValidAction},
@@ -49,5 +49,8 @@ impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID, Tribute)>> for
         >>::ValidOutput,
     ) -> Self::Output {
         todo!()
+    }
+    fn action_id() -> ActionID {
+        ActionID::new("tribute_summon")
     }
 }

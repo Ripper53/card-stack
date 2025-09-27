@@ -1,5 +1,5 @@
 use card_game::{
-    cards::{Card, CardID},
+    cards::{ActionID, Card, CardID},
     identifications::{ValidCardID, ValidPlayerID},
     stack::priority::GetState,
     validation::{StateFilter, StateFilterInput, ValidAction},
@@ -15,18 +15,18 @@ use crate::{
     zones::{ContainsMonsterCards, GetZone, hand::HandZone, monster::MonsterZone},
 };
 
-pub struct SpecialSummonValidAction {
+pub struct SpecialSummon {
     position: Position,
 }
 
-impl SpecialSummonValidAction {
+impl SpecialSummon {
     pub fn new(position: Position) -> Self {
-        SpecialSummonValidAction { position }
+        SpecialSummon { position }
     }
 }
 
 impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
-    ValidAction<State, Requirement> for SpecialSummonValidAction
+    ValidAction<State, Requirement> for SpecialSummon
 {
     type Filter = Requirement::Filter;
     type Output = State;
@@ -38,7 +38,8 @@ impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
             Requirement,
         >>::ValidOutput,
     ) -> Self::Output {
-        let (valid_player_id, valid_card_id, valid_slot_id) = Requirement::handle_summon(valid);
+        let (valid_player_id, valid_card_id, valid_slot_id) =
+            Requirement::handle_summon(&mut state, valid);
         let zone = <Requirement::Zone as ContainsMonsterCards>::get_zone_mut(
             state.state_mut(),
             valid_player_id.unchecked_clone(),
@@ -55,16 +56,21 @@ impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
             .put(Card::new(card_id, card).into_kind());
         state
     }
+    fn action_id() -> ActionID {
+        Requirement::action_id()
+    }
 }
 
 pub trait SpecialSummonRequirement<State>: StateFilterInput + Sized {
     type Filter: StateFilter<State, Self>;
     type Zone: ContainsMonsterCards;
     fn handle_summon(
+        state: &mut State,
         input: <Self::Filter as StateFilter<State, Self>>::ValidOutput,
     ) -> (
         ValidPlayerID<()>,
         ValidCardID<(CardIn<Self::Zone>, OfType<MonsterCard>)>,
         ValidSlotID<In<MonsterZone>>,
     );
+    fn action_id() -> ActionID;
 }

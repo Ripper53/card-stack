@@ -1,9 +1,9 @@
 use card_game::{
     StateFilterInput,
-    cards::{Card, CardBuilder, CardID},
-    identifications::{ActivePlayer, PlayerID, ValidPlayerID},
+    cards::{ActionID, Card, CardBuilder, CardID, SourceCardFilter},
+    identifications::{ActivePlayer, PlayerID, SourceCardID, ValidPlayerID},
     stack::priority::GetState,
-    validation::{Condition, StateFilterInput, StateFilterInputConversion},
+    validation::{Condition, StateFilterCombination, StateFilterInput, StateFilterInputConversion},
 };
 
 use crate::{
@@ -19,7 +19,7 @@ use crate::{
     },
     filters::{Any, FilterInput, For, In, StaticName, With},
     steps::MainStep,
-    valid_actions::SpecialSummonRequirement,
+    valid_actions::{SpecialSummon, SpecialSummonRequirement},
     zones::{SlotID, hand::HandZone, monster::MonsterZone},
 };
 
@@ -66,7 +66,7 @@ pub trait BlueEyesWhiteDestinyConstructedDeck {
     fn blue_eyes_ultimate_spirit_dragon(&mut self) -> Card<SynchroMonsterCard>;*/
 }
 
-impl BlueEyesWhiteDestinyConstructedDeck for CardBuilder {
+impl<'a> BlueEyesWhiteDestinyConstructedDeck for CardBuilder<'a> {
     fn blue_eyes_white_dragon(&mut self) -> Card<MonsterCard> {
         self.build(MonsterCard::new(
             Name::new("Blue-Eyes White Dragon".into()),
@@ -74,6 +74,7 @@ impl BlueEyesWhiteDestinyConstructedDeck for CardBuilder {
             Attack::new(3000),
             Defense::new(2500),
         ))
+        .finish()
     }
     fn neo_kaiser_sea_horse(&mut self) -> Card<MonsterCard> {
         self.build(MonsterCard::new(
@@ -82,26 +83,59 @@ impl BlueEyesWhiteDestinyConstructedDeck for CardBuilder {
             Attack::new(1700),
             Defense::new(1650),
         ))
+        .with_action::<MainStep, NeoKaiserSeaHorseSpecialSummon, SpecialSummon>()
+        .finish()
     }
 }
 
 #[derive(StateFilterInput)]
 pub struct NeoKaiserSeaHorseSpecialSummon {
     pub player_id: PlayerID,
-    pub card_id: CardID,
+    pub source_card_id: SourceCardID,
     pub slot_id: SlotID,
 }
 impl StateFilterInputConversion<FilterInput<PlayerID>> for NeoKaiserSeaHorseSpecialSummon {
-    type Remainder = FilterInput<(CardID, SlotID)>;
+    type Remainder = FilterInput<(SourceCardID, SlotID)>;
     fn split_take(self) -> (FilterInput<PlayerID>, Self::Remainder) {
         (
             FilterInput(self.player_id),
-            FilterInput((self.card_id, self.slot_id)),
+            FilterInput((self.source_card_id, self.slot_id)),
         )
+    }
+}
+impl StateFilterInputConversion<FilterInput<(PlayerID, SourceCardID)>>
+    for NeoKaiserSeaHorseSpecialSummon
+{
+    type Remainder = FilterInput<SlotID>;
+    fn split_take(self) -> (FilterInput<(PlayerID, SourceCardID)>, Self::Remainder) {
+        (
+            FilterInput((self.player_id, self.source_card_id)),
+            FilterInput(self.slot_id),
+        )
+    }
+}
+impl StateFilterInputConversion<SourceCardID> for NeoKaiserSeaHorseSpecialSummon {
+    type Remainder = FilterInput<(PlayerID, SlotID)>;
+    fn split_take(self) -> (SourceCardID, Self::Remainder) {
+        (
+            self.source_card_id,
+            FilterInput((self.player_id, self.slot_id)),
+        )
+    }
+}
+impl StateFilterCombination<FilterInput<(PlayerID, SlotID)>> for SourceCardID {
+    type Combined = NeoKaiserSeaHorseSpecialSummon;
+    fn combine(self, value: FilterInput<(PlayerID, SlotID)>) -> Self::Combined {
+        NeoKaiserSeaHorseSpecialSummon {
+            player_id: value.0.0,
+            source_card_id: self,
+            slot_id: value.0.1,
+        }
     }
 }
 impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
     type Filter = (
+        Condition<Self, SourceCardFilter<SpecialSummon>>,
         Condition<FilterInput<PlayerID>, For<ActivePlayer>>,
         Condition<
             FilterInput<ValidPlayerID<ActivePlayer>>,
@@ -110,6 +144,7 @@ impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
     );
     type Zone = HandZone;
     fn handle_summon(
+        state: &mut MainStep,
         FilterInput((valid_player_id, card_id, slot_id)): <Self::Filter as card_game::validation::StateFilter<MainStep, Self>>::ValidOutput,
     ) -> (
         card_game::identifications::ValidPlayerID<()>,
@@ -119,7 +154,10 @@ impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
         )>,
         crate::identifications::ValidSlotID<crate::filters::In<crate::zones::monster::MonsterZone>>,
     ) {
-        todo!()
+        todo!("HANDLE NEO KAISER SEA HORSE SPECIAL SUMMON")
+    }
+    fn action_id() -> ActionID {
+        ActionID::new("neo_kaiser_sea_horse_special_summon")
     }
 }
 pub struct BlueEyesWhiteDragonName;
