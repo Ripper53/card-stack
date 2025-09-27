@@ -36,11 +36,11 @@ impl ActionID {
 }
 
 impl CardActions {
-    pub fn can_execute(&self, action_id: ActionID, card_id: CardID) -> bool {
+    pub fn contains(&self, action_id: ActionID, card_id: CardID) -> bool {
         if let Some(cards) = self.card_actions.get(&action_id) {
             cards.contains(&card_id)
         } else {
-            true
+            false
         }
     }
     pub fn insert(&mut self, action_id: ActionID, card_id: CardID) {

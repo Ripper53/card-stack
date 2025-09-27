@@ -115,7 +115,7 @@ where
         if state
             .state()
             .card_actions()
-            .can_execute(Action::action_id(), source_card_id.0)
+            .contains(Action::action_id(), source_card_id.0)
         {
             Ok(remainder.combine(ValidCardID::new(source_card_id.0)))
         } else {
