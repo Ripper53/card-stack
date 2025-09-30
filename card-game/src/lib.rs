@@ -5,7 +5,7 @@
 //! 1. the state of the game
 //! 2. the input for the filter
 //!
-//! `StateFilter` returns an `Option<Self::ValidOutput>` in its only function: `filter`.
+//! `StateFilter` returns an `Result<Self::ValidOutput, Self::Error>` in its only function: `filter`.
 //!
 //! A `StateFilter` is ***validation*** for your game state. For example, you might have a `StateFilter` that is implemented for a `struct` named `CardIn`:
 //! ```
@@ -80,19 +80,21 @@
 //! # }
 //! #
 //! struct CardIn<T>(std::marker::PhantomData<T>);
+//! struct NewTypeFilterInput<T>(pub T);
 //!
 //! /// Validates card is within the hand zone.
-//! //      (State of Game)                        (Input for Filter)
-//! impl<State: GetState<Game>> StateFilter<State, (PlayerID, CardID)> for CardIn<HandZone> {
+//! //      (State of Game)                        (Input for Filter using newtype)
+//! impl<State: GetState<Game>> StateFilter<State, NewTypeFilterInput<(PlayerID, CardID)>> for CardIn<HandZone> {
 //!     type ValidOutput = (ValidPlayerID<()>, ValidCardID<Self>);
+//!     type Error = std::convert::Infallible;
 //!     fn filter(
 //!         state: &State,
-//!         (player_id, card_id): (PlayerID, CardID),
-//!     ) -> Option<Self::ValidOutput> {
+//!         NewTypeFilterInput((player_id, card_id)): NewTypeFilterInput<(PlayerID, CardID)>,
+//!     ) -> Result<Self::ValidOutput, Self::Error> {
 //!         let state = state.state();
 //!         let valid_player_id = ValidPlayerID::try_new(&state.player_manager, player_id)?;
 //!         let valid_card_id = ValidCardID::try_new(card_id, &state.hand_zone)?;
-//!         Some((valid_player_id, valid_card_id))
+//!         Ok((valid_player_id, valid_card_id))
 //!     }
 //! }
 //! ```
