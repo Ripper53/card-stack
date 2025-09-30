@@ -1,7 +1,7 @@
 use card_game::{
     StateFilterInput,
     cards::{ActionID, Card, CardBuilder, CardID, SourceCardFilter},
-    identifications::{ActivePlayer, PlayerID, SourceCardID, ValidPlayerID},
+    identifications::{ActivePlayer, PlayerID, SourceCardID, TargetCardID, ValidPlayerID},
     stack::priority::GetState,
     validation::{Condition, StateFilterCombination, StateFilterInput, StateFilterInputConversion},
 };

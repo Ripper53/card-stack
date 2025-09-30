@@ -120,6 +120,7 @@ use crate::{
 pub mod abilities;
 pub mod cards;
 pub mod commands;
+pub mod events;
 pub mod identifications;
 pub mod steps;
 pub mod validation;
