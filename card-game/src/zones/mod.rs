@@ -47,8 +47,15 @@ pub trait Zone: Sized {
     fn player_id(&self) -> PlayerID;
     fn filled_count(&self) -> usize;
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>>;
+    fn get_card_mut(&mut self, card_id: CardID) -> Option<&mut Card<Self::CardKind>>;
     fn valid_card(&self, valid_card_id: &ValidCardID<Self::CardFilter>) -> &Card<Self::CardKind> {
         self.get_card(valid_card_id.id()).unwrap()
+    }
+    fn valid_card_mut(
+        &mut self,
+        valid_card_id: ValidCardID<Self::CardFilter>,
+    ) -> &mut Card<Self::CardKind> {
+        self.get_card_mut(valid_card_id.id()).unwrap()
     }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>>;
     fn cards(&self) -> impl Iterator<Item = &Card<Self::CardKind>>;

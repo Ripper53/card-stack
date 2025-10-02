@@ -43,7 +43,7 @@ impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID, Tribute)>> for
     fn with_valid_input(
         self,
         state: MainStep,
-        valid: <Self::Filter as StateFilter<
+        FilterInput(valid): <Self::Filter as StateFilter<
             MainStep,
             FilterInput<(PlayerID, CardID, SlotID, Tribute)>,
         >>::ValidOutput,

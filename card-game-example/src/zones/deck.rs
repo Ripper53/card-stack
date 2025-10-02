@@ -43,6 +43,9 @@ impl Zone for DeckZone {
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>> {
         self.cards.get(&card_id)
     }
+    fn get_card_mut(&mut self, card_id: CardID) -> Option<&mut Card<Self::CardKind>> {
+        self.cards.get_mut(&card_id)
+    }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>> {
         self.cards.get_index(index).map(|(_k, v)| v)
     }

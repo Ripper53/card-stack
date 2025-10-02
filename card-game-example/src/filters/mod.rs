@@ -28,28 +28,32 @@ use crate::{
     zones::SlotID,
 };
 
-#[derive(StateFilterInput)]
+/*#[derive(StateFilterInput)]
+#[state_filter_input(
+    remainder_type = FilterInput<()>,
+    remainder = FilterInput(()),
+)]*/
 pub struct FilterInput<T>(pub T);
+impl<T> StateFilterInput for FilterInput<T> {}
 
+impl<T> StateFilterInputConversion<FilterInput<T>> for FilterInput<T> {
+    type Remainder = FilterInput<()>;
+    fn split_take(self) -> (FilterInput<T>, Self::Remainder) {
+        (self, FilterInput(()))
+    }
+}
+impl<T> StateFilterCombination<T> for FilterInput<()> {
+    type Combined = FilterInput<T>;
+    fn combine(self, value: T) -> Self::Combined {
+        FilterInput(value)
+    }
+}
 impl StateFilterInputConversion<FilterInput<(PlayerID, CardID)>>
     for FilterInput<(PlayerID, CardID, SlotID)>
 {
     type Remainder = FilterInput<SlotID>;
     fn split_take(self) -> (FilterInput<(PlayerID, CardID)>, Self::Remainder) {
         (FilterInput((self.0.0, self.0.1)), FilterInput(self.0.2))
-    }
-}
-
-impl<T> StateFilterCombination<T> for FilterInput<T> {
-    type Combined = Self;
-    fn combine(self, value: T) -> Self::Combined {
-        FilterInput(value)
-    }
-}
-impl<T> StateFilterCombination<FilterInput<T>> for FilterInput<T> {
-    type Combined = Self;
-    fn combine(self, value: FilterInput<T>) -> Self::Combined {
-        value
     }
 }
 
@@ -303,6 +307,15 @@ impl<F0, F1> StateFilterInputConversion<FilterInput<ValidPlayerID<F0>>>
     type Remainder = FilterInput<(ValidCardID<F1>, SlotID)>;
     fn split_take(self) -> (FilterInput<ValidPlayerID<F0>>, Self::Remainder) {
         (FilterInput(self.0.0), FilterInput((self.0.1, self.0.2)))
+    }
+}
+
+impl<F0, F1, F2> StateFilterCombination<(ValidPlayerID<F0>, ValidSlotID<F2>)>
+    for FilterInput<ValidCardID<F1>>
+{
+    type Combined = FilterInput<(ValidPlayerID<F0>, ValidCardID<F1>, ValidSlotID<F2>)>;
+    fn combine(self, value: (ValidPlayerID<F0>, ValidSlotID<F2>)) -> Self::Combined {
+        FilterInput((value.0, self.0, value.1))
     }
 }
 

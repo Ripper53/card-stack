@@ -115,6 +115,12 @@ impl Zone for MonsterZone {
     fn get_card(&self, card_id: card_game::cards::CardID) -> Option<&Card<Self::CardKind>> {
         todo!()
     }
+    fn get_card_mut(
+        &mut self,
+        card_id: card_game::cards::CardID,
+    ) -> Option<&mut Card<Self::CardKind>> {
+        todo!()
+    }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>> {
         match index {
             0 => self.slot_a.occupier(),

@@ -1,6 +1,10 @@
 use std::collections::{HashMap, HashSet, hash_map::Entry};
 
-use crate::cards::{CardBuilder, CardID};
+use crate::{
+    cards::{CardBuilder, CardID},
+    events::{Event, EventListener},
+    validation::ValidAction,
+};
 
 pub struct CardManager {
     next_card_id_index: usize,
@@ -36,14 +40,14 @@ impl ActionID {
 }
 
 impl CardActions {
-    pub fn contains(&self, action_id: ActionID, card_id: CardID) -> bool {
+    pub fn contains_action(&self, action_id: ActionID, card_id: CardID) -> bool {
         if let Some(cards) = self.card_actions.get(&action_id) {
             cards.contains(&card_id)
         } else {
             false
         }
     }
-    pub fn insert(&mut self, action_id: ActionID, card_id: CardID) {
+    pub fn insert_action(&mut self, action_id: ActionID, card_id: CardID) {
         match self.card_actions.entry(action_id) {
             Entry::Occupied(o) => {
                 let _ = o.into_mut().insert(card_id);

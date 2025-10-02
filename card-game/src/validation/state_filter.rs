@@ -865,34 +865,6 @@ pub trait StateFilterInputConversion<T>: Sized {
     type Remainder;
     fn split_take(self) -> (T, Self::Remainder);
 }
-impl<T: StateFilterInput> StateFilterInputConversion<T> for T {
-    type Remainder = ();
-    fn split_take(self) -> (T, Self::Remainder) {
-        (self, ())
-    }
-}
-impl<T0: StateFilterInput, T1: StateFilterInput> StateFilterInputConversion<T0> for (T0, T1) {
-    type Remainder = (T1,);
-    fn split_take(self) -> (T0, Self::Remainder) {
-        (self.0, (self.1,))
-    }
-}
-impl<T0: StateFilterInput, T1: StateFilterInput, T2: StateFilterInput>
-    StateFilterInputConversion<T0> for (T0, T1, T2)
-{
-    type Remainder = (T1, T2);
-    fn split_take(self) -> (T0, Self::Remainder) {
-        (self.0, (self.1, self.2))
-    }
-}
-impl<T0: StateFilterInput, T1: StateFilterInput, T2: StateFilterInput, T3: StateFilterInput>
-    StateFilterInputConversion<T0> for (T0, T1, T2, T3)
-{
-    type Remainder = (T1, T2, T3);
-    fn split_take(self) -> (T0, Self::Remainder) {
-        (self.0, (self.1, self.2, self.3))
-    }
-}
 
 pub trait StateFilterCombination<T>: Sized {
     type Combined;

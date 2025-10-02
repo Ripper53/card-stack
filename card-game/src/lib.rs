@@ -106,7 +106,7 @@
 //! let main_step = MainStep {
 //!     game: Game::default(),
 //! };
-//! let validator = Validator::<_, _, CardIn<HandZone>>::try_new(main, (player_id, card_id)).expect("failed validation");
+//! let validator = Validator::<_, _, CardIn<HandZone>>::try_new(main, NewTypeFilterInput((player_id, card_id))).expect("failed validation");
 //! ```
 
 #[cfg(feature = "derive")]

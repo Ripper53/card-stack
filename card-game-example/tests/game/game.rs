@@ -52,6 +52,7 @@ fn game() {
         },
     )
     .unwrap();
-    context.execute(SpecialSummon::new(Position::Attack));
+    let event = context.execute(SpecialSummon::new(Position::Attack));
+    //let r = event.consume::<>(todo!());
     //context.execute(NormalSummonMonster::new(Position::Attack));
 }

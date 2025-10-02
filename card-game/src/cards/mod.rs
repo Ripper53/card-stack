@@ -3,6 +3,7 @@ use card_game_derive::{StateFilterInput, impl_state_filter_inputs};
 use card_stack::priority::GetState;
 pub use manager::*;
 
+use crate::events::{Event, EventListener};
 use crate::identifications::{SourceCardID, ValidCardID};
 use crate::validation::{
     Condition, StateFilter, StateFilterCombination, StateFilterInput, StateFilterInputConversion,
@@ -23,6 +24,9 @@ impl<Kind> Card<Kind> {
     }
     pub fn kind(&self) -> &Kind {
         &self.kind
+    }
+    pub fn kind_mut(&mut self) -> &mut Kind {
+        &mut self.kind
     }
     pub fn take_kind(self) -> Kind {
         self.kind
@@ -91,7 +95,18 @@ impl<'a, Kind> CardKindBuilder<'a, Kind> {
         self,
     ) -> Self {
         self.card_actions
-            .insert(Action::action_id(), self.card.id());
+            .insert_action(Action::action_id(), self.card.id());
+        self
+    }
+    pub fn with_event<State, E: Event<State>, Listener: EventListener<State, E>>(self) -> Self
+    where
+        E::Input: StateFilterInputConversion<SourceCardID>,
+    {
+        /*self.card_actions.insert_event(
+            <Listener as EventListener<State, E>>::Action::action_id(),
+            self.card.id(),
+        );*/
+        todo!();
         self
     }
     pub fn finish(self) -> Card<Kind> {
@@ -115,7 +130,7 @@ where
         if state
             .state()
             .card_actions()
-            .contains(Action::action_id(), source_card_id.0)
+            .contains_action(Action::action_id(), source_card_id.0)
         {
             Ok(remainder.combine(ValidCardID::new(source_card_id.0)))
         } else {

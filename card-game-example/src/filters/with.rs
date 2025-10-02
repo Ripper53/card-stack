@@ -23,14 +23,14 @@ impl<State: GetState<Game>, Z: GetZone, F>
     StateFilter<State, FilterInput<(ValidPlayerID<F>, SlotID)>>
     for With<(Free<MonsterSlot>, In<Z>)>
 {
-    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidSlotID<In<Z>>)>;
+    type ValidOutput = (ValidPlayerID<F>, ValidSlotID<In<Z>>);
     type Error = SlotDoesNotExistError;
     fn filter(
         state: &State,
         FilterInput((valid_player_id, slot_id)): FilterInput<(ValidPlayerID<F>, SlotID)>,
     ) -> Result<Self::ValidOutput, Self::Error> {
         ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_id)
-            .map(|valid_slot_id| FilterInput((valid_player_id, valid_slot_id)))
+            .map(|valid_slot_id| (valid_player_id, valid_slot_id))
     }
 }
 

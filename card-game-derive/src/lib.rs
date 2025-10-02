@@ -1,10 +1,11 @@
 extern crate proc_macro;
 
+use darling::FromDeriveInput;
 use proc_macro::TokenStream;
 use proc_macro2::{Literal, Span, TokenTree};
 use quote::format_ident;
 use syn::{
-    Data, DeriveInput, Ident, Index, LitInt, Type, parse::Parse, parse_macro_input,
+    Data, DeriveInput, Expr, Ident, Index, LitInt, Type, parse::Parse, parse_macro_input,
     spanned::Spanned, token::Comma,
 };
 
@@ -88,11 +89,39 @@ pub fn super_command(input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[proc_macro_derive(StateFilterInput)]
+#[derive(darling::FromDeriveInput)]
+#[darling(attributes(state_filter_input))]
+struct StateFilterInputData {
+    remainder_type: Option<Type>,
+    remainder: Option<Expr>,
+}
+
+#[proc_macro_derive(StateFilterInput, attributes(state_filter_input))]
 pub fn state_filter_input(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
+    let data = StateFilterInputData::from_derive_input(&ast).unwrap();
+    let remainder_code = if let Some(remainder_type) = data.remainder_type {
+        let remainder_expr = data.remainder.expect("expected `remainder` expression");
+        quote::quote! {
+            impl #impl_generics card_game::validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
+                type Remainder = #remainder_type;
+                fn split_take(self) -> (Self, Self::Remainder) {
+                    (self, #remainder_expr)
+                }
+            }
+        }
+    } else {
+        quote::quote! {
+            impl #impl_generics card_game::validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
+                type Remainder = ();
+                fn split_take(self) -> (Self, Self::Remainder) {
+                    (self, ())
+                }
+            }
+        }
+    };
     let mut generics_1 = ast.generics.clone();
     generics_1
         .params
@@ -128,7 +157,8 @@ pub fn state_filter_input(input: TokenStream) -> TokenStream {
         }));
     let (impl_generics_2, _ty_generics_2, _where_clause_2) = generics_2.split_for_impl();
     quote::quote! {
-        impl #impl_generics card_game::validation::StateFilterInput for #name #ty_generics {}
+        impl #impl_generics card_game::validation::StateFilterInput for #name #ty_generics #where_clause {}
+        #remainder_code
         /*impl #impl_generics_1 card_game::validation::StateFilterInputConversion<#name #ty_generics> for (#name #ty_generics, T) #where_clause {
             type Remainder = (T,);
             fn combine(input: #name #ty_generics, remainder: Self::Remainder) -> Self {

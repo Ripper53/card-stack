@@ -1,5 +1,6 @@
 use card_game::{
     cards::{ActionID, Card, CardID},
+    events::TriggeredEvent,
     identifications::{ValidCardID, ValidPlayerID},
     stack::priority::GetState,
     validation::{StateFilter, StateFilterInput, ValidAction},
@@ -9,6 +10,7 @@ use card_game::{
 use crate::{
     Game,
     cards::monster::{MonsterCard, MonsterZoneCard, Position},
+    events::summon::SpecialSummoned,
     filters::{CardIn, FilterInput, In, OfType},
     identifications::ValidSlotID,
     steps::GetStateMut,
@@ -29,7 +31,7 @@ impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
     ValidAction<State, Requirement> for SpecialSummon
 {
     type Filter = Requirement::Filter;
-    type Output = State;
+    type Output = TriggeredEvent<State, SpecialSummoned>;
     fn with_valid_input(
         self,
         mut state: State,
@@ -47,6 +49,7 @@ impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
         let card = zone.remove_monster_card(valid_card_id.into());
         let card_id = card.id();
         let card = MonsterZoneCard::new(card.take_kind().into(), self.position);
+        let player_id = valid_player_id.id();
         let _ = state
             .state_mut()
             .zone_manager_mut()
@@ -54,7 +57,7 @@ impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
             .monster_zone
             .valid_slot(valid_slot_id)
             .put(Card::new(card_id, card).into_kind());
-        state
+        TriggeredEvent::new(state, SpecialSummoned, FilterInput((player_id, card_id)))
     }
     fn action_id() -> ActionID {
         Requirement::action_id()
