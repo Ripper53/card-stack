@@ -3,7 +3,7 @@ use card_game_derive::{StateFilterInput, impl_state_filter_inputs};
 use card_stack::priority::GetState;
 pub use manager::*;
 
-use crate::events::{Event, EventListener};
+use crate::events::{Event, EventListener, GetEventManager, GetEventManagerMut};
 use crate::identifications::{SourceCardID, ValidCardID};
 use crate::validation::{
     Condition, StateFilter, StateFilterCombination, StateFilterInput, StateFilterInputConversion,
@@ -59,34 +59,42 @@ impl std::fmt::Display for CardID {
     }
 }
 
-pub struct CardBuilder<'a> {
+pub struct CardBuilder<'a, EventManager> {
     card_actions: &'a mut CardActions,
+    event_manager: &'a mut EventManager,
     next_id: &'a mut usize,
 }
 
-impl<'a> CardBuilder<'a> {
-    pub(crate) fn new(card_actions: &'a mut CardActions, next_id: &'a mut usize) -> Self {
+impl<'a, EventManager> CardBuilder<'a, EventManager> {
+    pub(crate) fn new(
+        card_actions: &'a mut CardActions,
+        event_manager: &'a mut EventManager,
+        next_id: &'a mut usize,
+    ) -> Self {
         CardBuilder {
             card_actions,
+            event_manager,
             next_id,
         }
     }
-    pub fn build<Kind>(&mut self, kind: Kind) -> CardKindBuilder<'_, Kind> {
+    pub fn build<Kind>(&mut self, kind: Kind) -> CardKindBuilder<'_, EventManager, Kind> {
         let id = CardID::new(*self.next_id);
         *self.next_id += 1;
         CardKindBuilder {
             card_actions: self.card_actions,
+            event_manager: self.event_manager,
             card: Card::new(id, kind),
         }
     }
 }
 
-pub struct CardKindBuilder<'a, Kind> {
+pub struct CardKindBuilder<'a, EventManager, Kind> {
     card_actions: &'a mut CardActions,
+    event_manager: &'a mut EventManager,
     card: Card<Kind>,
 }
 
-impl<'a, Kind> CardKindBuilder<'a, Kind> {
+impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
     pub fn with_action<
         State,
         Input: StateFilterInput + StateFilterInputConversion<SourceCardID>,
@@ -98,15 +106,16 @@ impl<'a, Kind> CardKindBuilder<'a, Kind> {
             .insert_action(Action::action_id(), self.card.id());
         self
     }
-    pub fn with_event<State, E: Event<State>, Listener: EventListener<State, E>>(self) -> Self
+    pub fn with_event<State, E: Event<State>, Listener: EventListener<State, E>>(
+        self,
+        input: Listener::Input,
+    ) -> Self
     where
-        E::Input: StateFilterInputConversion<SourceCardID>,
+        EventManager: GetEventManagerMut<State, E, Listener>,
     {
-        /*self.card_actions.insert_event(
-            <Listener as EventListener<State, E>>::Action::action_id(),
-            self.card.id(),
-        );*/
-        todo!();
+        self.event_manager
+            .event_manager_mut()
+            .add_listener(Listener::new_listener(SourceCardID(self.card.id()), input));
         self
     }
     pub fn finish(self) -> Card<Kind> {
@@ -118,7 +127,7 @@ pub struct SourceCardFilter<Action>(std::marker::PhantomData<Action>);
 impl<
     Input: StateFilterInput + StateFilterInputConversion<SourceCardID>,
     Action: ValidAction<State, Input>,
-    State: GetState<CardManager>,
+    State: GetState<CardActions>,
 > StateFilter<State, Input> for SourceCardFilter<Action>
 where
     Input::Remainder: StateFilterCombination<ValidCardID<()>>,
@@ -129,7 +138,6 @@ where
         let (source_card_id, remainder) = value.split_take();
         if state
             .state()
-            .card_actions()
             .contains_action(Action::action_id(), source_card_id.0)
         {
             Ok(remainder.combine(ValidCardID::new(source_card_id.0)))

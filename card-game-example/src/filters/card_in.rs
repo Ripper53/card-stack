@@ -23,7 +23,7 @@ pub struct CardIn<T>(std::marker::PhantomData<T>);
 impl<State: GetState<Game>, Z: GetZone> StateFilter<State, FilterInput<(PlayerID, CardID)>>
     for CardIn<Z>
 {
-    type ValidOutput = (ValidPlayerID<()>, ValidCardID<Self>);
+    type ValidOutput = FilterInput<(ValidPlayerID<()>, ValidCardID<Self>)>;
     type Error = PlayerOrCardError;
     fn filter(
         state: &State,
@@ -32,7 +32,7 @@ impl<State: GetState<Game>, Z: GetZone> StateFilter<State, FilterInput<(PlayerID
         let state = state.state();
         let valid_player_id = ValidPlayerID::try_new(&state.player_manager, player_id)?;
         let valid_card_id = ValidCardID::try_new(card_id, Z::get_zone(state, &valid_player_id))?;
-        Ok((valid_player_id, valid_card_id))
+        Ok(FilterInput((valid_player_id, valid_card_id)))
     }
 }
 #[derive(thiserror::Error, Debug)]
@@ -46,7 +46,7 @@ pub enum PlayerOrCardError {
 impl<State: GetState<Game>, Z: GetZone, F>
     StateFilter<State, FilterInput<(ValidPlayerID<F>, CardID)>> for CardIn<Z>
 {
-    type ValidOutput = (ValidPlayerID<F>, ValidCardID<Self>);
+    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidCardID<Self>)>;
     type Error = CardDoesNotExist;
     fn filter(
         state: &State,
@@ -54,14 +54,14 @@ impl<State: GetState<Game>, Z: GetZone, F>
     ) -> Result<Self::ValidOutput, Self::Error> {
         let valid_card_id =
             ValidCardID::try_new(card_id, Z::get_zone(state.state(), &valid_player_id))?;
-        Ok((valid_player_id, valid_card_id))
+        Ok(FilterInput((valid_player_id, valid_card_id)))
     }
 }
 //Condition<FilterInput<(ValidPlayerID<ActivePlayer>, Tribute)>, CardIn<MonsterZone>>,
 impl<State: GetState<Game>, F> StateFilter<State, FilterInput<(ValidPlayerID<F>, Tribute)>>
     for CardIn<MonsterZone>
 {
-    type ValidOutput = (ValidPlayerID<F>, ValidTribute);
+    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidTribute)>;
     type Error = CardDoesNotExist;
     fn filter(
         state: &State,
@@ -75,7 +75,7 @@ impl<State: GetState<Game>, F> StateFilter<State, FilterInput<(ValidPlayerID<F>,
                 .valid_zone(&valid_player_id)
                 .monster_zone,
         ) {
-            Ok(valid_card_id) => Ok((valid_player_id, ValidTribute(valid_card_id))),
+            Ok(valid_card_id) => Ok(FilterInput((valid_player_id, ValidTribute(valid_card_id)))),
             Err(e) => Err(e),
         }
     }

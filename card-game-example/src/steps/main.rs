@@ -1,5 +1,5 @@
 use card_game::{
-    cards::CardManager,
+    cards::{CardActions, CardManager},
     commands::{Command, CommandManager},
     identifications::PlayerID,
     stack::priority::GetState,
@@ -9,6 +9,7 @@ use card_game::{
 
 use crate::{
     Game,
+    events::EventManager,
     steps::{EndStep, GetStateMut, StepMut},
     zones::hand::HandZone,
 };
@@ -17,8 +18,13 @@ pub struct MainStep {
     pub(crate) game: Game,
     available_normal_summons: usize,
 }
-impl GetState<CardManager> for MainStep {
-    fn state(&self) -> &CardManager {
+impl GetState<CardActions> for MainStep {
+    fn state(&self) -> &CardActions {
+        self.game.card_manager().card_actions()
+    }
+}
+impl GetState<CardManager<EventManager>> for MainStep {
+    fn state(&self) -> &CardManager<EventManager> {
         self.game.card_manager()
     }
 }

@@ -27,7 +27,7 @@ impl<State: GetState<Game>, F>
     StateFilter<State, FilterInput<(ValidPlayerID<F>, ValidCardID<CardIn<HandZone>>)>>
     for OfType<MonsterCard>
 {
-    type ValidOutput = (ValidPlayerID<F>, ValidCardID<(CardIn<HandZone>, Self)>);
+    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidCardID<(CardIn<HandZone>, Self)>)>;
     type Error = CardIsNotMonsterError;
     fn filter(
         state: &State,
@@ -43,7 +43,10 @@ impl<State: GetState<Game>, F>
             .hand_zone()
             .valid_card(&valid_card_id);
         if matches!(card.kind(), CardKind::Monster(MonsterCardType::Monster(_))) {
-            Ok((valid_player_id, valid_card_id.unchecked_replace_filter()))
+            Ok(FilterInput((
+                valid_player_id,
+                valid_card_id.unchecked_replace_filter(),
+            )))
         } else {
             Err(CardIsNotMonsterError(valid_card_id.id()))
         }
@@ -54,7 +57,7 @@ impl<State: GetState<Game>, F>
     StateFilter<State, FilterInput<(ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>)>>
     for OfType<MonsterCard>
 {
-    type ValidOutput = (ValidPlayerID<F>, ValidCardID<(CardIn<MonsterZone>, Self)>);
+    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidCardID<(CardIn<MonsterZone>, Self)>)>;
     type Error = CardIsNotMonsterError;
     fn filter(
         state: &State,
@@ -70,7 +73,10 @@ impl<State: GetState<Game>, F>
             .monster_zone
             .valid_card(&valid_card_id);
         if matches!(card.kind().kind(), MonsterCardType::Monster(_)) {
-            Ok((valid_player_id, valid_card_id.unchecked_replace_filter()))
+            Ok(FilterInput((
+                valid_player_id,
+                valid_card_id.unchecked_replace_filter(),
+            )))
         } else {
             Err(CardIsNotMonsterError(valid_card_id.id()))
         }

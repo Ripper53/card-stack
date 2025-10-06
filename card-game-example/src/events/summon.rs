@@ -1,14 +1,13 @@
 use card_game::{
     cards::CardID,
-    events::{Event, EventListener},
-    identifications::PlayerID,
+    events::{Event, EventListener, GetEventManagerMut},
+    identifications::{PlayerID, SourceCardID},
     stack::priority::GetState,
 };
 
-use crate::{Game, filters::FilterInput};
+use crate::{Game, filters::FilterInput, steps::GetStateMut};
 
-#[derive(Hash)]
-pub struct SpecialSummoned;
+pub struct SpecialSummoned(pub CardID);
 
 impl<State: GetState<Game>> Event<State> for SpecialSummoned {
     type Input = FilterInput<(PlayerID, CardID)>;

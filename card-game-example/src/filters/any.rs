@@ -22,7 +22,7 @@ impl<State: GetState<Game>, Z: GetZone, N: StaticName> StateFilter<State, Filter
 where
     Z::CardKind: CardName,
 {
-    type ValidOutput = ValidPlayerID<()>;
+    type ValidOutput = FilterInput<ValidPlayerID<()>>;
     type Error = CardWithNameError;
     fn filter(
         state: &State,
@@ -34,7 +34,7 @@ where
             .cards()
             .any(|card| card.name().contains(N::name()))
         {
-            Ok(valid_player_id)
+            Ok(FilterInput(valid_player_id))
         } else {
             Err(CardWithNameNotFoundError.into())
         }
@@ -56,7 +56,7 @@ impl<State: GetState<Game>, Z: GetZone, N: StaticName, F>
 where
     Z::CardKind: CardName,
 {
-    type ValidOutput = ValidPlayerID<F>;
+    type ValidOutput = FilterInput<ValidPlayerID<F>>;
     type Error = CardWithNameNotFoundError;
     fn filter(
         state: &State,
@@ -66,7 +66,7 @@ where
             .cards()
             .any(|card| card.name().contains(N::name()))
         {
-            Ok(valid_player_id)
+            Ok(FilterInput(valid_player_id))
         } else {
             Err(CardWithNameNotFoundError)
         }

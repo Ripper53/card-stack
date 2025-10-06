@@ -57,7 +57,11 @@ impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
             .monster_zone
             .valid_slot(valid_slot_id)
             .put(Card::new(card_id, card).into_kind());
-        TriggeredEvent::new(state, SpecialSummoned, FilterInput((player_id, card_id)))
+        TriggeredEvent::new(
+            state,
+            SpecialSummoned(card_id),
+            FilterInput((player_id, card_id)),
+        )
     }
     fn action_id() -> ActionID {
         Requirement::action_id()

@@ -1,34 +1,47 @@
 use std::collections::{HashMap, HashSet, hash_map::Entry};
 
+use card_stack::priority::GetState;
+
 use crate::{
     cards::{CardBuilder, CardID},
     events::{Event, EventListener},
     validation::ValidAction,
 };
 
-pub struct CardManager {
+pub struct CardManager<EventManager> {
     next_card_id_index: usize,
     card_actions: CardActions,
+    event_manager: EventManager,
 }
 
-impl CardManager {
-    pub(crate) fn new() -> Self {
+impl<EventManager> CardManager<EventManager> {
+    pub(crate) fn new(event_manager: EventManager) -> Self {
         CardManager {
             next_card_id_index: 0,
             card_actions: CardActions {
                 card_actions: HashMap::new(),
             },
+            event_manager,
         }
     }
-    pub(crate) fn card_actions(&self) -> &CardActions {
+    pub fn card_actions(&self) -> &CardActions {
         &self.card_actions
     }
-    pub fn builder(&mut self) -> CardBuilder<'_> {
-        CardBuilder::new(&mut self.card_actions, &mut self.next_card_id_index)
+    pub fn builder(&mut self) -> CardBuilder<'_, EventManager> {
+        CardBuilder::new(
+            &mut self.card_actions,
+            &mut self.event_manager,
+            &mut self.next_card_id_index,
+        )
+    }
+}
+impl<EventManager> GetState<CardActions> for CardManager<EventManager> {
+    fn state(&self) -> &CardActions {
+        self.card_actions()
     }
 }
 
-pub(crate) struct CardActions {
+pub struct CardActions {
     card_actions: HashMap<ActionID, HashSet<CardID>>,
 }
 #[derive(Hash, PartialEq, Eq, Debug)]

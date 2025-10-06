@@ -14,12 +14,14 @@ use card_game_example::{
 
 #[derive(Default)]
 pub struct GameBuilder<'a, const PLAYER_COUNT: usize>(std::marker::PhantomData<&'a ()>);
-impl<'a, const PLAYER_COUNT: usize> CardGameBuilder for GameBuilder<'a, PLAYER_COUNT> {
+impl<'a, const PLAYER_COUNT: usize> CardGameBuilder<card_game_example::events::EventManager>
+    for GameBuilder<'a, PLAYER_COUNT>
+{
     type GenerationData = ();
     type Game = Game;
     fn generate(
         mut player_id_builder: card_game::identifications::PlayerIDBuilder,
-        mut card_manager: CardManager,
+        mut card_manager: CardManager<card_game_example::events::EventManager>,
         generation_data: Self::GenerationData,
     ) -> Self::Game {
         let players = {

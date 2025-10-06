@@ -128,15 +128,19 @@ pub mod steps;
 pub mod validation;
 pub mod zones;
 
-pub trait CardGameBuilder: Sized {
+pub trait CardGameBuilder<EventManager: Default>: Sized {
     type GenerationData;
     type Game;
     fn generate(
         player_id_builder: PlayerIDBuilder,
-        card_manager: CardManager,
+        card_manager: CardManager<EventManager>,
         generation_data: Self::GenerationData,
     ) -> Self::Game;
     fn new(data: Self::GenerationData) -> Self::Game {
-        Self::generate(PlayerIDBuilder::new(), CardManager::new(), data)
+        Self::generate(
+            PlayerIDBuilder::new(),
+            CardManager::new(EventManager::default()),
+            data,
+        )
     }
 }

@@ -860,6 +860,12 @@ pub enum StateFilterEightChainError<E0: std::error::Error, E1: std::error::Error
 }
 
 pub trait StateFilterInput {}
+macro_rules! impl_state_filter_input_for_tuple {
+    ($($t: ident),*) => {
+        impl<$($t: StateFilterInput),*> StateFilterInput for ($($t,)*) {}
+    };
+}
+variadics_please::all_tuples!(impl_state_filter_input_for_tuple, 1, 16, T);
 
 pub trait StateFilterInputConversion<T>: Sized {
     type Remainder;

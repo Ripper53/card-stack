@@ -17,6 +17,7 @@ use crate::{
         spell::SpellCard,
         trap::TrapCard,
     },
+    events::EventManager,
     filters::{Any, FilterInput, For, In, StaticName, With},
     steps::MainStep,
     valid_actions::{SpecialSummon, SpecialSummonRequirement},
@@ -66,7 +67,7 @@ pub trait BlueEyesWhiteDestinyConstructedDeck {
     fn blue_eyes_ultimate_spirit_dragon(&mut self) -> Card<SynchroMonsterCard>;*/
 }
 
-impl<'a> BlueEyesWhiteDestinyConstructedDeck for CardBuilder<'a> {
+impl<'a> BlueEyesWhiteDestinyConstructedDeck for CardBuilder<'a, EventManager> {
     fn blue_eyes_white_dragon(&mut self) -> Card<MonsterCard> {
         self.build(MonsterCard::new(
             Name::new("Blue-Eyes White Dragon".into()),

@@ -77,6 +77,7 @@ impl Level {
         Level(level)
     }
 }
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub struct Attack(usize);
 impl Attack {
     pub fn new(power: usize) -> Attack {
@@ -88,6 +89,7 @@ impl AddAssign for Attack {
         self.0 += rhs.0;
     }
 }
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub struct Defense(usize);
 impl Defense {
     pub fn new(defense: usize) -> Defense {

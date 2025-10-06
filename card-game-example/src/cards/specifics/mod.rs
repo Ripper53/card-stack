@@ -7,13 +7,15 @@ use crate::{
         Name,
         monster::{Attack, Defense, Level, MonsterCard},
     },
-    events::summon::SpecialSummoned,
+    events::{EventManager, summon::SpecialSummoned},
+    steps::MainStep,
+    valid_actions::{GiveAttack, PassiveGiveAttack},
 };
 
 pub trait TestCards {
     fn passive_card_test(&mut self) -> Card<MonsterCard>;
 }
-/*impl<'a> TestCards for CardBuilder<'a> {
+impl<'a> TestCards for CardBuilder<'a, EventManager> {
     fn passive_card_test(&mut self) -> Card<MonsterCard> {
         self.build(MonsterCard::new(
             Name::new("Passive Test Monster".into()),
@@ -21,7 +23,9 @@ pub trait TestCards {
             Attack::new(1000),
             Defense::new(2000),
         ))
-        .with_event::<_, SpecialSummoned, _>()
+        .with_event::<crate::Game, SpecialSummoned, PassiveGiveAttack>(GiveAttack::new(
+            Attack::new(100),
+        ))
+        .finish()
     }
 }
-*/

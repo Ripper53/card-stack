@@ -23,14 +23,14 @@ impl<State: GetState<Game>, Z: GetZone, F>
     StateFilter<State, FilterInput<(ValidPlayerID<F>, SlotID)>>
     for With<(Free<MonsterSlot>, In<Z>)>
 {
-    type ValidOutput = (ValidPlayerID<F>, ValidSlotID<In<Z>>);
+    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidSlotID<In<Z>>)>;
     type Error = SlotDoesNotExistError;
     fn filter(
         state: &State,
         FilterInput((valid_player_id, slot_id)): FilterInput<(ValidPlayerID<F>, SlotID)>,
     ) -> Result<Self::ValidOutput, Self::Error> {
         ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_id)
-            .map(|valid_slot_id| (valid_player_id, valid_slot_id))
+            .map(|valid_slot_id| FilterInput((valid_player_id, valid_slot_id)))
     }
 }
 
@@ -46,10 +46,10 @@ impl<State: GetState<Game>, F, const LEVEL: usize>
         )>,
     > for With<EqualOrLowerThan<Level<LEVEL>>>
 {
-    type ValidOutput = (
+    type ValidOutput = FilterInput<(
         ValidPlayerID<F>,
         ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>, Self)>,
-    );
+    )>;
     type Error = MonsterLevelIsNotEqualOrLessThanError;
     fn filter(
         state: &State,
@@ -73,7 +73,10 @@ impl<State: GetState<Game>, F, const LEVEL: usize>
                 level: LEVEL,
             })
         } else {
-            Ok((valid_player_id, valid_card_id.unchecked_replace_filter()))
+            Ok(FilterInput((
+                valid_player_id,
+                valid_card_id.unchecked_replace_filter(),
+            )))
         }
     }
 }
