@@ -1,9 +1,9 @@
 use card_game::{
     StateFilterInput,
-    cards::{ActionID, CardID},
+    cards::CardID,
     identifications::{ActivePlayer, PlayerID, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
-    validation::{Condition, StateFilter, ValidAction},
+    validation::{ActionID, Condition, StateFilter, ValidAction},
 };
 
 use crate::{

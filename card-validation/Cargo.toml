@@ -1,0 +1,11 @@
+[package]
+name = "card-validation"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Albar <albarjob@gmail.com>"]
+description = "Validation for card games"
+
+[dependencies]
+thiserror = "2.0.17"
+variadics_please = "1.1.0"

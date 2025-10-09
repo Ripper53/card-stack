@@ -8,6 +8,7 @@ description = "Framework for building card games"
 
 [dependencies]
 card-game-derive = { path = "../card-game-derive", version = "0.1", optional = true }
+card-validation = { path = "../card-validation", version = "0.1" }
 card-stack = { path = "../card-stack", version = "0.1" }
 thiserror = "2.0.14"
 variadics_please = "1.1.0"

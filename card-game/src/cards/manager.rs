@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet, hash_map::Entry};
 
 use card_stack::priority::GetState;
+use card_validation::ActionID;
 
 use crate::{
     cards::{CardBuilder, CardID},
@@ -43,13 +44,6 @@ impl<EventManager> GetState<CardActions> for CardManager<EventManager> {
 
 pub struct CardActions {
     card_actions: HashMap<ActionID, HashSet<CardID>>,
-}
-#[derive(Hash, PartialEq, Eq, Debug)]
-pub struct ActionID(&'static str);
-impl ActionID {
-    pub fn new(value: &'static str) -> Self {
-        ActionID(value)
-    }
 }
 
 impl CardActions {

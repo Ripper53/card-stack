@@ -1,4 +1,4 @@
-use crate::validation::Condition;
+use crate::Condition;
 
 pub trait StateFilter<State, Input: StateFilterInput>: Sized {
     type ValidOutput;

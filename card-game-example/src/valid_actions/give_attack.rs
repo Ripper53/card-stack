@@ -1,9 +1,9 @@
 use card_game::{
-    cards::{ActionID, CardID},
+    cards::CardID,
     events::{EventListener, EventListenerConstructor, GetEventManagerMut},
     identifications::{PlayerID, SourceCardID, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
-    validation::{Condition, StateFilter, ValidAction},
+    validation::{ActionID, Condition, StateFilter, ValidAction},
     zones::Zone,
 };
 

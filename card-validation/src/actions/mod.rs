@@ -1,7 +1,12 @@
-use crate::{
-    cards::ActionID,
-    validation::{StateFilter, StateFilterInput},
-};
+use crate::{StateFilter, StateFilterInput};
+
+#[derive(Hash, PartialEq, Eq, Debug)]
+pub struct ActionID(&'static str);
+impl ActionID {
+    pub fn new(value: &'static str) -> Self {
+        ActionID(value)
+    }
+}
 
 pub trait ValidAction<State, Input: StateFilterInput> {
     type Filter: StateFilter<State, Input>;

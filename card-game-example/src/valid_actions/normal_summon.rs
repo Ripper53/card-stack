@@ -1,7 +1,7 @@
 use card_game::{
-    cards::{ActionID, Card, CardID},
+    cards::{Card, CardID},
     identifications::{ActivePlayer, PlayerID, ValidCardID, ValidPlayerID},
-    validation::{Condition, StateFilter, ValidAction},
+    validation::{ActionID, Condition, StateFilter, ValidAction},
     zones::{ArrayZone, Zone},
 };
 
@@ -71,7 +71,7 @@ impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>> for NormalSu
             .put(Card::new(card_id, card).into_kind());
         state
     }
-    fn action_id() -> card_game::cards::ActionID {
+    fn action_id() -> ActionID {
         ActionID::new("normal_summon_monster")
     }
 }

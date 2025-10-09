@@ -112,6 +112,7 @@
 #[cfg(feature = "derive")]
 pub use card_game_derive::*;
 pub use card_stack as stack;
+pub use card_validation as validation;
 pub use variadics_please;
 
 use crate::{
@@ -125,7 +126,6 @@ pub mod commands;
 pub mod events;
 pub mod identifications;
 pub mod steps;
-pub mod validation;
 pub mod zones;
 
 pub trait CardGameBuilder<EventManager: Default>: Sized {
