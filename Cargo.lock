@@ -8,7 +8,7 @@ version = "0.1.0"
 dependencies = [
  "card-game-derive",
  "card-stack",
- "card-validation",
+ "state-validation",
  "thiserror",
  "variadics_please",
 ]
@@ -46,14 +46,6 @@ version = "0.1.0"
 dependencies = [
  "card-game",
  "thiserror",
-]
-
-[[package]]
-name = "card-validation"
-version = "0.1.0"
-dependencies = [
- "thiserror",
- "variadics_please",
 ]
 
 [[package]]
@@ -141,6 +133,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "state-validation"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+ "variadics_please",
 ]
 
 [[package]]

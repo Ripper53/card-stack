@@ -1,10 +1,10 @@
 [package]
-name = "card-validation"
+name = "state-validation"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
 authors = ["Albar <albarjob@gmail.com>"]
-description = "Validation for card games"
+description = "Validation for states"
 
 [dependencies]
 thiserror = "2.0.17"

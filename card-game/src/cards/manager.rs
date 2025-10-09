@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, hash_map::Entry};
 
 use card_stack::priority::GetState;
-use card_validation::ActionID;
+use state_validation::ActionID;
 
 use crate::{
     cards::{CardBuilder, CardID},

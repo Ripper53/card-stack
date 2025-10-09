@@ -112,7 +112,7 @@
 #[cfg(feature = "derive")]
 pub use card_game_derive::*;
 pub use card_stack as stack;
-pub use card_validation as validation;
+pub use state_validation as validation;
 pub use variadics_please;
 
 use crate::{
