@@ -1,8 +1,12 @@
 mod actions;
 mod condition;
+#[cfg(feature = "input_collector")]
+mod input_collector;
 mod state_filter;
 pub use actions::*;
 pub use condition::*;
+#[cfg(feature = "input_collector")]
+pub use input_collector::*;
 pub use state_filter::*;
 
 pub struct Validator<State, Input: StateFilterInput, Filter: StateFilter<State, Input>> {

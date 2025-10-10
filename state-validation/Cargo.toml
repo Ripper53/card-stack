@@ -9,3 +9,6 @@ description = "Validation for states"
 [dependencies]
 thiserror = "2.0.17"
 variadics_please = "1.1.0"
+
+[features]
+input_collector = []

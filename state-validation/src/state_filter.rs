@@ -1,6 +1,6 @@
 use crate::Condition;
 
-pub trait StateFilter<State, Input: StateFilterInput>: Sized {
+pub trait StateFilter<State, Input: StateFilterInput> {
     type ValidOutput;
     type Error: std::error::Error;
     fn filter(state: &State, value: Input) -> Result<Self::ValidOutput, Self::Error>;
