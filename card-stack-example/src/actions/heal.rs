@@ -5,7 +5,6 @@ use card_game::stack::{
 
 use crate::{
     actions::FulfilledStateAction,
-    game::TurnState,
     identifications::CharacterID,
     requirements::TargetCharacter,
     stack::{IncitingAction, StackAction},
@@ -28,13 +27,10 @@ impl ActionSource for Heal {
 impl<State: TurnState> card_game::stack::actions::IncitingAction<State>
     for FulfilledStateAction<State, Heal, CharacterID>
 {
-    type EmptyStackRequirement = TargetCharacter;
-    fn requirement(&self) -> Self::EmptyStackRequirement {
-        TargetCharacter
-    }
+    type Requirement = TargetCharacter;
     type Stackable = StackAction<State>;
-    type ResolvedIncitingAction = ResolvedIncitingAction<State, IncitingAction<State>>;
-    fn resolve(self, mut priority: PriorityMut<Priority<State>>) -> Self::ResolvedIncitingAction {
+    type Resolved = ResolvedIncitingAction<State, IncitingAction<State>>;
+    fn resolve(self, mut priority: PriorityMut<Priority<State>>) -> Self::Resolved {
         let character = priority
             .state_mut()
             .game_mut()
@@ -49,16 +45,16 @@ impl<State: TurnState, IncitingAction: card_game::stack::actions::IncitingAction
     card_game::stack::actions::StackAction<State, IncitingAction>
     for FulfilledStateAction<State, Heal, CharacterID>
 {
-    type StackedRequirement = TargetCharacter;
-    fn requirement(&self) -> Self::StackedRequirement {
+    type Requirement = TargetCharacter;
+    fn requirement(&self) -> Self::Requirement {
         TargetCharacter
     }
 
-    type ResolvedStackAction = ResolvedStackAction<State, IncitingAction>;
+    type Resolved = ResolvedStackAction<State, IncitingAction>;
     fn resolve(
         self,
         mut priority: PriorityMut<PriorityStack<State, IncitingAction>>,
-    ) -> Self::ResolvedStackAction {
+    ) -> Self::Resolved {
         let character = priority
             .state_mut()
             .game_mut()

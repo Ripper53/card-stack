@@ -34,10 +34,6 @@ pub struct EndOfTurnState {
     game: Game,
 }
 
-pub trait TurnState: Send + Sync {
-    fn game(&self) -> &Game;
-    fn game_mut(&mut self) -> &mut Game;
-}
 macro_rules! impl_turn_state {
     ($step: ident) => {
         impl TurnState for $step {

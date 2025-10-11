@@ -30,6 +30,15 @@ where
             .into_iter()
             .any(|input| F::filter(state, input).is_ok())
     }
+    /// Iterator for the ouputs of the inputs that pass the filter without error.
+    pub fn fits_iter<F: StateFilter<State, Inputs::Item>>(
+        self,
+        state: &State,
+    ) -> impl Iterator<Item = F::ValidOutput> {
+        self.inputs
+            .into_iter()
+            .filter_map(|input| F::filter(state, input).ok())
+    }
 }
 
 pub trait InputCollector<State, Inputs: Iterator>

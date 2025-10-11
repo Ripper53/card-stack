@@ -115,10 +115,7 @@ pub use card_stack as stack;
 pub use state_validation as validation;
 pub use variadics_please;
 
-use crate::{
-    cards::{CardBuilder, CardManager},
-    identifications::PlayerIDBuilder,
-};
+use crate::{cards::CardManager, identifications::PlayerIDBuilder};
 
 pub mod abilities;
 pub mod cards;

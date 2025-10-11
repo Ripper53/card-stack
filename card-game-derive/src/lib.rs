@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use darling::FromDeriveInput;
 use proc_macro::TokenStream;
-use proc_macro2::{Literal, Span, TokenTree};
+use proc_macro2::Span;
 use quote::format_ident;
 use syn::{
     Data, DeriveInput, Expr, Ident, Index, LitInt, Type, parse::Parse, parse_macro_input,
@@ -98,7 +98,7 @@ struct StateFilterInputData {
 
 #[proc_macro_derive(StateFilterInput, attributes(state_filter_input))]
 pub fn state_filter_input(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
+    let ast = parse_macro_input!(input as DeriveInput);
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let data = StateFilterInputData::from_derive_input(&ast).unwrap();
@@ -133,7 +133,7 @@ pub fn state_filter_input(input: TokenStream) -> TokenStream {
             eq_token: None,
             default: None,
         }));
-    let (impl_generics_1, _ty_generics_1, _where_clause_1) = generics_1.split_for_impl();
+    let (_impl_generics_1, _ty_generics_1, _where_clause_1) = generics_1.split_for_impl();
     let mut generics_2 = ast.generics.clone();
     generics_2
         .params
@@ -155,7 +155,7 @@ pub fn state_filter_input(input: TokenStream) -> TokenStream {
             eq_token: None,
             default: None,
         }));
-    let (impl_generics_2, _ty_generics_2, _where_clause_2) = generics_2.split_for_impl();
+    let (_impl_generics_2, _ty_generics_2, _where_clause_2) = generics_2.split_for_impl();
     quote::quote! {
         impl #impl_generics card_game::validation::StateFilterInput for #name #ty_generics #where_clause {}
         #remainder_code

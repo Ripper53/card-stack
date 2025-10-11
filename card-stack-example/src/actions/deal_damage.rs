@@ -1,11 +1,12 @@
 use card_game::stack::{
     actions::ActionSource,
-    priority::{Priority, PriorityMut, PriorityStack},
+    priority::{GetState, Priority, PriorityMut, PriorityStack},
+    requirements::RequirementAction,
 };
 
 use crate::{
     actions::{FulfilledStateAction, ResolvedIncitingAction, ResolvedStackAction},
-    game::TurnState,
+    game::Game,
     identifications::CharacterID,
     requirements::TargetCharacter,
     stack::{IncitingAction, StackAction},
@@ -26,13 +27,9 @@ impl ActionSource for DealDamage {
 impl<State: TurnState> card_game::stack::actions::IncitingAction<State>
     for FulfilledStateAction<State, DealDamage, CharacterID>
 {
-    type Stackable = StackAction<State>;
-    type EmptyStackRequirement = TargetCharacter;
-    fn requirement(&self) -> Self::EmptyStackRequirement {
-        TargetCharacter
-    }
-    type ResolvedIncitingAction = ResolvedIncitingAction<State, IncitingAction<State>>;
-    fn resolve(self, mut priority: PriorityMut<Priority<State>>) -> Self::ResolvedIncitingAction {
+    type Requirement = TargetCharacter;
+    type Resolved = ResolvedIncitingAction<State, IncitingAction<State>>;
+    fn resolve(self, mut priority: PriorityMut<Priority<State>>) -> Self::Resolved {
         let character = priority
             .state_mut()
             .game_mut()
@@ -45,19 +42,21 @@ impl<State: TurnState> card_game::stack::actions::IncitingAction<State>
         ResolvedIncitingAction::Complete(priority.take_priority())
     }
 }
+impl<State: GetState<Game>> card_game::stack::actions::IncitingStackable<State>
+    for RequirementAction<State, CharacterID, DealDamage>
+{
+    type Stackable = ();
+}
 impl<State: TurnState, IncitingAction: crate::actions::IncitingAction<State>>
     card_game::stack::actions::StackAction<State, IncitingAction>
     for FulfilledStateAction<State, DealDamage, CharacterID>
 {
-    type StackedRequirement = TargetCharacter;
-    type ResolvedStackAction = ResolvedStackAction<State, IncitingAction>;
-    fn requirement(&self) -> Self::StackedRequirement {
-        TargetCharacter
-    }
+    type Requirement = TargetCharacter;
+    type Resolved = ResolvedStackAction<State, IncitingAction>;
     fn resolve(
         self,
         mut priority: PriorityMut<PriorityStack<State, IncitingAction>>,
-    ) -> Self::ResolvedStackAction {
+    ) -> Self::Resolved {
         let character = priority
             .state_mut()
             .game_mut()

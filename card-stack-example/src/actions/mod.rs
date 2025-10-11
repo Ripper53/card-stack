@@ -8,7 +8,6 @@ use card_game::stack::{
 };
 
 use crate::{
-    game::TurnState,
     identifications::CharacterID,
     requirements::TargetCharacter,
     stack::{Action, StackAction},
@@ -60,18 +59,18 @@ impl ActionSource for StackDamageAndHeal {
 impl<State: TurnState> IncitingAction<State>
     for FulfilledStateAction<State, StackDamageAndHeal, (CharacterID, CharacterID)>
 {
-    type EmptyStackRequirement = (TargetCharacter, TargetCharacter);
+    type Requirement = (TargetCharacter, TargetCharacter);
     type Stackable = StackAction<State>;
-    fn requirement(&self) -> Self::EmptyStackRequirement {
+    fn requirement(&self) -> Self::Requirement {
         (TargetCharacter, TargetCharacter)
     }
 
-    type ResolvedIncitingAction =
+    type Resolved =
         ResolvedIncitingAction<State, FulfilledStateAction<State, DealDamage, CharacterID>>;
     fn resolve(
         self,
         priority: card_game::stack::priority::PriorityMut<Priority<State>>,
-    ) -> Self::ResolvedIncitingAction {
+    ) -> Self::Resolved {
         let (target_0, target_1) = *self.action().value();
         let priority = priority.stack(FulfilledStateAction::from(FulfilledAction::<
             DealDamage,

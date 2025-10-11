@@ -3,11 +3,7 @@ use std::collections::{HashMap, HashSet, hash_map::Entry};
 use card_stack::priority::GetState;
 use state_validation::ActionID;
 
-use crate::{
-    cards::{CardBuilder, CardID},
-    events::{Event, EventListener},
-    validation::ValidAction,
-};
+use crate::cards::{CardBuilder, CardID};
 
 pub struct CardManager<EventManager> {
     next_card_id_index: usize,

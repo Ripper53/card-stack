@@ -37,6 +37,7 @@ dependencies = [
 name = "card-stack"
 version = "0.1.0"
 dependencies = [
+ "state-validation",
  "thiserror",
 ]
 

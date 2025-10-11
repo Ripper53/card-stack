@@ -1,6 +1,6 @@
 use card_game_derive::StateFilterInput;
 
-use crate::{cards::CardID, create_valid_identification, identifications::PlayerID, zones::Zone};
+use crate::{cards::CardID, create_valid_identification, zones::Zone};
 
 use crate as card_game;
 create_valid_identification!(ValidCardID, CardID);

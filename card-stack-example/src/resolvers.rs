@@ -1,29 +1,23 @@
 use card_game::stack::priority::{Priority, PriorityStack};
 
-use crate::{
-    actions::{ResolvedIncitingAction, ResolvedStackAction},
-    game::TurnState,
-};
+use crate::actions::{ResolvedIncitingAction, ResolvedStackAction};
 
 pub struct Resolver<T>(std::marker::PhantomData<T>);
 
 impl<
     T: card_game::stack::actions::IncitingAction<State>,
     State: TurnState,
-    IncitingAction: card_game::stack::actions::IncitingAction<
-            State,
-            ResolvedIncitingAction = ResolvedIncitingAction<State, T>,
-        >,
+    IncitingAction: card_game::stack::actions::IncitingAction<State, Resolved = ResolvedIncitingAction<State, T>>,
 > card_game::stack::priority::Resolver<State, IncitingAction> for Resolver<T>
 where
     IncitingAction::Stackable: card_game::stack::actions::StackAction<
             State,
             IncitingAction,
-            ResolvedStackAction = ResolvedStackAction<State, IncitingAction>,
+            Resolved = ResolvedStackAction<State, IncitingAction>,
         >,
 {
     type Resolved = Resolved<State, T>;
-    fn resolve_inciting(action: IncitingAction::ResolvedIncitingAction) -> Self::Resolved {
+    fn resolve_inciting(action: IncitingAction::Resolved) -> Self::Resolved {
         match action {
             ResolvedIncitingAction::Complete(priority) => Resolved::Priority(priority),
             ResolvedIncitingAction::Continue(stack) => Resolved::Stack(stack),
@@ -33,7 +27,7 @@ where
         action: <IncitingAction::Stackable as card_game::stack::actions::StackAction<
             State,
             IncitingAction,
-        >>::ResolvedStackAction,
+        >>::Resolved,
     ) -> card_game::stack::priority::Resolve<PriorityStack<State, IncitingAction>, Self::Resolved>
     {
         match action {

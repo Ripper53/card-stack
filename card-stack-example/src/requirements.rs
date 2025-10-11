@@ -1,40 +1,19 @@
-use card_game::stack::{
-    priority::{GetState, Priority, PriorityError, PriorityStack},
-    requirements::{ActionRequirement, RequirementAction, SatisfyRequirement},
+use card_game::{
+    stack::{
+        priority::{GetState, Priority, PriorityError, PriorityStack},
+        requirements::{ActionRequirement, RequirementAction},
+    },
+    validation::CollectedInputs,
 };
 
-use crate::{game::TurnState, identifications::CharacterID};
+use crate::{game::Game, identifications::CharacterID};
 
 pub struct TargetCharacter;
 
-impl<State: TurnState> SatisfyRequirement<Priority<State>> for TargetCharacter {
-    type Value = CharacterID;
-    type RequirementError = InvalidTargetCharacterError;
-    fn satisfy(
-        &self,
-        _priority: &Priority<State>,
-        _value: &Self::Value,
-    ) -> Result<(), Self::RequirementError> {
-        Ok(())
-    }
-    fn single_selection(&self, priority: &Priority<State>) -> Option<Self::Value> {
-        let game = priority.state().game();
-        if game.characters.len() == 1 {
-            let target = game.characters.keys().copied().next().unwrap();
-            Some(target)
-        } else {
-            None
-        }
-    }
-    fn force_selection(&self, priority: &Priority<State>) -> Self::Value {
-        priority
-            .state()
-            .game()
-            .characters
-            .keys()
-            .copied()
-            .next()
-            .unwrap()
+impl<State: GetState<Game>> ActionRequirement<State, CharacterID> for TargetCharacter {
+    type Filter = ();
+    fn collect_inputs(state: &State) -> CollectedInputs<State, impl Iterator<Item = CharacterID>> {
+        CollectedInputs::new(state.state().characters.iter().copied())
     }
 }
 impl<State: TurnState, IncitingAction: card_game::stack::actions::IncitingAction<State>>

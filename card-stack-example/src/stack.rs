@@ -3,24 +3,23 @@ use crate::{
         FulfilledStateAction, ResolvedIncitingAction, ResolvedStackAction, deal_damage::DealDamage,
         heal::Heal,
     },
-    game::TurnState,
     identifications::CharacterID,
     requirements::TargetCharacter,
 };
-use card_game::stack::actions::ActionSource;
+use card_game::stack::{actions::ActionSource, requirements::RequirementAction};
 
 pub enum Action<State> {
-    DealDamage(FulfilledStateAction<State, DealDamage, CharacterID>),
-    Heal(FulfilledStateAction<State, Heal, CharacterID>),
+    DealDamage(RequirementAction<State, CharacterID, DealDamage>),
+    Heal(RequirementAction<State, CharacterID, Heal>),
 }
 
-impl<State> From<FulfilledStateAction<State, DealDamage, CharacterID>> for Action<State> {
-    fn from(deal_damage: FulfilledStateAction<State, DealDamage, CharacterID>) -> Self {
+impl<State> From<FulfilledStateAction<State, CharacterID, DealDamage>> for Action<State> {
+    fn from(deal_damage: RequirementAction<State, CharacterID, DealDamage>) -> Self {
         Action::DealDamage(deal_damage)
     }
 }
-impl<State> From<FulfilledStateAction<State, Heal, CharacterID>> for Action<State> {
-    fn from(heal: FulfilledStateAction<State, Heal, CharacterID>) -> Self {
+impl<State> From<RequirementAction<State, CharacterID, Heal>> for Action<State> {
+    fn from(heal: FulfilledStateAction<State, CharacterID, Heal>) -> Self {
         Action::Heal(heal)
     }
 }
@@ -39,19 +38,19 @@ impl<State: Send + Sync> ActionSource for IncitingAction<State> {
     type Source = CharacterID;
 }
 impl<State: TurnState> card_game::stack::actions::IncitingAction<State> for IncitingAction<State> {
-    type EmptyStackRequirement = TargetCharacter;
-    fn requirement(&self) -> Self::EmptyStackRequirement {
+    type Requirement = TargetCharacter;
+    fn requirement(&self) -> Self::Requirement {
         TargetCharacter
     }
 
     type Stackable = StackAction<State>;
-    type ResolvedIncitingAction = ResolvedIncitingAction<State, Self>;
+    type Resolved = ResolvedIncitingAction<State, Self>;
     fn resolve(
         self,
         priority: card_game::stack::priority::PriorityMut<
             card_game::stack::priority::Priority<State>,
         >,
-    ) -> Self::ResolvedIncitingAction {
+    ) -> Self::Resolved {
         match self {
             IncitingAction::Action(action) => match action {
                 Action::DealDamage(deal_damage) => {
@@ -80,18 +79,18 @@ impl<State: Send + Sync> ActionSource for StackAction<State> {
 impl<State: TurnState, IncitingAction: card_game::stack::actions::IncitingAction<State>>
     card_game::stack::actions::StackAction<State, IncitingAction> for StackAction<State>
 {
-    type StackedRequirement = TargetCharacter;
-    fn requirement(&self) -> Self::StackedRequirement {
+    type Requirement = TargetCharacter;
+    fn requirement(&self) -> Self::Requirement {
         TargetCharacter
     }
 
-    type ResolvedStackAction = ResolvedStackAction<State, IncitingAction>;
+    type Resolved = ResolvedStackAction<State, IncitingAction>;
     fn resolve(
         self,
         priority: card_game::stack::priority::PriorityMut<
             card_game::stack::priority::PriorityStack<State, IncitingAction>,
         >,
-    ) -> Self::ResolvedStackAction {
+    ) -> Self::Resolved {
         match self {
             StackAction::Action(action) => match action {
                 Action::DealDamage(deal_damage) => {

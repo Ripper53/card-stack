@@ -1,13 +1,12 @@
 mod manager;
-use card_game_derive::{StateFilterInput, impl_state_filter_inputs};
+use card_game_derive::StateFilterInput;
 use card_stack::priority::GetState;
 pub use manager::*;
 
-use crate::events::{Event, EventListener, GetEventManager, GetEventManagerMut};
+use crate::events::{Event, EventListener, GetEventManagerMut};
 use crate::identifications::{SourceCardID, ValidCardID};
 use crate::validation::{
-    Condition, StateFilter, StateFilterCombination, StateFilterInput, StateFilterInputConversion,
-    ValidAction,
+    StateFilter, StateFilterCombination, StateFilterInput, StateFilterInputConversion, ValidAction,
 };
 
 pub struct Card<Kind> {
