@@ -8,6 +8,8 @@ pub use condition::*;
 #[cfg(feature = "input_collector")]
 pub use input_collector::*;
 pub use state_filter::*;
+#[cfg(feature = "derive")]
+pub use state_validation_derive::*;
 
 pub struct Validator<State, Input: StateFilterInput, Filter: StateFilter<State, Input>> {
     state: State,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::create_valid_identification;
-use crate::validation::StateFilterInput;
+use state_validation::StateFilterInput;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerID(usize);

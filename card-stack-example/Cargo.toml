@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 card-game = { path = "../card-game" }
+state-validation = { path = "../state-validation" }
 thiserror = "2.0.14"

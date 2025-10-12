@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use card_game::stack::priority::GetState;
+use card_game::stack::priority::{GetState, Priority};
 
 use crate::identifications::CharacterID;
 
@@ -10,6 +10,19 @@ pub struct Character {
 
 pub struct Game {
     pub characters: HashMap<CharacterID, Character>,
+}
+pub trait GetStateMut<State>: GetState<State> {
+    fn state_mut(&mut self) -> &mut State;
+}
+impl GetState<Game> for Game {
+    fn state(&self) -> &Game {
+        self
+    }
+}
+impl GetStateMut<Game> for Game {
+    fn state_mut(&mut self) -> &mut Game {
+        self
+    }
 }
 
 impl Game {
@@ -36,17 +49,14 @@ pub struct EndOfTurnState {
 
 macro_rules! impl_turn_state {
     ($step: ident) => {
-        impl TurnState for $step {
-            fn game(&self) -> &Game {
-                &self.game
-            }
-            fn game_mut(&mut self) -> &mut Game {
-                &mut self.game
-            }
-        }
         impl GetState<Game> for $step {
             fn state(&self) -> &Game {
-                self.game()
+                &self.game
+            }
+        }
+        impl GetStateMut<Game> for $step {
+            fn state_mut(&mut self) -> &mut Game {
+                &mut self.game
             }
         }
     };
@@ -60,10 +70,10 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::{
-        actions::{FulfilledStateAction, StackDamageAndHeal},
+        actions::StackDamageAndHeal,
         game::{Character, Game, StartOfTurnState},
         identifications::CharacterID,
-        resolvers::{Resolved, Resolver},
+        resolvers::{HaltStack, Resolver},
     };
     use card_game::stack::{
         priority::{GetState, Priority, ResolveStack},
@@ -80,80 +90,15 @@ mod tests {
         game.characters
             .insert(CharacterID::new(1), Character { health: 3 });
         let state = StartOfTurnState { game };
-        let priority =
-            Priority::new(state).stack(FulfilledStateAction::from(FulfilledAction::new(
-                StackDamageAndHeal,
-                CharacterID::new(0),
-                (CharacterID::new(0), CharacterID::new(1)),
-            )));
+        let priority = Priority::new(state).stack(StackDamageAndHeal::new(CharacterID::new(0)));
         match priority.resolve_next::<Resolver<_>>() {
-            ResolveStack::Next(_) => panic!("unexpected path"),
-            ResolveStack::Complete(r) => match r {
-                Resolved::Priority(_) => panic!("unexpected path"),
-                Resolved::Stack(stack) => {
-                    let health = stack
-                        .state()
-                        .game
-                        .characters
-                        .get(&CharacterID::new(0))
-                        .unwrap()
-                        .health;
-                    assert_eq!(3, health);
-                    let health = stack
-                        .state()
-                        .game
-                        .characters
-                        .get(&CharacterID::new(1))
-                        .unwrap()
-                        .health;
-                    assert_eq!(3, health);
-                    match stack.resolve_next::<Resolver<_>>() {
-                        ResolveStack::Next(stack) => {
-                            let health = stack
-                                .state()
-                                .game
-                                .characters
-                                .get(&CharacterID::new(0))
-                                .unwrap()
-                                .health;
-                            assert_eq!(3, health);
-                            let health = stack
-                                .state()
-                                .game
-                                .characters
-                                .get(&CharacterID::new(1))
-                                .unwrap()
-                                .health;
-                            assert_eq!(4, health);
-                            match stack.resolve_next::<Resolver<_>>() {
-                                ResolveStack::Complete(r) => match r {
-                                    Resolved::Priority(priority) => {
-                                        let health = priority
-                                            .state()
-                                            .game
-                                            .characters
-                                            .get(&CharacterID::new(0))
-                                            .unwrap()
-                                            .health;
-                                        assert_eq!(2, health);
-                                        let health = priority
-                                            .state()
-                                            .game
-                                            .characters
-                                            .get(&CharacterID::new(1))
-                                            .unwrap()
-                                            .health;
-                                        assert_eq!(4, health);
-                                    }
-                                    Resolved::Stack(_) => panic!("unexpected path"),
-                                },
-                                ResolveStack::Next(_) => panic!("unexpected path"),
-                            }
-                        }
-                        ResolveStack::Complete(_) => panic!("unexpected path"),
-                    }
-                }
+            ResolveStack::Complete(new_stack) => match new_stack.resolve_next::<Resolver<_>>() {
+                ResolveStack::Halt(requirement) => {}
+                ResolveStack::Complete(_) => panic!("unexpected path"),
+                ResolveStack::Next(_) => panic!("unexpected path"),
             },
+            ResolveStack::Next(r) => panic!("unexpected path"),
+            ResolveStack::Halt(_) => panic!("unexpected path"),
         }
     }
 }

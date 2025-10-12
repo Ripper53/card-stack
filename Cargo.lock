@@ -46,6 +46,7 @@ name = "card-stack-example"
 version = "0.1.0"
 dependencies = [
  "card-game",
+ "state-validation",
  "thiserror",
 ]
 
@@ -140,8 +141,19 @@ dependencies = [
 name = "state-validation"
 version = "0.1.0"
 dependencies = [
+ "state-validation-derive",
  "thiserror",
  "variadics_please",
+]
+
+[[package]]
+name = "state-validation-derive"
+version = "0.1.0"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-use card_game_derive::StateFilterInput;
+use state_validation::StateFilterInput;
 
 use crate::{cards::CardID, create_valid_identification, zones::Zone};
 

@@ -2,12 +2,14 @@ pub mod actions;
 pub mod priority;
 pub mod requirements;
 
-pub struct Stack<State, IncitingAction: crate::actions::IncitingStackable<State>> {
+pub struct Stack<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
     inciting_action: IncitingAction,
     stack: Vec<IncitingAction::Stackable>,
 }
 
-impl<State, IncitingAction: crate::actions::IncitingStackable<State>> Stack<State, IncitingAction> {
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
+    Stack<State, IncitingAction>
+{
     pub(crate) fn new(inciting_action: IncitingAction) -> Self {
         Stack {
             inciting_action,

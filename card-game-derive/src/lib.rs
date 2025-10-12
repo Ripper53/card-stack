@@ -98,14 +98,14 @@ struct StateFilterInputData {
 
 #[proc_macro_derive(StateFilterInput, attributes(state_filter_input))]
 pub fn state_filter_input(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
+    let ast = parse_macro_input!(input as syn::DeriveInput);
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let data = StateFilterInputData::from_derive_input(&ast).unwrap();
     let remainder_code = if let Some(remainder_type) = data.remainder_type {
         let remainder_expr = data.remainder.expect("expected `remainder` expression");
         quote::quote! {
-            impl #impl_generics card_game::validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
+            impl #impl_generics state_validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
                 type Remainder = #remainder_type;
                 fn split_take(self) -> (Self, Self::Remainder) {
                     (self, #remainder_expr)
@@ -114,7 +114,7 @@ pub fn state_filter_input(input: TokenStream) -> TokenStream {
         }
     } else {
         quote::quote! {
-            impl #impl_generics card_game::validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
+            impl #impl_generics state_validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
                 type Remainder = ();
                 fn split_take(self) -> (Self, Self::Remainder) {
                     (self, ())

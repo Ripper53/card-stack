@@ -10,16 +10,16 @@ impl<State> Priority<State> {
     pub fn new(state: State) -> Self {
         Priority { state }
     }
-    pub fn stack<IncitingAction: crate::actions::IncitingStackable<State>>(
+    pub fn stack<IncitingAction: crate::actions::IncitingActionInfo<State>>(
         self,
         inciting_action: IncitingAction,
     ) -> PriorityStack<State, IncitingAction> {
         PriorityStack::new(self, inciting_action)
     }
 }
-impl<State> GetState<State> for Priority<State> {
-    fn state(&self) -> &State {
-        &self.state
+impl<State: GetState<InnerState>, InnerState> GetState<InnerState> for Priority<State> {
+    fn state(&self) -> &InnerState {
+        self.state.state()
     }
 }
 
@@ -37,7 +37,7 @@ impl<State> PriorityMut<Priority<State>> {
         &mut self.priority.state
     }
 }
-impl<State, IncitingAction: crate::actions::IncitingStackable<State>>
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
     PriorityMut<PriorityStack<State, IncitingAction>>
 {
     pub(crate) fn new(priority: PriorityStack<State, IncitingAction>) -> Self {
@@ -52,14 +52,14 @@ impl<State, IncitingAction: crate::actions::IncitingStackable<State>>
 }
 
 pub trait IncitingPriority<State> {
-    fn stack<IncitingAction: crate::actions::IncitingStackable<State>>(
+    fn stack<IncitingAction: crate::actions::IncitingActionInfo<State>>(
         self,
         inciting_action: IncitingAction,
     ) -> PriorityMut<PriorityStack<State, IncitingAction>>;
 }
 
 impl<State> IncitingPriority<State> for PriorityMut<Priority<State>> {
-    fn stack<IncitingAction: crate::actions::IncitingStackable<State>>(
+    fn stack<IncitingAction: crate::actions::IncitingActionInfo<State>>(
         self,
         inciting_action: IncitingAction,
     ) -> PriorityMut<PriorityStack<State, IncitingAction>> {
@@ -70,16 +70,16 @@ impl<State> IncitingPriority<State> for PriorityMut<Priority<State>> {
     }
 }
 
-pub trait StackPriority<State, IncitingAction: crate::actions::IncitingStackable<State>> {
+pub trait StackPriority<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
     fn stack(self, action: impl Into<IncitingAction::Stackable>) -> Self;
 }
 
-pub struct PriorityStack<State, IncitingAction: crate::actions::IncitingStackable<State>> {
+pub struct PriorityStack<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
     priority: Priority<State>,
     stack: crate::Stack<State, IncitingAction>,
 }
 
-impl<State, IncitingAction: crate::actions::IncitingStackable<State>>
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
     PriorityStack<State, IncitingAction>
 {
     pub(crate) fn new(priority: Priority<State>, inciting_action: IncitingAction) -> Self {
@@ -89,77 +89,99 @@ impl<State, IncitingAction: crate::actions::IncitingStackable<State>>
         }
     }
 }
-impl<State, IncitingAction: crate::actions::IncitingStackable<State>> GetState<State>
-    for PriorityStack<State, IncitingAction>
+impl<
+    State: GetState<InnerState>,
+    InnerState,
+    IncitingAction: crate::actions::IncitingActionInfo<State>,
+> GetState<InnerState> for PriorityStack<State, IncitingAction>
 {
-    fn state(&self) -> &State {
+    fn state(&self) -> &InnerState {
         self.priority.state()
     }
 }
 
-/*impl<State, Input: StateFilterInput, IncitingAction: crate::actions::IncitingAction<State, Input>>
-    PriorityStack<State, Input, IncitingAction>
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
+    PriorityStack<State, IncitingAction>
 {
-    pub fn resolve_next<R: Resolver<State, IncitingAction>>(
+    pub fn resolve_next<
+        R: IncitingResolver<State, IncitingAction> + StackResolver<State, IncitingAction>,
+    >(
         mut self,
-    ) -> ResolveStack<Self, R::Resolved> {
+    ) -> ResolveStack<Self, R::Resolved, R::HaltStack> {
         if let Some(action) = self.stack.pop() {
-            let r = action.resolve(PriorityMut::<PriorityStack<State, IncitingAction>>::new(
-                self,
-            ));
-            match R::resolve_stack(r) {
-                Resolve::Continue(priority) => {
-                    self = priority;
-                    ResolveStack::Next(self)
-                }
-                Resolve::Break(data) => ResolveStack::Complete(data),
+            match R::resolve_stack(
+                PriorityMut::<PriorityStack<State, IncitingAction>>::new(self),
+                action,
+            ) {
+                Resolve::Continue(priority) => ResolveStack::Next(priority),
+                Resolve::Halt(data) => ResolveStack::Halt(data),
             }
         } else {
-            let r = self
-                .stack
-                .take_inciting_action()
-                .resolve(PriorityMut::<Priority<State>>::new(self.priority));
-            ResolveStack::Complete(R::resolve_inciting(r))
+            let inciting_action = self.stack.take_inciting_action();
+            ResolveStack::Complete(R::resolve_inciting(
+                PriorityMut::<Priority<State>>::new(self.priority),
+                inciting_action,
+            ))
         }
     }
-    pub fn resolve_fully<R: Resolver<State, IncitingAction>>(mut self) -> R::Resolved {
+    pub fn resolve_fully<
+        R: IncitingResolver<State, IncitingAction> + StackResolver<State, IncitingAction>,
+    >(
+        mut self,
+    ) -> ResolveStackFully<R::Resolved, R::HaltStack> {
         while let Some(action) = self.stack.pop() {
-            let r = action.resolve(PriorityMut::<PriorityStack<State, IncitingAction>>::new(
-                self,
-            ));
-            match R::resolve_stack(r) {
+            match R::resolve_stack(
+                PriorityMut::<PriorityStack<State, IncitingAction>>::new(self),
+                action,
+            ) {
                 Resolve::Continue(priority) => self = priority,
-                Resolve::Break(data) => return data,
+                Resolve::Halt(data) => return ResolveStackFully::Broken(data),
             }
         }
-        let r = self
-            .stack
-            .take_inciting_action()
-            .resolve(PriorityMut::<Priority<State>>::new(self.priority));
-        R::resolve_inciting(r)
+        let inciting_action = self.stack.take_inciting_action();
+        ResolveStackFully::Complete(R::resolve_inciting(
+            PriorityMut::<Priority<State>>::new(self.priority),
+            inciting_action,
+        ))
     }
-}*/
-pub trait Resolver<State, IncitingAction: crate::actions::IncitingStackable<State>> {
-    /*type Resolved;
-    fn resolve_inciting(action: IncitingAction::Resolved) -> Self::Resolved;
+}
+pub trait IncitingResolver<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
+    type Resolved;
+    fn resolve_inciting(
+        prioriy: PriorityMut<Priority<State>>,
+        action: IncitingAction,
+    ) -> Self::Resolved;
+}
+pub trait StackResolver<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
+    type HaltStack;
     fn resolve_stack(
-        action: <IncitingAction::Stackable as crate::actions::StackAction<
-            State,
-            Input,
-            IncitingAction,
-        >>::Resolved,
-    ) -> Resolve<PriorityStack<State, IncitingAction>, Self::Resolved>;*/
+        prioriy: PriorityMut<PriorityStack<State, IncitingAction>>,
+        action: IncitingAction::Stackable,
+    ) -> Resolve<PriorityStack<State, IncitingAction>, Self::HaltStack>;
 }
-pub enum Resolve<Priority, Break> {
+pub enum Resolve<Priority, Halt> {
     Continue(Priority),
-    Break(Break),
+    Halt(Halt),
 }
-pub enum ResolveStack<Priority, Data> {
+impl<State, Break, IncitingAction: crate::actions::IncitingActionInfo<State>>
+    From<PriorityStack<State, IncitingAction>>
+    for Resolve<PriorityStack<State, IncitingAction>, Break>
+{
+    fn from(priority: PriorityStack<State, IncitingAction>) -> Self {
+        Resolve::Continue(priority)
+    }
+}
+pub enum ResolveStack<Priority, Data, Halt> {
     Next(Priority),
     Complete(Data),
+    Halt(Halt),
+}
+pub enum ResolveStackFully<Data, Broken> {
+    Complete(Data),
+    Broken(Broken),
 }
 
-impl<State, IncitingAction: crate::actions::IncitingStackable<State>>
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
     StackPriority<State, IncitingAction> for PriorityMut<PriorityStack<State, IncitingAction>>
 {
     fn stack(mut self, action: impl Into<IncitingAction::Stackable>) -> Self {

@@ -5,11 +5,24 @@ use crate::{
     priority::{Priority, PriorityMut, PriorityStack},
 };
 
-pub trait ActionRequirement<State, Input: StateFilterInput, Action: crate::actions::ActionSource> {
+pub trait ActionRequirement<State, Input: StateFilterInput> {
     /// Satisfy the requirement.
     type Filter: StateFilter<State, Input>;
     /// All the possible inputs for the requirement (but does not necessarily pass the filter).
     fn collect_inputs(state: &State) -> CollectedInputs<State, impl Iterator<Item = Input>>;
+}
+struct NoIter;
+impl Iterator for NoIter {
+    type Item = ();
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
+}
+impl<State> ActionRequirement<State, ()> for () {
+    type Filter = ();
+    fn collect_inputs(_state: &State) -> CollectedInputs<State, impl Iterator<Item = ()>> {
+        CollectedInputs::new(NoIter)
+    }
 }
 
 pub struct FulfilledAction<Action: crate::actions::ActionSource, Value> {
@@ -41,6 +54,9 @@ impl<Action: crate::actions::ActionSource, Value: Send + Sync> ActionSource
     for FulfilledAction<Action, Value>
 {
     type Source = Action::Source;
+    fn source(&self) -> &Self::Source {
+        self.action.source()
+    }
 }
 
 pub struct RequirementAction<
@@ -50,7 +66,6 @@ pub struct RequirementAction<
 > {
     priority: Priority,
     action: Action,
-    source: Action::Source,
     _m: std::marker::PhantomData<Input>,
 }
 
@@ -63,41 +78,36 @@ impl<Priority, Input: StateFilterInput, Action: crate::actions::ActionSource>
     pub fn action(&self) -> &Action {
         &self.action
     }
-    pub fn source(&self) -> &Action::Source {
-        &self.source
-    }
 }
 impl<State, Input: StateFilterInput, Action: crate::actions::IncitingAction<State, Input>>
     RequirementAction<Priority<State>, Input, Action>
 where
-    Action::Requirement: ActionRequirement<Priority<State>, Input, Action>,
+    Action::Requirement: ActionRequirement<Priority<State>, Input>,
 {
     /// If the current state has any inputs that fit the requirement,
     /// return `Some`, otherwise `None`.
     pub fn try_new(
         priority: Priority<State>,
         action: Action,
-        source: Action::Source,
-    ) -> Option<RequirementAction<Priority<State>, Input, Action>> {
-        let collected_inputs = <Action::Requirement as ActionRequirement<
-            Priority<State>,
-            Input,
-            Action,
-        >>::collect_inputs(&priority);
-        if collected_inputs.fits_any::<<Action::Requirement as ActionRequirement<
-            Priority<State>,
-            Input,
-            Action,
-        >>::Filter>(&priority)
-        {
-            Some(RequirementAction {
+    ) -> Result<
+        RequirementAction<Priority<State>, Input, Action>,
+        TryNewRequirementActionError<Priority<State>, Action>,
+    > {
+        let collected_inputs =
+            <Action::Requirement as ActionRequirement<Priority<State>, Input>>::collect_inputs(
+                &priority,
+            );
+        if collected_inputs
+            .fits_any::<<Action::Requirement as ActionRequirement<Priority<State>, Input>>::Filter>(
+            &priority,
+        ) {
+            Ok(RequirementAction {
                 priority,
                 action,
-                source,
                 _m: std::marker::PhantomData::default(),
             })
         } else {
-            None
+            Err(TryNewRequirementActionError { priority, action })
         }
     }
     pub fn select(
@@ -107,10 +117,10 @@ where
         Action::Resolved,
         RequirementActionSelectionError<
             Self,
-            <<Action::Requirement as ActionRequirement<Priority<State>, Input, Action>>::Filter as StateFilter<Priority<State>, Input>>::Error,
+            <<Action::Requirement as ActionRequirement<Priority<State>, Input>>::Filter as StateFilter<Priority<State>, Input>>::Error,
         >,
     >{
-        let result = <<Action::Requirement as ActionRequirement<Priority<State>, Input, Action>>::Filter as StateFilter<Priority<State>, Input>>::filter(
+        let result = <<Action::Requirement as ActionRequirement<Priority<State>, Input>>::Filter as StateFilter<Priority<State>, Input>>::filter(
             &self.priority,
             value,
         );
@@ -125,41 +135,51 @@ where
         }
     }
 }
+#[derive(thiserror::Error)]
+#[error("requirement for action is impossible to fulfill")]
+pub struct TryNewRequirementActionError<Priority, Action> {
+    pub priority: Priority,
+    pub action: Action,
+}
+impl<Priority, Action> std::fmt::Debug for TryNewRequirementActionError<Priority, Action> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "requirement for action is impossible to fulfill")
+    }
+}
 impl<
     State,
     Input: StateFilterInput,
-    IncitingAction: crate::actions::IncitingStackable<State>,
+    IncitingAction: crate::actions::IncitingActionInfo<State>,
     Action: crate::actions::StackAction<State, Input, IncitingAction>,
 > RequirementAction<PriorityStack<State, IncitingAction>, Input, Action>
 where
-    Action::Requirement: ActionRequirement<PriorityStack<State, IncitingAction>, Input, Action>,
+    Action::Requirement: ActionRequirement<PriorityStack<State, IncitingAction>, Input>,
 {
     /// If the current state has any inputs that fit the requirement,
     /// return `Some`, otherwise `None`.
     pub fn try_new(
         priority: PriorityStack<State, IncitingAction>,
         action: Action,
-        source: Action::Source,
-    ) -> Option<RequirementAction<PriorityStack<State, IncitingAction>, Input, Action>> {
+    ) -> Result<
+        RequirementAction<PriorityStack<State, IncitingAction>, Input, Action>,
+        TryNewRequirementActionError<PriorityStack<State, IncitingAction>, Action>,
+    > {
         let collected_inputs = <Action::Requirement as ActionRequirement<
             PriorityStack<State, IncitingAction>,
             Input,
-            Action,
         >>::collect_inputs(&priority);
         if collected_inputs.fits_any::<<Action::Requirement as ActionRequirement<
             PriorityStack<State, IncitingAction>,
             Input,
-            Action,
         >>::Filter>(&priority)
         {
-            Some(RequirementAction {
+            Ok(RequirementAction {
                 priority,
                 action,
-                source,
                 _m: std::marker::PhantomData::default(),
             })
         } else {
-            None
+            Err(TryNewRequirementActionError { priority, action })
         }
     }
     pub fn select(
@@ -172,14 +192,12 @@ where
             <<Action::Requirement as ActionRequirement<
                 PriorityStack<State, IncitingAction>,
                 Input,
-                Action,
             >>::Filter as StateFilter<PriorityStack<State, IncitingAction>, Input>>::Error,
         >,
     > {
         let result = <<Action::Requirement as ActionRequirement<
             PriorityStack<State, IncitingAction>,
             Input,
-            Action,
         >>::Filter as StateFilter<PriorityStack<State, IncitingAction>, Input>>::filter(
             &self.priority,
             value,

@@ -1,67 +1,81 @@
 use card_game::stack::{
     actions::ActionSource,
-    priority::{Priority, PriorityMut, PriorityStack},
+    priority::{GetState, Priority, PriorityMut, PriorityStack},
+    requirements::RequirementAction,
 };
 
 use crate::{
-    actions::FulfilledStateAction,
+    game::{Game, GetStateMut},
     identifications::CharacterID,
     requirements::TargetCharacter,
     stack::{IncitingAction, StackAction},
 };
 
-use super::{ResolvedIncitingAction, ResolvedStackAction};
-
 pub struct Heal {
+    source: CharacterID,
     amount: usize,
 }
 impl Heal {
-    pub fn new(amount: usize) -> Self {
-        Heal { amount }
+    pub fn new(source: CharacterID, amount: usize) -> Self {
+        Heal { source, amount }
     }
 }
 impl ActionSource for Heal {
     type Source = CharacterID;
-}
-
-impl<State: TurnState> card_game::stack::actions::IncitingAction<State>
-    for FulfilledStateAction<State, Heal, CharacterID>
-{
-    type Requirement = TargetCharacter;
-    type Stackable = StackAction<State>;
-    type Resolved = ResolvedIncitingAction<State, IncitingAction<State>>;
-    fn resolve(self, mut priority: PriorityMut<Priority<State>>) -> Self::Resolved {
-        let character = priority
-            .state_mut()
-            .game_mut()
-            .characters
-            .get_mut(self.action().value())
-            .unwrap();
-        character.health += self.take_action().take_action().amount;
-        ResolvedIncitingAction::Complete(priority.take_priority())
+    fn source(&self) -> &Self::Source {
+        &self.source
     }
 }
-impl<State: TurnState, IncitingAction: card_game::stack::actions::IncitingAction<State>>
-    card_game::stack::actions::StackAction<State, IncitingAction>
-    for FulfilledStateAction<State, Heal, CharacterID>
+
+impl<State: GetStateMut<Game>> card_game::stack::actions::IncitingAction<State, CharacterID>
+    for Heal
 {
     type Requirement = TargetCharacter;
-    fn requirement(&self) -> Self::Requirement {
-        TargetCharacter
-    }
-
-    type Resolved = ResolvedStackAction<State, IncitingAction>;
     fn resolve(
         self,
-        mut priority: PriorityMut<PriorityStack<State, IncitingAction>>,
+        mut priority: PriorityMut<Priority<State>>,
+        input: <<Self::Requirement as card_game::stack::requirements::ActionRequirement<
+                Priority<State>,
+                CharacterID,
+            >>::Filter as card_game::validation::StateFilter<Priority<State>, CharacterID>>::ValidOutput,
     ) -> Self::Resolved {
         let character = priority
             .state_mut()
-            .game_mut()
+            .state_mut()
             .characters
-            .get_mut(self.action().value())
+            .get_mut(&input)
             .unwrap();
-        character.health += self.take_action().take_action().amount;
-        ResolvedStackAction::Continue(priority.take_priority())
+        character.health += self.amount;
+        priority.take_priority()
+    }
+}
+impl<State: GetState<Game>> card_game::stack::actions::IncitingActionInfo<State> for Heal {
+    type Resolved = Priority<State>;
+    type Stackable = StackAction;
+}
+impl<State: GetStateMut<Game>, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>>
+    card_game::stack::actions::StackAction<State, CharacterID, IncitingAction> for Heal
+{
+    type Requirement = TargetCharacter;
+    type Resolved = PriorityStack<State, IncitingAction>;
+    fn resolve(
+        self,
+        mut priority: PriorityMut<PriorityStack<State, IncitingAction>>,
+        input: <<Self::Requirement as card_game::stack::requirements::ActionRequirement<
+            PriorityStack<State, IncitingAction>,
+            CharacterID,
+        >>::Filter as card_game::validation::StateFilter<
+            PriorityStack<State, IncitingAction>,
+            CharacterID,
+        >>::ValidOutput,
+    ) -> Self::Resolved {
+        let character = priority
+            .state_mut()
+            .state_mut()
+            .characters
+            .get_mut(&input)
+            .unwrap();
+        character.health += self.amount;
+        priority.take_priority()
     }
 }

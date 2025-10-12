@@ -5,6 +5,13 @@ pub trait StateFilter<State, Input: StateFilterInput> {
     type Error: std::error::Error;
     fn filter(state: &State, value: Input) -> Result<Self::ValidOutput, Self::Error>;
 }
+impl<State, Input: StateFilterInput> StateFilter<State, Input> for () {
+    type ValidOutput = ();
+    type Error = std::convert::Infallible;
+    fn filter(_state: &State, _value: Input) -> Result<Self::ValidOutput, Self::Error> {
+        Ok(())
+    }
+}
 impl<
     State,
     InitialInput: StateFilterInput,
@@ -860,6 +867,7 @@ pub enum StateFilterEightChainError<E0: std::error::Error, E1: std::error::Error
 }
 
 pub trait StateFilterInput {}
+impl StateFilterInput for () {}
 macro_rules! impl_state_filter_input_for_tuple {
     ($($t: ident),*) => {
         impl<$($t: StateFilterInput),*> StateFilterInput for ($($t,)*) {}
@@ -883,7 +891,7 @@ impl<T: StateFilterInput> StateFilterCombination<T> for () {
         value
     }
 }
-impl<T: StateFilterInput, U: StateFilterInput> StateFilterCombination<(T,)> for (U,) {
+/*impl<T: StateFilterInput, U: StateFilterInput> StateFilterCombination<(T,)> for (U,) {
     type Combined = (U, T);
     fn combine(self, value: (T,)) -> Self::Combined {
         (self.0, value.0)
@@ -908,4 +916,4 @@ impl<U0: StateFilterInput, U1: StateFilterInput> StateFilterCombination<()> for 
     fn combine(self, (): ()) -> Self::Combined {
         (self.0, self.1)
     }
-}
+}*/

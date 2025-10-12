@@ -1,11 +1,10 @@
 mod manager;
-use card_game_derive::StateFilterInput;
 use card_stack::priority::GetState;
 pub use manager::*;
 
 use crate::events::{Event, EventListener, GetEventManagerMut};
 use crate::identifications::{SourceCardID, ValidCardID};
-use crate::validation::{
+use state_validation::{
     StateFilter, StateFilterCombination, StateFilterInput, StateFilterInputConversion, ValidAction,
 };
 
@@ -41,7 +40,6 @@ impl<Kind> Card<Kind> {
     }
 }
 
-use crate as card_game;
 #[derive(StateFilterInput, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
 impl CardID {

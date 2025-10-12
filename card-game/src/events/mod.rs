@@ -1,10 +1,7 @@
 use std::hash::Hash;
 
-use crate::{
-    create_valid_identification,
-    identifications::SourceCardID,
-    validation::{StateFilter, StateFilterInput, ValidAction},
-};
+use crate::{create_valid_identification, identifications::SourceCardID};
+use state_validation::{StateFilter, StateFilterInput, ValidAction};
 
 pub struct EventManager<State, E: Event<State>, Listener: EventListener<State, E>> {
     events: Vec<Listener>,
