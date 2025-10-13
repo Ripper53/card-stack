@@ -73,10 +73,10 @@ mod tests {
         actions::StackDamageAndHeal,
         game::{Character, Game, StartOfTurnState},
         identifications::CharacterID,
-        resolvers::{HaltStack, Resolver},
+        resolvers::HaltStack,
     };
     use card_game::stack::{
-        priority::{GetState, Priority, ResolveStack},
+        priority::{GetState, Priority, ResolveStack, Resolver},
         requirements::FulfilledAction,
     };
 
@@ -91,12 +91,14 @@ mod tests {
             .insert(CharacterID::new(1), Character { health: 3 });
         let state = StartOfTurnState { game };
         let priority = Priority::new(state).stack(StackDamageAndHeal::new(CharacterID::new(0)));
-        match priority.resolve_next::<Resolver<_>>() {
-            ResolveStack::Complete(new_stack) => match new_stack.resolve_next::<Resolver<_>>() {
-                ResolveStack::Halt(requirement) => {}
-                ResolveStack::Complete(_) => panic!("unexpected path"),
-                ResolveStack::Next(_) => panic!("unexpected path"),
-            },
+        match priority.resolve_next::<crate::resolvers::Resolver>() {
+            ResolveStack::Complete(new_stack) => {
+                match new_stack.resolve_next::<crate::resolvers::Resolver>() {
+                    ResolveStack::Halt(requirement) => {}
+                    ResolveStack::Complete(_) => panic!("unexpected path"),
+                    ResolveStack::Next(_) => panic!("unexpected path"),
+                }
+            }
             ResolveStack::Next(r) => panic!("unexpected path"),
             ResolveStack::Halt(_) => panic!("unexpected path"),
         }

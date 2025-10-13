@@ -12,10 +12,10 @@ use crate::{
     stack::{Action, StackAction},
 };
 
-pub struct Resolver<T>(std::marker::PhantomData<T>);
+pub struct Resolver;
 
-impl<State: GetStateMut<Game>, IncitingAction: card_game::stack::actions::IncitingAction<State, ()>>
-    card_game::stack::priority::IncitingResolver<State, IncitingAction> for Resolver<()>
+impl<State, IncitingAction: card_game::stack::actions::IncitingAction<State, (), Requirement = ()>>
+    card_game::stack::priority::IncitingResolver<State, (), IncitingAction> for Resolver
 {
     type Resolved = IncitingAction::Resolved;
     fn resolve_inciting(
@@ -25,28 +25,10 @@ impl<State: GetStateMut<Game>, IncitingAction: card_game::stack::actions::Inciti
         action.resolve(priority, ())
     }
 }
-pub trait IntoHaltStack<Priority> {
-    fn into_halt_stack(self, priority: Priority);
-}
 impl<
     State: GetStateMut<Game>,
-    Input: StateFilterInput,
-    IncitingAction: IntoHaltStack<Priority<State>>,
-> card_game::stack::priority::IncitingResolver<State, IncitingAction> for Resolver<Input>
-{
-    type Resolved = HaltStack<Priority<State>>;
-    fn resolve_inciting(
-        priority: card_game::stack::priority::PriorityMut<Priority<State>>,
-        action: IncitingAction,
-    ) -> Self::Resolved {
-        action.into_halt_stack(priority)
-    }
-}
-impl<
-    Input: StateFilterInput,
-    State: GetStateMut<Game>,
-    IncitingAction: card_game::stack::actions::IncitingAction<State, Input, Stackable = crate::stack::StackAction>,
-> card_game::stack::priority::StackResolver<State, IncitingAction> for Resolver<Input>
+    IncitingAction: card_game::stack::actions::IncitingActionInfo<State, Stackable = crate::stack::StackAction>,
+> card_game::stack::priority::StackResolver<State, IncitingAction> for Resolver
 {
     type HaltStack = HaltStack<PriorityStack<State, IncitingAction>>;
     fn resolve_stack(

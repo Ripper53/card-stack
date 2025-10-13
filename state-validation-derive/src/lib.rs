@@ -1,8 +1,7 @@
 use darling::FromDeriveInput;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::format_ident;
-use syn::{Expr, Ident, Index, LitInt, Type, parse::Parse, parse_macro_input, token::Comma};
+use syn::{Expr, Ident, Type, parse_macro_input};
 
 #[derive(darling::FromDeriveInput)]
 #[darling(attributes(state_filter_input))]

@@ -1,3 +1,5 @@
+use state_validation::StateFilterInput;
+
 pub trait GetState<State> {
     fn state(&self) -> &State;
 }
@@ -100,11 +102,23 @@ impl<
     }
 }
 
-impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
-    PriorityStack<State, IncitingAction>
+pub trait Resolver<
+    State,
+    Input: StateFilterInput,
+    IncitingAction: crate::actions::IncitingAction<State, Input>,
+>: Sized
 {
-    pub fn resolve_next<
-        R: IncitingResolver<State, IncitingAction> + StackResolver<State, IncitingAction>,
+    fn resolve_next<
+        R: IncitingResolver<State, Input, IncitingAction> + StackResolver<State, IncitingAction>,
+    >(
+        self,
+    ) -> ResolveStack<Self, R::Resolved, R::HaltStack>;
+}
+impl<State, Input: StateFilterInput, IncitingAction: crate::actions::IncitingAction<State, Input>>
+    Resolver<State, Input, IncitingAction> for PriorityStack<State, IncitingAction>
+{
+    fn resolve_next<
+        R: IncitingResolver<State, Input, IncitingAction> + StackResolver<State, IncitingAction>,
     >(
         mut self,
     ) -> ResolveStack<Self, R::Resolved, R::HaltStack> {
@@ -124,28 +138,13 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
             ))
         }
     }
-    pub fn resolve_fully<
-        R: IncitingResolver<State, IncitingAction> + StackResolver<State, IncitingAction>,
-    >(
-        mut self,
-    ) -> ResolveStackFully<R::Resolved, R::HaltStack> {
-        while let Some(action) = self.stack.pop() {
-            match R::resolve_stack(
-                PriorityMut::<PriorityStack<State, IncitingAction>>::new(self),
-                action,
-            ) {
-                Resolve::Continue(priority) => self = priority,
-                Resolve::Halt(data) => return ResolveStackFully::Broken(data),
-            }
-        }
-        let inciting_action = self.stack.take_inciting_action();
-        ResolveStackFully::Complete(R::resolve_inciting(
-            PriorityMut::<Priority<State>>::new(self.priority),
-            inciting_action,
-        ))
-    }
 }
-pub trait IncitingResolver<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
+pub trait IncitingResolver<
+    State,
+    Input: StateFilterInput,
+    IncitingAction: crate::actions::IncitingAction<State, Input>,
+>
+{
     type Resolved;
     fn resolve_inciting(
         prioriy: PriorityMut<Priority<State>>,
