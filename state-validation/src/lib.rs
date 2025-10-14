@@ -70,7 +70,7 @@
 //!     }
 //! }
 //!
-//! // Action
+//! // Action that removes the admin from user storage.
 //! struct RemoveAdmin;
 //! impl ValidAction<UserStorage, UserID> for RemoveAdmin {
 //!     type Filter = (
