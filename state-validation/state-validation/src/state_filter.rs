@@ -5,11 +5,11 @@ pub trait StateFilter<State, Input> {
     type Error: std::error::Error;
     fn filter(state: &State, value: Input) -> Result<Self::ValidOutput, Self::Error>;
 }
-impl<State> StateFilter<State, ()> for () {
-    type ValidOutput = ();
+impl<State, Input> StateFilter<State, Input> for () {
+    type ValidOutput = Input;
     type Error = std::convert::Infallible;
-    fn filter(_state: &State, (): ()) -> Result<Self::ValidOutput, Self::Error> {
-        Ok(())
+    fn filter(_state: &State, input: Input) -> Result<Self::ValidOutput, Self::Error> {
+        Ok(input)
     }
 }
 impl<
@@ -23,19 +23,19 @@ impl<
 where
     InitialInput: StateFilterInputConversion<Input0>,
     <InitialInput as StateFilterInputConversion<Input0>>::Remainder:
-        StateFilterCombination<F0::ValidOutput>,
-    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F0::ValidOutput>,
+    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input1>,
-    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input1>>::Remainder:
-        StateFilterCombination<F1::ValidOutput>,
+        StateFilterInputCombination<F1::ValidOutput>,
 {
-    type ValidOutput = <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    type ValidOutput = <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
         >>::Combined as StateFilterInputConversion<Input1>>::Remainder as
-        StateFilterCombination<F1::ValidOutput>>::Combined;
+        StateFilterInputCombination<F1::ValidOutput>>::Combined;
     type Error = StateFilterTwoChainError<F0::Error, F1::Error>;
     fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
         let (input, remainder) = value.split_take();
@@ -74,34 +74,34 @@ impl<
 where
     InitialInput: StateFilterInputConversion<Input0>,
     <InitialInput as StateFilterInputConversion<Input0>>::Remainder:
-        StateFilterCombination<F0::ValidOutput>,
-    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F0::ValidOutput>,
+    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input1>,
-    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input1>>::Remainder:
-        StateFilterCombination<F1::ValidOutput>,
-    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F1::ValidOutput>,
+    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input2>,
 
-    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder:
-        StateFilterCombination<F2::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>,
 {
     type ValidOutput = 
-    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined
+        StateFilterInputCombination<F2::ValidOutput>>::Combined
     ;
     type Error = StateFilterThreeChainError<F0::Error, F1::Error, F2::Error>;
     fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
@@ -151,49 +151,49 @@ impl<
 where
     InitialInput: StateFilterInputConversion<Input0>,
     <InitialInput as StateFilterInputConversion<Input0>>::Remainder:
-        StateFilterCombination<F0::ValidOutput>,
-    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F0::ValidOutput>,
+    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input1>,
-    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input1>>::Remainder:
-        StateFilterCombination<F1::ValidOutput>,
-    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F1::ValidOutput>,
+    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input2>,
 
-    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder:
-        StateFilterCombination<F2::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>,
         
         
-    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
 
-    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterCombination<F3::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterInputCombination<F3::ValidOutput>,
 {
     type ValidOutput = 
-    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined
     ;
     type Error = StateFilterFourChainError<F0::Error, F1::Error, F2::Error, F3::Error>;
     fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
@@ -253,63 +253,63 @@ impl<
 where
     InitialInput: StateFilterInputConversion<Input0>,
     <InitialInput as StateFilterInputConversion<Input0>>::Remainder:
-        StateFilterCombination<F0::ValidOutput>,
-    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F0::ValidOutput>,
+    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input1>,
-    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input1>>::Remainder:
-        StateFilterCombination<F1::ValidOutput>,
-    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F1::ValidOutput>,
+    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input2>,
 
-    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder:
-        StateFilterCombination<F2::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>,
         
         
-    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
 
-    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterCombination<F3::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterInputCombination<F3::ValidOutput>,
 
-    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined: StateFilterInputConversion<Input4>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined: StateFilterInputConversion<Input4>,
 
-    <<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder: StateFilterCombination<F4::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder: StateFilterInputCombination<F4::ValidOutput>,
 {
     type ValidOutput =
-    <<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined
     ;
     type Error = StateFilterFiveChainError<F0::Error, F1::Error, F2::Error, F3::Error, F4::Error>;
     fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
@@ -379,77 +379,77 @@ impl<
 where
     InitialInput: StateFilterInputConversion<Input0>,
     <InitialInput as StateFilterInputConversion<Input0>>::Remainder:
-        StateFilterCombination<F0::ValidOutput>,
-    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F0::ValidOutput>,
+    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input1>,
-    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input1>>::Remainder:
-        StateFilterCombination<F1::ValidOutput>,
-    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F1::ValidOutput>,
+    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input2>,
 
-    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder:
-        StateFilterCombination<F2::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>,
         
         
-    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
 
-    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterCombination<F3::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterInputCombination<F3::ValidOutput>,
 
-    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined: StateFilterInputConversion<Input4>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined: StateFilterInputConversion<Input4>,
 
-    <<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder: StateFilterCombination<F4::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder: StateFilterInputCombination<F4::ValidOutput>,
 
-    <<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined: StateFilterInputConversion<Input5>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined: StateFilterInputConversion<Input5>,
 
-    <<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder: StateFilterCombination<F5::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder: StateFilterInputCombination<F5::ValidOutput>,
 {
     type ValidOutput = 
-    <<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterInputCombination<F5::ValidOutput>>::Combined
     ;
     type Error = StateFilterSixChainError<F0::Error, F1::Error, F2::Error, F3::Error, F4::Error, F5::Error>;
     fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
@@ -529,91 +529,91 @@ impl<
 where
     InitialInput: StateFilterInputConversion<Input0>,
     <InitialInput as StateFilterInputConversion<Input0>>::Remainder:
-        StateFilterCombination<F0::ValidOutput>,
-    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F0::ValidOutput>,
+    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input1>,
-    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input1>>::Remainder:
-        StateFilterCombination<F1::ValidOutput>,
-    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F1::ValidOutput>,
+    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input2>,
 
-    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder:
-        StateFilterCombination<F2::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>,
         
         
-    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
 
-    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterCombination<F3::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterInputCombination<F3::ValidOutput>,
 
-    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined: StateFilterInputConversion<Input4>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined: StateFilterInputConversion<Input4>,
 
-    <<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder: StateFilterCombination<F4::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder: StateFilterInputCombination<F4::ValidOutput>,
 
-    <<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined: StateFilterInputConversion<Input5>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined: StateFilterInputConversion<Input5>,
 
-    <<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder: StateFilterCombination<F5::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder: StateFilterInputCombination<F5::ValidOutput>,
 
-    <<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined: StateFilterInputConversion<Input6>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterInputCombination<F5::ValidOutput>>::Combined: StateFilterInputConversion<Input6>,
 
-    <<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder: StateFilterCombination<F6::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterInputCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder: StateFilterInputCombination<F6::ValidOutput>,
 {
     type ValidOutput =
-    <<<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterCombination<F6::ValidOutput>>::Combined
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterInputCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterInputCombination<F6::ValidOutput>>::Combined
     ;
     type Error = StateFilterSevenChainError<F0::Error, F1::Error, F2::Error, F3::Error, F4::Error, F5::Error, F6::Error>;
     fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
@@ -703,105 +703,105 @@ impl<
 where
     InitialInput: StateFilterInputConversion<Input0>,
     <InitialInput as StateFilterInputConversion<Input0>>::Remainder:
-        StateFilterCombination<F0::ValidOutput>,
-    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F0::ValidOutput>,
+    <<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input1>,
-    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input1>>::Remainder:
-        StateFilterCombination<F1::ValidOutput>,
-    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+        StateFilterInputCombination<F1::ValidOutput>,
+    <<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined: StateFilterInputConversion<Input2>,
 
-    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder:
-        StateFilterCombination<F2::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>,
         
         
-    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined: StateFilterInputConversion<Input3>,
 
-    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterCombination<F3::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder: StateFilterInputCombination<F3::ValidOutput>,
 
-    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined: StateFilterInputConversion<Input4>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined: StateFilterInputConversion<Input4>,
 
-    <<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder: StateFilterCombination<F4::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder: StateFilterInputCombination<F4::ValidOutput>,
 
-    <<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined: StateFilterInputConversion<Input5>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined: StateFilterInputConversion<Input5>,
 
-    <<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder: StateFilterCombination<F5::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder: StateFilterInputCombination<F5::ValidOutput>,
 
-    <<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined: StateFilterInputConversion<Input6>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterInputCombination<F5::ValidOutput>>::Combined: StateFilterInputConversion<Input6>,
 
-    <<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder: StateFilterCombination<F6::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterInputCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder: StateFilterInputCombination<F6::ValidOutput>,
 
-    <<<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterCombination<F6::ValidOutput>>::Combined: StateFilterInputConversion<Input7>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterInputCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterInputCombination<F6::ValidOutput>>::Combined: StateFilterInputConversion<Input7>,
 
-    <<<<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterCombination<F6::ValidOutput>>::Combined as StateFilterInputConversion<Input7>>::Remainder: StateFilterCombination<F7::ValidOutput>,
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterInputCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterInputCombination<F6::ValidOutput>>::Combined as StateFilterInputConversion<Input7>>::Remainder: StateFilterInputCombination<F7::ValidOutput>,
 {
     type ValidOutput=
-    <<<<<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterCombination<
+    <<<<<<<<<<<<<<<<InitialInput as StateFilterInputConversion<Input0>>::Remainder as StateFilterInputCombination<
         F0::ValidOutput,
-    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterCombination<
+    >>::Combined as StateFilterInputConversion<Input1>>::Remainder as StateFilterInputCombination<
         F1::ValidOutput,
     >>::Combined as StateFilterInputConversion<Input2>>::Remainder as
-        StateFilterCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterCombination<F6::ValidOutput>>::Combined as StateFilterInputConversion<Input7>>::Remainder as StateFilterCombination<F7::ValidOutput>>::Combined
+        StateFilterInputCombination<F2::ValidOutput>>::Combined as StateFilterInputConversion<Input3>>::Remainder as StateFilterInputCombination<F3::ValidOutput>>::Combined as StateFilterInputConversion<Input4>>::Remainder as StateFilterInputCombination<F4::ValidOutput>>::Combined as StateFilterInputConversion<Input5>>::Remainder as StateFilterInputCombination<F5::ValidOutput>>::Combined as StateFilterInputConversion<Input6>>::Remainder as StateFilterInputCombination<F6::ValidOutput>>::Combined as StateFilterInputConversion<Input7>>::Remainder as StateFilterInputCombination<F7::ValidOutput>>::Combined
         ;
     type Error = StateFilterEightChainError<F0::Error, F1::Error, F2::Error, F3::Error, F4::Error, F5::Error, F6::Error, F7::Error>;
     fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
@@ -874,35 +874,35 @@ macro_rules! impl_state_filter_input_for_tuple {
 }
 variadics_please::all_tuples!(impl_state_filter_input_for_tuple, 1, 16, T);
 
-pub trait StateFilterInputConversion<T>: Sized {
+pub trait StateFilterInputConversion<T> {
     type Remainder;
     fn split_take(self) -> (T, Self::Remainder);
 }
 
-pub trait StateFilterCombination<T>: Sized {
+pub trait StateFilterInputCombination<T> {
     type Combined;
     fn combine(self, value: T) -> Self::Combined;
 }
 
-impl<T: StateFilterInput> StateFilterCombination<T> for () {
+impl<T: StateFilterInput> StateFilterInputCombination<T> for () {
     type Combined = T;
     fn combine(self, value: T) -> Self::Combined {
         value
     }
 }
-impl<T: StateFilterInput, U: StateFilterInput> StateFilterCombination<(T,)> for (U,) {
+impl<T: StateFilterInput, U: StateFilterInput> StateFilterInputCombination<(T,)> for (U,) {
     type Combined = (U, T);
     fn combine(self, value: (T,)) -> Self::Combined {
         (self.0, value.0)
     }
 }
-impl<T: StateFilterInput, U: StateFilterInput> StateFilterCombination<(T,)> for (U, ()) {
+impl<T: StateFilterInput, U: StateFilterInput> StateFilterInputCombination<(T,)> for (U, ()) {
     type Combined = (U, T);
     fn combine(self, value: (T,)) -> Self::Combined {
         (self.0, value.0)
     }
 }
-impl<T: StateFilterInput, U0: StateFilterInput, U1: StateFilterInput> StateFilterCombination<(T,)>
+impl<T: StateFilterInput, U0: StateFilterInput, U1: StateFilterInput> StateFilterInputCombination<(T,)>
     for (U0, U1)
 {
     type Combined = (U0, U1, T);
@@ -910,7 +910,7 @@ impl<T: StateFilterInput, U0: StateFilterInput, U1: StateFilterInput> StateFilte
         (self.0, self.1, value.0)
     }
 }
-impl<U0: StateFilterInput, U1: StateFilterInput> StateFilterCombination<()> for (U0, U1) {
+impl<U0: StateFilterInput, U1: StateFilterInput> StateFilterInputCombination<()> for (U0, U1) {
     type Combined = (U0, U1);
     fn combine(self, (): ()) -> Self::Combined {
         (self.0, self.1)

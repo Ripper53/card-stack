@@ -326,7 +326,7 @@ where
 mod tests {
     use card_game_derive::StateFilterInput;
 
-    use crate::cards::ActionID;
+    use crate::{cards::ActionID, identifications::ActionIdentifier};
 
     use super::*;
 
@@ -381,6 +381,8 @@ mod tests {
             valid: <Self::Filter as StateFilter<Game, SummonedInput>>::ValidOutput,
         ) -> Self::Output {
         }
+    }
+    impl ActionIdentifier for AllSummonedActions {
         fn action_id() -> ActionID {
             match self {
                 AllSummonedActions::Summon(summoned) => summoned.action_id(),

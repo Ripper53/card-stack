@@ -71,12 +71,14 @@ mod tests {
 
     use crate::{
         actions::StackDamageAndHeal,
-        game::{Character, Game, StartOfTurnState},
+        game::{Character, Game, GetStateMut, StartOfTurnState},
         identifications::CharacterID,
-        resolvers::HaltStack,
+        resolvers::{HaltStack, NoInput},
+        stack::RemoveCharacters,
     };
     use card_game::stack::{
-        priority::{GetState, Priority, ResolveStack, Resolver},
+        actions::IncitingActionInfo,
+        priority::{GetState, Priority, PriorityStack, ResolveStack, Resolver},
         requirements::FulfilledAction,
     };
 
@@ -94,13 +96,130 @@ mod tests {
         match priority.resolve_next::<crate::resolvers::Resolver>() {
             ResolveStack::Complete(new_stack) => {
                 match new_stack.resolve_next::<crate::resolvers::Resolver>() {
-                    ResolveStack::Halt(requirement) => {}
-                    ResolveStack::Complete(_) => panic!("unexpected path"),
-                    ResolveStack::Next(_) => panic!("unexpected path"),
+                    ResolveStack::Halt(requirement) => match requirement {
+                        HaltStack::DealDamageRequirement(deal_damage) => {
+                            let priority = deal_damage.select(CharacterID::new(0)).unwrap();
+                            assert_eq!(
+                                priority
+                                    .state()
+                                    .characters
+                                    .get(&CharacterID::new(0))
+                                    .unwrap()
+                                    .health,
+                                2
+                            );
+                            assert_eq!(
+                                priority
+                                    .state()
+                                    .characters
+                                    .get(&CharacterID::new(1))
+                                    .unwrap()
+                                    .health,
+                                3
+                            );
+                            match priority.resolve_next::<crate::resolvers::Resolver>() {
+                                ResolveStack::Complete(r) => match r {
+                                    Ok(r) => {
+                                        let priority = r.select(CharacterID::new(0)).unwrap();
+                                        assert_eq!(
+                                            priority
+                                                .state()
+                                                .characters
+                                                .get(&CharacterID::new(0))
+                                                .unwrap()
+                                                .health,
+                                            3
+                                        );
+                                        assert_eq!(
+                                            priority
+                                                .state()
+                                                .characters
+                                                .get(&CharacterID::new(1))
+                                                .unwrap()
+                                                .health,
+                                            3
+                                        );
+                                    }
+                                    Err(_) => unreachable!(),
+                                },
+                                ResolveStack::Next(_) => unreachable!(),
+                                ResolveStack::Halt(_) => unreachable!(),
+                            }
+                        }
+                        HaltStack::HealRequirement(_) => unreachable!(),
+                    },
+                    ResolveStack::Complete(_) => unreachable!(),
+                    ResolveStack::Next(_) => unreachable!(),
                 }
             }
-            ResolveStack::Next(r) => panic!("unexpected path"),
-            ResolveStack::Halt(_) => panic!("unexpected path"),
+            ResolveStack::Next(_) => unreachable!(),
+            ResolveStack::Halt(_) => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn game_remove_requirements() {
+        let mut game = Game {
+            characters: HashMap::with_capacity(2),
+        };
+        game.characters
+            .insert(CharacterID::new(0), Character { health: 3 });
+        game.characters
+            .insert(CharacterID::new(1), Character { health: 3 });
+        let state = StartOfTurnState { game };
+        let priority = Priority::new(state).stack(StackDamageAndHeal::new(CharacterID::new(0)));
+        match priority.resolve_next::<crate::resolvers::Resolver>() {
+            ResolveStack::Complete(new_stack) => {
+                match new_stack.resolve_next::<crate::resolvers::Resolver>() {
+                    ResolveStack::Halt(requirement) => match requirement {
+                        HaltStack::DealDamageRequirement(deal_damage) => {
+                            let priority = deal_damage.select(CharacterID::new(0)).unwrap();
+                            assert_eq!(
+                                priority
+                                    .state()
+                                    .characters
+                                    .get(&CharacterID::new(0))
+                                    .unwrap()
+                                    .health,
+                                2,
+                            );
+                            assert_eq!(
+                                priority
+                                    .state()
+                                    .characters
+                                    .get(&CharacterID::new(1))
+                                    .unwrap()
+                                    .health,
+                                3
+                            );
+                            let priority =
+                                priority.stack(crate::stack::StackAction::RemoveCharacters(
+                                    RemoveCharacters::default(),
+                                ));
+                            let ResolveStack::Next(priority) =
+                                priority.resolve_next::<crate::resolvers::Resolver>()
+                            else {
+                                unreachable!()
+                            };
+                            match priority.resolve_next::<crate::resolvers::Resolver>() {
+                                ResolveStack::Complete(r) => match r {
+                                    Ok(_) => unreachable!(),
+                                    Err(_) => {
+                                        // Expected Path
+                                    }
+                                },
+                                ResolveStack::Next(_) => unreachable!(),
+                                ResolveStack::Halt(_) => unreachable!(),
+                            }
+                        }
+                        HaltStack::HealRequirement(_) => unreachable!(),
+                    },
+                    ResolveStack::Complete(_) => unreachable!(),
+                    ResolveStack::Next(_) => unreachable!(),
+                }
+            }
+            ResolveStack::Next(_) => unreachable!(),
+            ResolveStack::Halt(_) => unreachable!(),
         }
     }
 }

@@ -8,7 +8,7 @@ description = "Framework for building card games"
 
 [dependencies]
 card-game-derive = { path = "../card-game-derive", version = "0.1", optional = true }
-state-validation = { path = "../state-validation", version = "0.1", default-features = false, features = [
+state-validation = { path = "../state-validation/state-validation", version = "0.1", default-features = false, features = [
     "input_collector",
 ] }
 card-stack = { path = "../card-stack", version = "0.1" }

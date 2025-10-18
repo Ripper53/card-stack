@@ -11,6 +11,7 @@ use crate::{
     stack::{IncitingAction, StackAction},
 };
 
+#[derive(Debug)]
 pub struct Heal {
     source: CharacterID,
     amount: usize,

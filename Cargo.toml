@@ -1,3 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["card-game", "card-game-derive", "card-game-example", "card-stack", "card-stack-example", "state-validation-derive"]
+members = [
+    "card-game",
+    "card-game-derive",
+    "card-game-example",
+    "card-stack",
+    "card-stack-example",
+]

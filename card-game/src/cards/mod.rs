@@ -3,9 +3,10 @@ use card_stack::priority::GetState;
 pub use manager::*;
 
 use crate::events::{Event, EventListener, GetEventManagerMut};
-use crate::identifications::{SourceCardID, ValidCardID};
+use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
 use state_validation::{
-    StateFilter, StateFilterCombination, StateFilterInput, StateFilterInputConversion, ValidAction,
+    StateFilter, StateFilterInput, StateFilterInputCombination, StateFilterInputConversion,
+    ValidAction,
 };
 
 pub struct Card<Kind> {
@@ -95,7 +96,7 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
     pub fn with_action<
         State,
         Input: StateFilterInput + StateFilterInputConversion<SourceCardID>,
-        Action: ValidAction<State, Input>,
+        Action: ValidAction<State, Input> + ActionIdentifier,
     >(
         self,
     ) -> Self {
@@ -123,13 +124,13 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
 pub struct SourceCardFilter<Action>(std::marker::PhantomData<Action>);
 impl<
     Input: StateFilterInput + StateFilterInputConversion<SourceCardID>,
-    Action: ValidAction<State, Input>,
+    Action: ValidAction<State, Input> + ActionIdentifier,
     State: GetState<CardActions>,
 > StateFilter<State, Input> for SourceCardFilter<Action>
 where
-    Input::Remainder: StateFilterCombination<ValidCardID<()>>,
+    Input::Remainder: StateFilterInputCombination<ValidCardID<()>>,
 {
-    type ValidOutput = <Input::Remainder as StateFilterCombination<ValidCardID<()>>>::Combined;
+    type ValidOutput = <Input::Remainder as StateFilterInputCombination<ValidCardID<()>>>::Combined;
     type Error = InvalidSourceCardError;
     fn filter(state: &State, value: Input) -> Result<Self::ValidOutput, Self::Error> {
         let (source_card_id, remainder) = value.split_take();

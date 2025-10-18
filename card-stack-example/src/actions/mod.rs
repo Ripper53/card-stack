@@ -3,7 +3,7 @@ use heal::Heal;
 
 use card_game::stack::{
     actions::{ActionSource, IncitingAction, IncitingActionInfo},
-    priority::{GetState, IncitingPriority, Priority, PriorityStack, StackPriority},
+    priority::{GetState, Priority, PriorityStack},
     requirements::{FulfilledAction, RequirementAction},
 };
 
@@ -11,12 +11,14 @@ use crate::{
     game::{Game, GetStateMut},
     identifications::CharacterID,
     requirements::TargetCharacter,
+    resolvers::{NoInput, NoRequirement},
     stack::{Action, StackAction},
 };
 
 pub mod deal_damage;
 pub mod heal;
 
+#[derive(Debug)]
 pub struct StackDamageAndHeal {
     source: CharacterID,
 }
@@ -31,22 +33,25 @@ impl ActionSource for StackDamageAndHeal {
         &self.source
     }
 }
-impl<State: GetStateMut<Game>> IncitingAction<State, ()> for StackDamageAndHeal {
-    type Requirement = ();
+impl<State: GetStateMut<Game>> IncitingAction<State, NoInput> for StackDamageAndHeal {
+    type Requirement = NoRequirement;
     fn resolve(
         self,
         mut priority: card_game::stack::priority::PriorityMut<Priority<State>>,
         _: <<Self::Requirement as card_game::stack::requirements::ActionRequirement<
             Priority<State>,
-            (),
-        >>::Filter as card_game::validation::StateFilter<Priority<State>, ()>>::ValidOutput,
+            NoInput,
+        >>::Filter as card_game::validation::StateFilter<Priority<State>, NoInput>>::ValidOutput,
     ) -> Self::Resolved {
-        let priority = priority.stack(DealDamage::new(self.source, 1).into());
-        let priority = priority.stack(StackAction::Action(Action::Heal(Heal::new(self.source, 1))));
+        let priority = priority.stack(Heal::new(self.source, 1));
+        let priority = priority.stack(StackAction::Action(Action::DealDamage(DealDamage::new(
+            self.source,
+            1,
+        ))));
         priority.take_priority()
     }
 }
 impl<State: GetStateMut<Game>> IncitingActionInfo<State> for StackDamageAndHeal {
-    type Resolved = PriorityStack<State, DealDamage>;
+    type Resolved = PriorityStack<State, Heal>;
     type Stackable = StackAction;
 }

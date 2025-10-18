@@ -5,7 +5,7 @@ use crate::{
     priority::{Priority, PriorityMut, PriorityStack},
 };
 
-pub trait ActionRequirement<State, Input: StateFilterInput> {
+pub trait ActionRequirement<State, Input> {
     /// Satisfy the requirement.
     type Filter: StateFilter<State, Input>;
     /// All the possible inputs for the requirement (but does not necessarily pass the filter).
@@ -217,6 +217,18 @@ where
 pub struct RequirementActionSelectionError<Action, E: std::error::Error> {
     action: Action,
     error: E,
+}
+impl<Action, E: std::error::Error> std::fmt::Debug for RequirementActionSelectionError<Action, E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.error, f)
+    }
+}
+impl<Action, E: std::error::Error> std::fmt::Display
+    for RequirementActionSelectionError<Action, E>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.error, f)
+    }
 }
 impl<Action, E: std::error::Error> RequirementActionSelectionError<Action, E> {
     pub fn take_requirement_action(self) -> Action {

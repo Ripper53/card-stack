@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet, hash_map::Entry};
 
 use card_stack::priority::GetState;
-use state_validation::ActionID;
 
-use crate::cards::{CardBuilder, CardID};
+use crate::{
+    cards::{CardBuilder, CardID},
+    identifications::ActionID,
+};
 
 pub struct CardManager<EventManager> {
     next_card_id_index: usize,
