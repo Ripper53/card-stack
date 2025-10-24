@@ -1,9 +1,11 @@
 use card_game::{
     cards::CardID,
     events::{EventListener, EventListenerConstructor, GetEventManagerMut},
-    identifications::{PlayerID, SourceCardID, ValidCardID, ValidPlayerID},
+    identifications::{
+        ActionID, ActionIdentifier, PlayerID, SourceCardID, ValidCardID, ValidPlayerID,
+    },
     stack::priority::GetState,
-    validation::{ActionID, Condition, StateFilter, ValidAction},
+    validation::{Condition, StateFilter, ValidAction},
     zones::Zone,
 };
 
@@ -27,6 +29,11 @@ impl GiveAttack {
     }
 }
 
+impl ActionIdentifier for GiveAttack {
+    fn action_id() -> ActionID {
+        ActionID::new("give_attack")
+    }
+}
 impl<State: GetStateMut<Game>> ValidAction<State, FilterInput<(PlayerID, CardID)>> for GiveAttack {
     type Filter = (
         Condition<FilterInput<(PlayerID, CardID)>, CardIn<MonsterZone>>,
@@ -53,9 +60,6 @@ impl<State: GetStateMut<Game>> ValidAction<State, FilterInput<(PlayerID, CardID)
         card.kind_mut().kind_mut().add_attack(self.attack);
         state
     }
-    fn action_id() -> ActionID {
-        ActionID::new("give_attack")
-    }
 }
 
 impl<State: GetStateMut<Game>, F>
@@ -81,11 +85,9 @@ impl<State: GetStateMut<Game>, F>
         card.kind_mut().kind_mut().add_attack(self.attack);
         state
     }
-    fn action_id() -> ActionID {
-        ActionID::new("give_attack")
-    }
 }
 
+#[derive(Clone)]
 pub struct PassiveGiveAttack {
     source_card_id: CardID,
     give_attack: GiveAttack,
@@ -102,7 +104,7 @@ impl PassiveGiveAttack {
 impl<State: GetStateMut<Game>> EventListener<State, SpecialSummoned> for PassiveGiveAttack {
     type Filter = CardIn<MonsterZone>;
     type Action = GiveAttack;
-    fn action(&self, _event: &SpecialSummoned) -> Self::Action {
+    fn action(&self, _state: &State, _event: &SpecialSummoned) -> Self::Action {
         self.give_attack.clone()
     }
 }

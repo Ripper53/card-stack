@@ -36,13 +36,13 @@ where
         {
             Ok(FilterInput(valid_player_id))
         } else {
-            Err(CardWithNameNotFoundError.into())
+            Err(CardWithNameNotFoundError(N::name()).into())
         }
     }
 }
 #[derive(thiserror::Error, Debug)]
-#[error("card with name not found")]
-pub struct CardWithNameNotFoundError;
+#[error("card with name {0} not found")]
+pub struct CardWithNameNotFoundError(&'static str);
 #[derive(thiserror::Error, Debug)]
 pub enum CardWithNameError {
     #[error(transparent)]
@@ -68,7 +68,7 @@ where
         {
             Ok(FilterInput(valid_player_id))
         } else {
-            Err(CardWithNameNotFoundError)
+            Err(CardWithNameNotFoundError(N::name()))
         }
     }
 }

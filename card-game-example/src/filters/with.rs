@@ -19,6 +19,19 @@ use crate::{
 
 pub struct With<T>(std::marker::PhantomData<T>);
 
+impl<State: GetState<Game>, Z: GetZone, F> StateFilter<State, (ValidPlayerID<F>, SlotID)>
+    for With<(Free<MonsterSlot>, In<Z>)>
+{
+    type ValidOutput = (ValidPlayerID<F>, ValidSlotID<In<Z>>);
+    type Error = SlotDoesNotExistError;
+    fn filter(
+        state: &State,
+        (valid_player_id, slot_id): (ValidPlayerID<F>, SlotID),
+    ) -> Result<Self::ValidOutput, Self::Error> {
+        ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_id)
+            .map(|valid_slot_id| (valid_player_id, valid_slot_id))
+    }
+}
 impl<State: GetState<Game>, Z: GetZone, F>
     StateFilter<State, FilterInput<(ValidPlayerID<F>, SlotID)>>
     for With<(Free<MonsterSlot>, In<Z>)>
@@ -29,14 +42,53 @@ impl<State: GetState<Game>, Z: GetZone, F>
         state: &State,
         FilterInput((valid_player_id, slot_id)): FilterInput<(ValidPlayerID<F>, SlotID)>,
     ) -> Result<Self::ValidOutput, Self::Error> {
-        ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_id)
-            .map(|valid_slot_id| FilterInput((valid_player_id, valid_slot_id)))
+        Self::filter(state, (valid_player_id, slot_id)).map(|v| FilterInput(v))
     }
 }
 
 pub struct EqualOrLowerThan<T>(std::marker::PhantomData<T>);
 pub struct Level<const LEVEL: usize>;
 
+impl<State: GetState<Game>, F, const LEVEL: usize>
+    StateFilter<
+        State,
+        (
+            ValidPlayerID<F>,
+            ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
+        ),
+    > for With<EqualOrLowerThan<Level<LEVEL>>>
+{
+    type ValidOutput = (
+        ValidPlayerID<F>,
+        ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>, Self)>,
+    );
+    type Error = MonsterLevelIsNotEqualOrLessThanError;
+    fn filter(
+        state: &State,
+        (valid_player_id, valid_card_id): (
+            ValidPlayerID<F>,
+            ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
+        ),
+    ) -> Result<Self::ValidOutput, Self::Error> {
+        let card = state
+            .state()
+            .zone_manager()
+            .valid_zone(&valid_player_id)
+            .hand_zone
+            .valid_card(&valid_card_id.cast_ref());
+        let CardKind::Monster(MonsterCardType::Monster(monster)) = card.kind() else {
+            unreachable!();
+        };
+        if monster.level() > crate::cards::monster::Level::new(LEVEL) {
+            Err(MonsterLevelIsNotEqualOrLessThanError {
+                card_id: valid_card_id.id(),
+                level: LEVEL,
+            })
+        } else {
+            Ok((valid_player_id, valid_card_id.unchecked_replace_filter()))
+        }
+    }
+}
 impl<State: GetState<Game>, F, const LEVEL: usize>
     StateFilter<
         State,
@@ -58,26 +110,7 @@ impl<State: GetState<Game>, F, const LEVEL: usize>
             ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
         )>,
     ) -> Result<Self::ValidOutput, Self::Error> {
-        let card = state
-            .state()
-            .zone_manager()
-            .valid_zone(&valid_player_id)
-            .hand_zone
-            .valid_card(&valid_card_id.cast_ref());
-        let CardKind::Monster(MonsterCardType::Monster(monster)) = card.kind() else {
-            unreachable!();
-        };
-        if monster.level() > crate::cards::monster::Level::new(LEVEL) {
-            Err(MonsterLevelIsNotEqualOrLessThanError {
-                card_id: valid_card_id.id(),
-                level: LEVEL,
-            })
-        } else {
-            Ok(FilterInput((
-                valid_player_id,
-                valid_card_id.unchecked_replace_filter(),
-            )))
-        }
+        Self::filter(state, (valid_player_id, valid_card_id)).map(|v| FilterInput(v))
     }
 }
 #[derive(thiserror::Error, Debug)]

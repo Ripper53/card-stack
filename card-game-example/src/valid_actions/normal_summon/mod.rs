@@ -1,7 +1,9 @@
 use card_game::{
     cards::{Card, CardID},
-    identifications::{ActivePlayer, PlayerID, ValidCardID, ValidPlayerID},
-    validation::{ActionID, Condition, StateFilter, ValidAction},
+    identifications::{
+        ActionID, ActionIdentifier, ActivePlayer, PlayerID, ValidCardID, ValidPlayerID,
+    },
+    validation::{Condition, StateFilter, ValidAction},
     zones::{ArrayZone, Zone},
 };
 
@@ -15,6 +17,9 @@ use crate::{
     zones::{ContainsMonsterCards, SlotID, hand::HandZone, monster::MonsterZone},
 };
 
+mod input;
+pub use input::*;
+
 pub struct NormalSummonMonster {
     position: Position,
 }
@@ -24,23 +29,28 @@ impl NormalSummonMonster {
     }
 }
 
-impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>> for NormalSummonMonster {
+impl ActionIdentifier for NormalSummonMonster {
+    fn action_id() -> ActionID {
+        ActionID::new("normal_summon")
+    }
+}
+impl ValidAction<MainStep, NormalSummonInput> for NormalSummonMonster {
     type Filter = (
-        Condition<FilterInput<PlayerID>, For<ActivePlayer>>,
-        Condition<FilterInput<(ValidPlayerID<ActivePlayer>, CardID)>, CardIn<HandZone>>,
+        Condition<PlayerID, For<ActivePlayer>>,
+        Condition<(ValidPlayerID<ActivePlayer>, CardID), CardIn<HandZone>>,
         Condition<
-            FilterInput<(ValidPlayerID<ActivePlayer>, ValidCardID<CardIn<HandZone>>)>,
+            (ValidPlayerID<ActivePlayer>, ValidCardID<CardIn<HandZone>>),
             OfType<MonsterCard>,
         >,
         Condition<
-            FilterInput<(
+            (
                 ValidPlayerID<ActivePlayer>,
                 ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
-            )>,
+            ),
             With<EqualOrLowerThan<Level<4>>>,
         >,
         Condition<
-            FilterInput<(ValidPlayerID<ActivePlayer>, SlotID)>,
+            (ValidPlayerID<ActivePlayer>, SlotID),
             With<(Free<MonsterSlot>, In<MonsterZone>)>,
         >,
     );
@@ -48,9 +58,9 @@ impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>> for NormalSu
     fn with_valid_input(
         self,
         mut state: MainStep,
-        FilterInput((valid_player_id, valid_card_id, valid_slot_id)): <Self::Filter as StateFilter<
+        (valid_player_id, valid_card_id, valid_slot_id): <Self::Filter as StateFilter<
             MainStep,
-            FilterInput<(PlayerID, CardID, SlotID)>,
+            NormalSummonInput,
         >>::ValidOutput,
     ) -> Self::Output {
         if !state.use_normal_summon() {
@@ -70,8 +80,5 @@ impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID)>> for NormalSu
             .valid_slot(valid_slot_id)
             .put(Card::new(card_id, card).into_kind());
         state
-    }
-    fn action_id() -> ActionID {
-        ActionID::new("normal_summon_monster")
     }
 }

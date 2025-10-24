@@ -105,7 +105,7 @@ pub fn state_filter_input(input: TokenStream) -> TokenStream {
     let remainder_code = if let Some(remainder_type) = data.remainder_type {
         let remainder_expr = data.remainder.expect("expected `remainder` expression");
         quote::quote! {
-            impl #impl_generics state_validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
+            impl #impl_generics card_game::validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
                 type Remainder = #remainder_type;
                 fn split_take(self) -> (Self, Self::Remainder) {
                     (self, #remainder_expr)
@@ -114,7 +114,7 @@ pub fn state_filter_input(input: TokenStream) -> TokenStream {
         }
     } else {
         quote::quote! {
-            impl #impl_generics state_validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
+            impl #impl_generics card_game::validation::StateFilterInputConversion<Self> for #name #ty_generics #where_clause {
                 type Remainder = ();
                 fn split_take(self) -> (Self, Self::Remainder) {
                     (self, ())
@@ -295,14 +295,14 @@ pub fn impl_state_filter_inputs(input: TokenStream) -> TokenStream {
     }.into()
 }
 
-struct StateFilterCombination {
+struct StateFilterInputCombination {
     name: Ident,
     start: LitInt,
     end: LitInt,
     generic: Ident,
 }
 
-impl Parse for StateFilterCombination {
+impl Parse for StateFilterInputCombination {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let name = input.parse::<Ident>()?;
         input.parse::<Comma>()?;
@@ -315,7 +315,7 @@ impl Parse for StateFilterCombination {
 
         let generic = input.parse::<Ident>()?;
 
-        Ok(StateFilterCombination {
+        Ok(StateFilterInputCombination {
             name,
             start,
             end,
@@ -326,7 +326,7 @@ impl Parse for StateFilterCombination {
 
 #[proc_macro]
 pub fn impl_state_filter_combination(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as StateFilterCombination);
+    let input = parse_macro_input!(input as StateFilterInputCombination);
     let name = input.name;
     let macro_name = format_ident!("impl_state_filter_combination_for_{name}");
     let start = input.start;
@@ -335,7 +335,7 @@ pub fn impl_state_filter_combination(input: TokenStream) -> TokenStream {
     quote::quote! {
         macro_rules! #macro_name {
             ($(($i: tt, $t: ident)),*) => {
-                impl<$($t,)*> card_game::validation::StateFilterCombination<($($t,)*)> for #name {
+                impl<$($t,)*> card_game::validation::StateFilterInputCombination<($($t,)*)> for #name {
                     type Combined = ($($t,)* Self);
                     fn combine(self, value: ($($t,)*)) -> Self::Combined {
                         ($(value.$i,)* self)

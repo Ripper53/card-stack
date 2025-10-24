@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use card_game::{
     CardGameBuilder,
     commands::CommandManager,
+    events::SimultaneousEventHandler,
     identifications::SourceCardID,
     stack::priority::GetState,
     steps::Step,
@@ -16,10 +17,11 @@ use card_game_example::{
         monster::{MonsterCard, Position},
         specifics::NeoKaiserSeaHorseSpecialSummon,
     },
+    events::summon::SpecialSummoned,
     filters::{CardIn, FilterInput, OfType},
     player::Player,
     steps::{MainStep, StartStep},
-    valid_actions::{NormalSummonMonster, SpecialSummon, TributeSummon},
+    valid_actions::{NormalSummonMonster, PassiveGiveAttack, SpecialSummon, TributeSummon},
     zones::{SlotID, hand::HandZone},
 };
 
@@ -30,6 +32,22 @@ fn game() {
     let step = StartStep::new(GameBuilder::<'_, 2>::new(()));
     let mut main = step.next_step();
     let player_id = main.game().player_manager().active_player_id();
+    assert_eq!(
+        main.game()
+            .zone_manager()
+            .valid_zone(&player_id)
+            .hand_zone()
+            .filled_count(),
+        2,
+    );
+    assert_eq!(
+        main.game()
+            .zone_manager()
+            .valid_zone(&player_id)
+            .monster_zone()
+            .filled_count(),
+        0,
+    );
     let card = main
         .game()
         .zone_manager()
@@ -53,6 +71,22 @@ fn game() {
     )
     .unwrap();
     let event = context.execute(SpecialSummon::new(Position::Attack));
+    let game = event.state().game();
+    let player_id = game.player_manager().active_player_id();
+    assert_eq!(
+        game.zone_manager()
+            .valid_zone(&player_id)
+            .hand_zone()
+            .filled_count(),
+        1,
+    );
+    assert_eq!(
+        game.zone_manager()
+            .valid_zone(&player_id)
+            .monster_zone()
+            .filled_count(),
+        1,
+    );
     //let r = event.consume::<>(todo!());
     //context.execute(NormalSummonMonster::new(Position::Attack));
 }

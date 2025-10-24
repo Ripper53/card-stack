@@ -1,9 +1,9 @@
 use card_game::{
     cards::{Card, CardID},
     events::TriggeredEvent,
-    identifications::{ValidCardID, ValidPlayerID},
+    identifications::{ActionID, ActionIdentifier, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
-    validation::{ActionID, StateFilter, StateFilterInput, ValidAction},
+    validation::{StateFilter, StateFilterInput, ValidAction},
     zones::Zone,
 };
 
@@ -17,18 +17,22 @@ use crate::{
     zones::{ContainsMonsterCards, GetZone, hand::HandZone, monster::MonsterZone},
 };
 
-pub struct SpecialSummon {
+pub struct SpecialSummon<State, Requirement: SpecialSummonRequirement<State>> {
     position: Position,
+    _m: std::marker::PhantomData<(State, Requirement)>,
 }
 
-impl SpecialSummon {
+impl<State, Requirement: SpecialSummonRequirement<State>> SpecialSummon<State, Requirement> {
     pub fn new(position: Position) -> Self {
-        SpecialSummon { position }
+        SpecialSummon {
+            position,
+            _m: std::marker::PhantomData::default(),
+        }
     }
 }
 
 impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
-    ValidAction<State, Requirement> for SpecialSummon
+    ValidAction<State, Requirement> for SpecialSummon<State, Requirement>
 {
     type Filter = Requirement::Filter;
     type Output = TriggeredEvent<State, SpecialSummoned>;
@@ -63,12 +67,16 @@ impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
             FilterInput((player_id, card_id)),
         )
     }
+}
+impl<State, Requirement: SpecialSummonRequirement<State>> ActionIdentifier
+    for SpecialSummon<State, Requirement>
+{
     fn action_id() -> ActionID {
         Requirement::action_id()
     }
 }
 
-pub trait SpecialSummonRequirement<State>: StateFilterInput + Sized {
+pub trait SpecialSummonRequirement<State>: ActionIdentifier + StateFilterInput + Sized {
     type Filter: StateFilter<State, Self>;
     type Zone: ContainsMonsterCards;
     fn handle_summon(
@@ -79,5 +87,4 @@ pub trait SpecialSummonRequirement<State>: StateFilterInput + Sized {
         ValidCardID<(CardIn<Self::Zone>, OfType<MonsterCard>)>,
         ValidSlotID<In<MonsterZone>>,
     );
-    fn action_id() -> ActionID;
 }

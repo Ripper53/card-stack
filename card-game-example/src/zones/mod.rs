@@ -3,7 +3,6 @@ use card_game::{
     cards::Card,
     identifications::{PlayerID, ValidCardID, ValidPlayerID},
     impl_state_filter_combination,
-    validation::{StateFilterCombination, StateFilterInput},
     zones::Zone,
 };
 
@@ -32,6 +31,12 @@ pub struct Zones {
 }
 
 impl Zones {
+    pub fn monster_zone(&self) -> &MonsterZone {
+        &self.monster_zone
+    }
+    pub fn monster_zone_mut(&mut self) -> &mut MonsterZone {
+        &mut self.monster_zone
+    }
     pub fn hand_zone(&self) -> &HandZone {
         &self.hand_zone
     }

@@ -1,11 +1,13 @@
 use card_game::{
     StateFilterInput,
     cards::{Card, CardBuilder, CardID, SourceCardFilter},
-    identifications::{ActivePlayer, PlayerID, SourceCardID, TargetCardID, ValidPlayerID},
-    stack::priority::GetState,
-    validation::{
-        ActionID, Condition, StateFilterCombination, StateFilterInput, StateFilterInputConversion,
+    events::TriggeredEvent,
+    identifications::{
+        ActionID, ActionIdentifier, ActivePlayer, PlayerID, SourceCardID, TargetCardID,
+        ValidCardID, ValidPlayerID,
     },
+    stack::priority::GetState,
+    validation::{Condition, StateFilterInputCombination, StateFilterInputConversion},
 };
 
 use crate::{
@@ -20,7 +22,7 @@ use crate::{
         trap::TrapCard,
     },
     events::EventManager,
-    filters::{Any, FilterInput, For, In, StaticName, With},
+    filters::{Any, CardIn, FilterInput, For, Free, In, MonsterSlot, OfType, StaticName, With},
     steps::MainStep,
     valid_actions::{SpecialSummon, SpecialSummonRequirement},
     zones::{SlotID, hand::HandZone, monster::MonsterZone},
@@ -86,7 +88,7 @@ impl<'a> BlueEyesWhiteDestinyConstructedDeck for CardBuilder<'a, EventManager> {
             Attack::new(1700),
             Defense::new(1650),
         ))
-        .with_action::<MainStep, NeoKaiserSeaHorseSpecialSummon, SpecialSummon>()
+        .with_action::<SpecialSummon<MainStep, NeoKaiserSeaHorseSpecialSummon>>()
         .finish()
     }
 }
@@ -126,7 +128,7 @@ impl StateFilterInputConversion<SourceCardID> for NeoKaiserSeaHorseSpecialSummon
         )
     }
 }
-impl StateFilterCombination<FilterInput<(PlayerID, SlotID)>> for SourceCardID {
+impl StateFilterInputCombination<FilterInput<(PlayerID, SlotID)>> for SourceCardID {
     type Combined = NeoKaiserSeaHorseSpecialSummon;
     fn combine(self, value: FilterInput<(PlayerID, SlotID)>) -> Self::Combined {
         NeoKaiserSeaHorseSpecialSummon {
@@ -136,19 +138,33 @@ impl StateFilterCombination<FilterInput<(PlayerID, SlotID)>> for SourceCardID {
         }
     }
 }
+impl ActionIdentifier for NeoKaiserSeaHorseSpecialSummon {
+    fn action_id() -> ActionID {
+        ActionID::new("neo_kaiser_sea_horse_special_summon")
+    }
+}
 impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
     type Filter = (
-        Condition<Self, SourceCardFilter<SpecialSummon>>,
+        Condition<Self, SourceCardFilter<SpecialSummon<MainStep, Self>>>,
         Condition<FilterInput<PlayerID>, For<ActivePlayer>>,
+        Condition<FilterInput<(ValidPlayerID<ActivePlayer>, ValidCardID<()>)>, CardIn<Self::Zone>>,
         Condition<
+            FilterInput<(ValidPlayerID<ActivePlayer>, ValidCardID<CardIn<Self::Zone>>)>,
+            OfType<MonsterCard>,
+        >,
+        Condition<
+            FilterInput<(ValidPlayerID<ActivePlayer>, SlotID)>,
+            With<(Free<MonsterSlot>, In<MonsterZone>)>,
+        >,
+        /*Condition<
             FilterInput<ValidPlayerID<ActivePlayer>>,
             Any<(With<BlueEyesWhiteDragonName>, In<MonsterZone>)>,
-        >,
+        >,*/
     );
     type Zone = HandZone;
     fn handle_summon(
         state: &mut MainStep,
-        FilterInput((valid_player_id, card_id, slot_id)): <Self::Filter as card_game::validation::StateFilter<MainStep, Self>>::ValidOutput,
+        FilterInput((valid_player_id, valid_card_id, valid_slot_id)): <Self::Filter as card_game::validation::StateFilter<MainStep, Self>>::ValidOutput,
     ) -> (
         card_game::identifications::ValidPlayerID<()>,
         card_game::identifications::ValidCardID<(
@@ -157,10 +173,8 @@ impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
         )>,
         crate::identifications::ValidSlotID<crate::filters::In<crate::zones::monster::MonsterZone>>,
     ) {
-        todo!("HANDLE NEO KAISER SEA HORSE SPECIAL SUMMON")
-    }
-    fn action_id() -> ActionID {
-        ActionID::new("neo_kaiser_sea_horse_special_summon")
+        // DO NOTHING
+        (valid_player_id.into(), valid_card_id, valid_slot_id)
     }
 }
 pub struct BlueEyesWhiteDragonName;

@@ -7,6 +7,7 @@ use card_game::{
 
 use crate::{Game, filters::FilterInput, steps::GetStateMut};
 
+#[derive(Clone)]
 pub struct SpecialSummoned(pub CardID);
 
 impl<State: GetState<Game>> Event<State> for SpecialSummoned {

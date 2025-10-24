@@ -19,6 +19,11 @@ impl std::fmt::Display for PlayerID {
 
 use crate as card_game;
 create_valid_identification!(ValidPlayerID, PlayerID);
+impl From<ValidPlayerID<ActivePlayer>> for ValidPlayerID<()> {
+    fn from(valid_id: ValidPlayerID<ActivePlayer>) -> Self {
+        ValidPlayerID(valid_id.0, std::marker::PhantomData::default())
+    }
+}
 impl<F> ValidPlayerID<F> {
     pub(crate) fn new(player_id: PlayerID) -> Self {
         ValidPlayerID(player_id, std::marker::PhantomData::default())

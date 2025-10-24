@@ -2,7 +2,9 @@ mod manager;
 use card_stack::priority::GetState;
 pub use manager::*;
 
-use crate::events::{Event, EventListener, GetEventManagerMut};
+use crate::events::{
+    DynEventListener, Event, EventListener, EventListenerConstructor, GetEventManagerMut,
+};
 use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
 use state_validation::{
     StateFilter, StateFilterInput, StateFilterInputCombination, StateFilterInputConversion,
@@ -93,29 +95,84 @@ pub struct CardKindBuilder<'a, EventManager, Kind> {
 }
 
 impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
-    pub fn with_action<
-        State,
-        Input: StateFilterInput + StateFilterInputConversion<SourceCardID>,
-        Action: ValidAction<State, Input> + ActionIdentifier,
-    >(
-        self,
-    ) -> Self {
+    pub fn with_action<Action: ActionIdentifier>(self) -> Self {
         self.card_actions
             .insert_action(Action::action_id(), self.card.id());
         self
     }
-    pub fn with_event<State, E: Event<State>, Listener: EventListener<State, E>>(
+    pub fn with_event<
+        State,
+        Ev: Event<State>,
+        Listener: EventListener<State, Ev> + EventListenerConstructor<State, Ev>,
+    >(
+        self,
+        listener_input: Listener::Input,
+    ) -> Self
+    where
+        <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
+            State,
+            <Ev as Event<State>>::Input,
+        >>::ValidOutput: 'static,
+        <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
+            State,
+            <Ev as Event<State>>::Input,
+        >>::Error: 'static,
+        <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
+            State,
+            <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
+                State,
+                <Ev as Event<State>>::Input,
+            >>::ValidOutput,
+        >>::Filter as StateFilter<
+            State,
+            <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
+                State,
+                <Ev as Event<State>>::Input,
+            >>::ValidOutput,
+        >>::ValidOutput: 'static,
+        <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
+            State,
+            <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
+                State,
+                <Ev as Event<State>>::Input,
+            >>::ValidOutput,
+        >>::Filter as StateFilter<
+            State,
+            <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
+                State,
+                <Ev as Event<State>>::Input,
+            >>::ValidOutput,
+        >>::Error: 'static,
+        EventManager: GetEventManagerMut<State, Ev>,
+        <Listener::Action as ValidAction<
+            State,
+            <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
+        >>::Output: Into<EventManager::Output>,
+    {
+        self.event_manager
+            .event_manager_mut()
+            .add_listener(Listener::new_listener(
+                SourceCardID(self.card.id()),
+                listener_input,
+            ));
+        self
+    }
+    /*pub fn with_event<
+        State,
+        Ev: Event<State>,
+        Listener: EventListener<State, Ev> + EventListenerConstructor<State, Ev>,
+    >(
         self,
         input: Listener::Input,
     ) -> Self
     where
-        EventManager: GetEventManagerMut<State, E, Listener>,
+        EventManager: GetEventManagerMut<State, Ev, Listener>,
     {
         self.event_manager
             .event_manager_mut()
             .add_listener(Listener::new_listener(SourceCardID(self.card.id()), input));
         self
-    }
+    }*/
     pub fn finish(self) -> Card<Kind> {
         self.card
     }

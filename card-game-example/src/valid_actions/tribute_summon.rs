@@ -1,9 +1,11 @@
 use card_game::{
     StateFilterInput,
     cards::CardID,
-    identifications::{ActivePlayer, PlayerID, ValidCardID, ValidPlayerID},
+    identifications::{
+        ActionID, ActionIdentifier, ActivePlayer, PlayerID, ValidCardID, ValidPlayerID,
+    },
     stack::priority::GetState,
-    validation::{ActionID, Condition, StateFilter, ValidAction},
+    validation::{Condition, StateFilter, ValidAction},
 };
 
 use crate::{
@@ -29,6 +31,11 @@ pub struct Tribute(pub CardID);
 #[derive(StateFilterInput)]
 pub struct ValidTribute(pub ValidCardID<CardIn<MonsterZone>>);
 
+impl ActionIdentifier for TributeSummon {
+    fn action_id() -> ActionID {
+        ActionID::new("tribute_summon")
+    }
+}
 impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID, Tribute)>> for TributeSummon {
     type Filter = (
         Condition<FilterInput<PlayerID>, For<ActivePlayer>>,
@@ -49,8 +56,5 @@ impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID, Tribute)>> for
         >>::ValidOutput,
     ) -> Self::Output {
         todo!()
-    }
-    fn action_id() -> ActionID {
-        ActionID::new("tribute_summon")
     }
 }
