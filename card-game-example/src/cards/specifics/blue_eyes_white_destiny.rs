@@ -21,10 +21,13 @@ use crate::{
         spell::SpellCard,
         trap::TrapCard,
     },
-    events::EventManager,
+    events::{
+        EventManager,
+        summon::{NormalSummoned, Summoned},
+    },
     filters::{Any, CardIn, FilterInput, For, Free, In, MonsterSlot, OfType, StaticName, With},
     steps::MainStep,
-    valid_actions::{SpecialSummon, SpecialSummonRequirement},
+    valid_actions::{GiveAttack, PassiveGiveAttack, SpecialSummon, SpecialSummonRequirement},
     zones::{SlotID, hand::HandZone, monster::MonsterZone},
 };
 
@@ -69,6 +72,7 @@ pub trait BlueEyesWhiteDestinyConstructedDeck {
     fn maiden_of_white(&mut self) -> Card<MonsterCard>;
     fn wishes_for_eyes_of_blue(&mut self) -> Card<SpellCard>;
     fn blue_eyes_ultimate_spirit_dragon(&mut self) -> Card<SynchroMonsterCard>;*/
+    fn alexandrite_dragon(&mut self) -> Card<MonsterCard>;
 }
 
 impl<'a> BlueEyesWhiteDestinyConstructedDeck for CardBuilder<'a, EventManager> {
@@ -89,6 +93,16 @@ impl<'a> BlueEyesWhiteDestinyConstructedDeck for CardBuilder<'a, EventManager> {
             Defense::new(1650),
         ))
         .with_action::<SpecialSummon<MainStep, NeoKaiserSeaHorseSpecialSummon>>()
+        .finish()
+    }
+    fn alexandrite_dragon(&mut self) -> Card<MonsterCard> {
+        self.build(MonsterCard::new(
+            Name::new("Alexandrite Dragon".into()),
+            Level::new(4),
+            Attack::new(2000),
+            Defense::new(100),
+        ))
+        .with_event::<Game, Summoned, PassiveGiveAttack>(GiveAttack::new(Attack::new(1000)))
         .finish()
     }
 }
@@ -174,7 +188,11 @@ impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
         crate::identifications::ValidSlotID<crate::filters::In<crate::zones::monster::MonsterZone>>,
     ) {
         // DO NOTHING
-        (valid_player_id.into(), valid_card_id, valid_slot_id)
+        (
+            valid_player_id.into(),
+            valid_card_id,
+            valid_slot_id.unchecked_replace_filter(),
+        )
     }
 }
 pub struct BlueEyesWhiteDragonName;

@@ -101,7 +101,7 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
         self
     }
     pub fn with_event<
-        State,
+        State: 'static,
         Ev: Event<State>,
         Listener: EventListener<State, Ev> + EventListenerConstructor<State, Ev>,
     >(
@@ -144,6 +144,7 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
             >>::ValidOutput,
         >>::Error: 'static,
         EventManager: GetEventManagerMut<State, Ev>,
+        EventManager::Output: 'static,
         <Listener::Action as ValidAction<
             State,
             <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,

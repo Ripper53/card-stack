@@ -3,7 +3,8 @@ use std::{any::Any, hash::Hash};
 use crate::{create_valid_identification, identifications::SourceCardID};
 use state_validation::{StateFilter, StateFilterInput, ValidAction};
 
-pub struct EventManager<State, Ev: Event<State>, Output> {
+#[derive(Clone)]
+pub struct EventManager<State: 'static, Ev: Event<State>, Output> {
     events: Vec<DynEventListener<State, Ev, Output>>,
 }
 pub struct SimultaneousActionManager<State, E: Event<State>, Output> {
@@ -37,9 +38,41 @@ impl<F> ValidSimultaneousActionID<F> {
     }
 }
 
-impl<State, Ev: Event<State>, Output> EventManager<State, Ev, Output> {
+impl<State: 'static, Ev: Event<State>, Output: 'static> EventManager<State, Ev, Output> {
     pub fn empty() -> Self {
         EventManager { events: Vec::new() }
+    }
+    pub fn new_combined<
+        EvA: Event<State>,
+        EvB: Event<State>,
+        OutputA: Into<Output> + 'static,
+        OutputB: Into<Output> + 'static,
+    >(
+        event_manager_a: &EventManager<State, EvA, OutputA>,
+        event_manager_b: &EventManager<State, EvB, OutputB>,
+    ) -> EventManager<State, Ev, Output>
+    where
+        Ev: Into<EvA> + Into<EvB>,
+        Ev::Input: Into<EvA::Input> + Into<EvB::Input>,
+    {
+        let mut events: Vec<DynEventListener<State, Ev, Output>> =
+            Vec::with_capacity(event_manager_a.events.len() + event_manager_b.events.len());
+        for event in event_manager_a.events.iter() {
+            events.push(event.new_output::<Ev, Output>())
+        }
+        for event in event_manager_b.events.iter() {
+            events.push(event.new_output::<Ev, Output>())
+        }
+        EventManager { events }
+    }
+    pub fn combine<NewEv: Event<State>, NewOutput: Into<Output> + 'static>(
+        mut self,
+        new_event_manager: &EventManager<State, Ev, Output>,
+    ) -> Self {
+        for event in new_event_manager.events.iter() {
+            self.events.push(event.new_output())
+        }
+        self
     }
     pub(crate) fn new(events: Vec<DynEventListener<State, Ev, Output>>) -> Self {
         EventManager { events }
@@ -63,7 +96,8 @@ impl<State, Ev: Event<State>, Output> EventManager<State, Ev, Output> {
             .events
             .iter()
             .filter_map(|listener| {
-                if let Ok(action_input) = (listener.filter)(state, input.clone()) {
+                let filter = listener.filter.get_dyn_filter();
+                if let Ok(action_input) = (filter)(state, input.clone()) {
                     Some(listener.action(state, event, action_input))
                 } else {
                     None
@@ -233,9 +267,10 @@ impl<State, Ev: Event<State>> TriggeredEvent<State, Ev> {
 }
 pub(crate) struct DynEventListener<State, Ev: Event<State>, Output> {
     get_dyn_action: Box<dyn GetDynActionTrait<State, Ev, Output>>,
-    filter: for<'a> fn(&'a State, Ev::Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
+    filter: Box<dyn GetDynStateFilterTrait<State, Ev::Input>>,
+    //filter: for<'a> fn(&'a State, Ev::Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
 }
-impl<State, Ev: Event<State>, Output> DynEventListener<State, Ev, Output> {
+impl<State: 'static, Ev: Event<State>, Output: 'static> DynEventListener<State, Ev, Output> {
     pub(crate) fn new<Listener: EventListener<State, Ev>>(listener: Listener) -> Self
     where
         <Listener::Action as ValidAction<
@@ -244,16 +279,74 @@ impl<State, Ev: Event<State>, Output> DynEventListener<State, Ev, Output> {
         >>::Output: Into<Output>,
     {
         DynEventListener {
-            //get_dyn_action: Box::new(GetDynAction { listener }),
-            get_dyn_action: todo!(),
-            filter: |state: &State,
-                     value: Ev::Input|
-             -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
-                match <Listener::Filter>::filter(state, value) {
-                    Ok(result) => Ok(Box::new(result)),
-                    Err(error) => Err(Box::new(error)),
+            get_dyn_action: Box::new(GetDynAction { listener }),
+            //get_dyn_action: todo!(),
+            filter: Box::new(DynStaticStateFilter::new(
+                |state: &State,
+                 value: Ev::Input|
+                 -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
+                    match <Listener::Filter>::filter(state, value) {
+                        Ok(result) => Ok(Box::new(result)),
+                        Err(error) => Err(Box::new(error)),
+                    }
+                },
+            )),
+        }
+    }
+    pub(crate) fn new_output<NewEv: Event<State> + Into<Ev>, NewOutput>(
+        &self,
+    ) -> DynEventListener<State, NewEv, NewOutput>
+    where
+        NewEv::Input: Into<Ev::Input>,
+        Output: Into<NewOutput>,
+    {
+        struct NewOutputAction<State, Ev, Output>(Box<dyn GetDynActionTrait<State, Ev, Output>>);
+        impl<
+            State: 'static,
+            NewEv: Event<State> + Into<Ev>,
+            Ev: Event<State>,
+            NewOutput,
+            Output: Into<NewOutput> + 'static,
+        > GetDynActionTrait<State, NewEv, NewOutput> for NewOutputAction<State, Ev, Output>
+        where
+            NewEv::Input: Into<Ev::Input>,
+        {
+            fn dyn_clone(&self) -> Box<dyn GetDynActionTrait<State, NewEv, NewOutput>> {
+                Box::new(NewOutputAction(self.0.dyn_clone()))
+            }
+            fn get_dyn_action(
+                self: Box<Self>,
+                event: NewEv,
+                action_input: Box<dyn Any>,
+            ) -> DynAction<State, NewOutput> {
+                let inner_action = self.0.get_dyn_action(event.into(), action_input);
+                let old_action = inner_action.action;
+                DynAction {
+                    action: Box::new(move |state, valid| (old_action)(state, valid).into()),
+                    action_input: inner_action.action_input,
+                    filter: inner_action.filter,
+                    /*filter: |_state: &State,
+                             value: Box<dyn Any>|
+                     -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
+                         Ok(value)
+                    },*/
                 }
-            },
+            }
+        }
+        DynEventListener {
+            get_dyn_action: Box::new(NewOutputAction::<State, Ev, Output>(
+                self.get_dyn_action.dyn_clone(),
+            )),
+            filter: self.filter.dyn_clone(),
+            //filter: GetDynStateFilterTrait::<State, NewEv::Input>::dyn_clone(&self.filter),
+        }
+    }
+}
+impl<State: 'static, Ev: Event<State>, Output> Clone for DynEventListener<State, Ev, Output> {
+    fn clone(&self) -> Self {
+        DynEventListener {
+            get_dyn_action: self.get_dyn_action.dyn_clone(),
+            filter: self.filter.dyn_clone(),
         }
     }
 }
@@ -326,14 +419,6 @@ where
         }
     }
 }
-impl<State, Ev: Event<State>, Output> Clone for DynEventListener<State, Ev, Output> {
-    fn clone(&self) -> Self {
-        DynEventListener {
-            get_dyn_action: self.get_dyn_action.dyn_clone(),
-            filter: self.filter,
-        }
-    }
-}
 /*impl<State: 'static, Ev: Event<State>, Output: 'static> EventListener<State, Ev>
     for DynEventListener<State, Ev, Output>
 where
@@ -403,31 +488,42 @@ struct DynStateError<State> {
     state: State,
     error: Box<dyn std::error::Error>,
 }
-struct DynStateFilter<State, Input> {
+struct DynStaticStateFilter<State, Input> {
     filter: for<'a> fn(&'a State, Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
 }
-/*impl<State, Input> StateFilter<State, Input>  for DynStateFilter<State, Input> {
-    type ValidOutput = ;
-    type Error = Box<dyn std::error::Error>;
-    fn filter(state: &State, value: Input) -> Result<Self::ValidOutput, Self::Error> {
+impl<State, Input> DynStaticStateFilter<State, Input> {
+    fn new(
+        filter: for<'a> fn(&'a State, Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
+    ) -> Self {
+        DynStaticStateFilter { filter }
     }
-}*/
-trait DynFilter<State, Input> {
-    fn dyn_filter(state: &State, value: Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>;
 }
-impl<
-    State,
-    Input,
-    ValidOutput: 'static,
-    Error: std::error::Error + 'static,
-    T: StateFilter<State, Input, ValidOutput = ValidOutput, Error = Error>,
-> DynFilter<State, Input> for T
+struct DynChainStateFilter<State, Input> {
+    filter: for<'a> fn(&'a State, Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
+}
+trait GetDynStateFilterTrait<State, Input> {
+    fn dyn_clone(&self) -> Box<dyn GetDynStateFilterTrait<State, Input>>;
+    fn get_dyn_filter<'a>(
+        &'a self,
+    ) -> Box<
+        dyn for<'b> Fn(&'b State, Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>> + 'a,
+    >;
+}
+impl<State: 'static, Input: 'static, NewInput: Into<Input> + 'static>
+    GetDynStateFilterTrait<State, NewInput> for DynStaticStateFilter<State, Input>
 {
-    fn dyn_filter(state: &State, value: Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
-        match T::filter(state, value) {
-            Ok(result) => Ok(Box::new(result)),
-            Err(error) => Err(Box::new(error)),
-        }
+    fn dyn_clone(&self) -> Box<dyn GetDynStateFilterTrait<State, NewInput>> {
+        Box::new(DynStaticStateFilter {
+            filter: self.filter,
+        })
+    }
+    fn get_dyn_filter<'a>(
+        &'a self,
+    ) -> Box<
+        dyn for<'b> Fn(&'b State, NewInput) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>
+            + 'a,
+    > {
+        Box::new(|state, input| (self.filter)(state, input.into()))
     }
 }
 pub struct EventConsumeBuilder<State, Ev: Event<State>, Output> {
@@ -464,7 +560,7 @@ pub trait SimultaneousEventHandler<State, E: Event<State>> {
 }
 pub trait GetEventManager<State, Ev: Event<State>> {
     type Output;
-    fn event_manager(&self) -> &EventManager<State, Ev, Self::Output>;
+    fn event_manager(&self) -> EventManager<State, Ev, Self::Output>;
 }
 pub trait GetEventManagerMut<State, Ev: Event<State>>: GetEventManager<State, Ev> {
     fn event_manager_mut(&mut self) -> &mut EventManager<State, Ev, Self::Output>;

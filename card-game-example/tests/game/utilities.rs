@@ -42,6 +42,12 @@ impl<'a, const PLAYER_COUNT: usize> CardGameBuilder<card_game_example::events::E
                 .unwrap();
             let card = game.card_manager_mut().builder().blue_eyes_white_dragon();
             game.zone_manager_mut()
+                .valid_zone_mut(valid_player_id.unchecked_clone())
+                .hand_zone_mut()
+                .add_card(card.into_kind())
+                .unwrap();
+            let card = game.card_manager_mut().builder().alexandrite_dragon();
+            game.zone_manager_mut()
                 .valid_zone_mut(valid_player_id)
                 .hand_zone_mut()
                 .add_card(card.into_kind())

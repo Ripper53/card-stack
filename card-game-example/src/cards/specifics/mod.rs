@@ -7,7 +7,10 @@ use crate::{
         Name,
         monster::{Attack, Defense, Level, MonsterCard},
     },
-    events::{EventManager, summon::SpecialSummoned},
+    events::{
+        EventManager,
+        summon::{SpecialSummoned, Summoned},
+    },
     steps::MainStep,
     valid_actions::{GiveAttack, PassiveGiveAttack},
 };
@@ -23,9 +26,7 @@ impl<'a> TestCards for CardBuilder<'a, EventManager> {
             Attack::new(1000),
             Defense::new(2000),
         ))
-        .with_event::<crate::Game, SpecialSummoned, PassiveGiveAttack>(GiveAttack::new(
-            Attack::new(100),
-        ))
+        .with_event::<crate::Game, Summoned, PassiveGiveAttack>(GiveAttack::new(Attack::new(100)))
         .finish()
     }
 }

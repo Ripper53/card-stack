@@ -12,6 +12,7 @@ use card_game::{
 
 use crate::{
     Game,
+    events::summon::Summoned,
     filters::{FilterInput, For},
     steps::MainStep,
     valid_actions::{Tribute, ValidTribute},
@@ -20,6 +21,13 @@ use crate::{
 
 pub struct CardIn<T>(std::marker::PhantomData<T>);
 
+impl<State: GetState<Game>, Z: GetZone> StateFilter<State, Summoned> for CardIn<Z> {
+    type ValidOutput = FilterInput<(ValidPlayerID<()>, ValidCardID<Self>)>;
+    type Error = PlayerOrCardError;
+    fn filter(state: &State, summoned: Summoned) -> Result<Self::ValidOutput, Self::Error> {
+        CardIn::filter(state, FilterInput((summoned.player_id, summoned.card_id)))
+    }
+}
 impl<State: GetState<Game>, Z: GetZone> StateFilter<State, FilterInput<(PlayerID, CardID)>>
     for CardIn<Z>
 {

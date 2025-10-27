@@ -1,5 +1,6 @@
 use card_game::{
     cards::{Card, CardID},
+    events::TriggeredEvent,
     identifications::{
         ActionID, ActionIdentifier, ActivePlayer, PlayerID, ValidCardID, ValidPlayerID,
     },
@@ -10,6 +11,7 @@ use card_game::{
 use crate::{
     Game,
     cards::monster::{MonsterCard, MonsterZoneCard, Position},
+    events::summon::{NormalSummoned, Summoned},
     filters::{
         CardIn, EqualOrLowerThan, FilterInput, For, Free, In, Level, MonsterSlot, OfType, With,
     },
@@ -20,21 +22,21 @@ use crate::{
 mod input;
 pub use input::*;
 
-pub struct NormalSummonMonster {
+pub struct NormalSummon {
     position: Position,
 }
-impl NormalSummonMonster {
+impl NormalSummon {
     pub fn new(position: Position) -> Self {
-        NormalSummonMonster { position }
+        NormalSummon { position }
     }
 }
 
-impl ActionIdentifier for NormalSummonMonster {
+impl ActionIdentifier for NormalSummon {
     fn action_id() -> ActionID {
         ActionID::new("normal_summon")
     }
 }
-impl ValidAction<MainStep, NormalSummonInput> for NormalSummonMonster {
+impl ValidAction<MainStep, NormalSummonInput> for NormalSummon {
     type Filter = (
         Condition<PlayerID, For<ActivePlayer>>,
         Condition<(ValidPlayerID<ActivePlayer>, CardID), CardIn<HandZone>>,
@@ -54,7 +56,7 @@ impl ValidAction<MainStep, NormalSummonInput> for NormalSummonMonster {
             With<(Free<MonsterSlot>, In<MonsterZone>)>,
         >,
     );
-    type Output = MainStep;
+    type Output = TriggeredEvent<MainStep, NormalSummoned>;
     fn with_valid_input(
         self,
         mut state: MainStep,
@@ -64,8 +66,9 @@ impl ValidAction<MainStep, NormalSummonInput> for NormalSummonMonster {
         >>::ValidOutput,
     ) -> Self::Output {
         if !state.use_normal_summon() {
-            return state;
+            todo!("create a filter that checks if a normal summon can occur");
         }
+        let player_id = valid_player_id.id();
         let zones = state
             .game
             .zone_manager_mut()
@@ -79,6 +82,10 @@ impl ValidAction<MainStep, NormalSummonInput> for NormalSummonMonster {
             .monster_zone
             .valid_slot(valid_slot_id)
             .put(Card::new(card_id, card).into_kind());
-        state
+        TriggeredEvent::new(
+            state,
+            NormalSummoned(card_id),
+            Summoned { player_id, card_id },
+        )
     }
 }

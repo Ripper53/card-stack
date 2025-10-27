@@ -12,7 +12,10 @@ use card_game::{
 use crate::{
     Game,
     cards::monster::{Attack, MonsterCard, MonsterCardType, MonsterZoneCard},
-    events::{EventManager, summon::SpecialSummoned},
+    events::{
+        EventManager,
+        summon::{SpecialSummoned, Summoned},
+    },
     filters::{CardIn, FilterInput, IntoInput, OfType},
     steps::GetStateMut,
     zones::monster::MonsterZone,
@@ -101,16 +104,14 @@ impl PassiveGiveAttack {
         }
     }
 }
-impl<State: GetStateMut<Game>> EventListener<State, SpecialSummoned> for PassiveGiveAttack {
+impl<State: GetStateMut<Game>> EventListener<State, Summoned> for PassiveGiveAttack {
     type Filter = CardIn<MonsterZone>;
     type Action = GiveAttack;
-    fn action(&self, _state: &State, _event: &SpecialSummoned) -> Self::Action {
+    fn action(&self, _state: &State, _event: &Summoned) -> Self::Action {
         self.give_attack.clone()
     }
 }
-impl<State: GetStateMut<Game>> EventListenerConstructor<State, SpecialSummoned>
-    for PassiveGiveAttack
-{
+impl<State: GetStateMut<Game>> EventListenerConstructor<State, Summoned> for PassiveGiveAttack {
     type Input = GiveAttack;
     fn new_listener(source_card_id: SourceCardID, give_attack: Self::Input) -> Self {
         PassiveGiveAttack {

@@ -9,9 +9,9 @@ use crate::{filters::FilterInput, identifications::ValidSlotID, zones::SlotID};
 
 #[derive(StateFilterInput)]
 pub struct NormalSummonInput {
-    player_id: PlayerID,
-    card_id: CardID,
-    slot_id: SlotID,
+    pub player_id: PlayerID,
+    pub card_id: CardID,
+    pub slot_id: SlotID,
 }
 pub struct A {
     card_id: CardID,

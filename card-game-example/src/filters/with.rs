@@ -22,7 +22,7 @@ pub struct With<T>(std::marker::PhantomData<T>);
 impl<State: GetState<Game>, Z: GetZone, F> StateFilter<State, (ValidPlayerID<F>, SlotID)>
     for With<(Free<MonsterSlot>, In<Z>)>
 {
-    type ValidOutput = (ValidPlayerID<F>, ValidSlotID<In<Z>>);
+    type ValidOutput = (ValidPlayerID<F>, ValidSlotID<(Free<MonsterSlot>, In<Z>)>);
     type Error = SlotDoesNotExistError;
     fn filter(
         state: &State,
@@ -36,7 +36,7 @@ impl<State: GetState<Game>, Z: GetZone, F>
     StateFilter<State, FilterInput<(ValidPlayerID<F>, SlotID)>>
     for With<(Free<MonsterSlot>, In<Z>)>
 {
-    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidSlotID<In<Z>>)>;
+    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidSlotID<(Free<MonsterSlot>, In<Z>)>)>;
     type Error = SlotDoesNotExistError;
     fn filter(
         state: &State,
