@@ -37,13 +37,35 @@ impl StateFilterInputConversion<(PlayerID, CardID)> for Summoned {
 }
 
 #[derive(Clone, Copy)]
-pub struct NormalSummoned(pub CardID);
+pub struct NormalSummoned {
+    pub player_id: PlayerID,
+    pub card_id: CardID,
+}
+impl From<Summoned> for NormalSummoned {
+    fn from(value: Summoned) -> Self {
+        NormalSummoned {
+            player_id: value.player_id,
+            card_id: value.card_id,
+        }
+    }
+}
 impl<State: GetState<Game>> Event<State> for NormalSummoned {
     type Input = Summoned;
 }
 
 #[derive(Clone, Copy)]
-pub struct SpecialSummoned(pub CardID);
+pub struct SpecialSummoned {
+    pub player_id: PlayerID,
+    pub card_id: CardID,
+}
+impl From<Summoned> for SpecialSummoned {
+    fn from(value: Summoned) -> Self {
+        SpecialSummoned {
+            player_id: value.player_id,
+            card_id: value.card_id,
+        }
+    }
+}
 impl<State: GetState<Game>> Event<State> for SpecialSummoned {
     type Input = Summoned;
 }

@@ -84,7 +84,7 @@ impl ValidAction<MainStep, NormalSummonInput> for NormalSummon {
             .put(Card::new(card_id, card).into_kind());
         TriggeredEvent::new(
             state,
-            NormalSummoned(card_id),
+            NormalSummoned { player_id, card_id },
             Summoned { player_id, card_id },
         )
     }

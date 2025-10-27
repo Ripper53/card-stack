@@ -35,6 +35,13 @@ impl GetEventManager<Game, Summoned> for EventManager {
         .combine(&self.special_summoned)
     }
 }
+impl GetEventManagerMut<Game, Summoned> for EventManager {
+    fn event_manager_mut(
+        &mut self,
+    ) -> &mut card_game::events::EventManager<Game, Summoned, Self::Output> {
+        &mut self.summoned
+    }
+}
 impl GetEventManager<Game, NormalSummoned> for EventManager {
     type Output = Game;
     fn event_manager(&self) -> card_game::events::EventManager<Game, NormalSummoned, Self::Output> {

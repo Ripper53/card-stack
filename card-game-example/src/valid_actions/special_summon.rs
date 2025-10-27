@@ -10,7 +10,7 @@ use card_game::{
 use crate::{
     Game,
     cards::monster::{MonsterCard, MonsterZoneCard, Position},
-    events::summon::SpecialSummoned,
+    events::summon::{SpecialSummoned, Summoned},
     filters::{CardIn, FilterInput, In, OfType},
     identifications::ValidSlotID,
     steps::GetStateMut,
@@ -63,8 +63,8 @@ impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
             .put(Card::new(card_id, card).into_kind());
         TriggeredEvent::new(
             state,
-            SpecialSummoned(card_id),
-            FilterInput((player_id, card_id)),
+            SpecialSummoned { player_id, card_id },
+            Summoned { player_id, card_id },
         )
     }
 }
