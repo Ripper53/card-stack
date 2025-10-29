@@ -85,7 +85,7 @@ impl ValidAction<MainStep, NormalSummonInput> for NormalSummon {
         TriggeredEvent::new(
             state,
             NormalSummoned { player_id, card_id },
-            Summoned { player_id, card_id },
+            NormalSummoned { player_id, card_id },
         )
     }
 }

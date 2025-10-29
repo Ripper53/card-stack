@@ -1,6 +1,6 @@
 use card_game::{
     cards::{Card, CardID},
-    events::TriggeredEvent,
+    events::{GetEventManager, TriggeredEvent},
     identifications::{ActionID, ActionIdentifier, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
     validation::{StateFilter, StateFilterInput, ValidAction},
@@ -31,8 +31,10 @@ impl<State, Requirement: SpecialSummonRequirement<State>> SpecialSummon<State, R
     }
 }
 
-impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
-    ValidAction<State, Requirement> for SpecialSummon<State, Requirement>
+impl<
+    State: GetStateMut<Game> + GetEventManager<State, SpecialSummoned> + 'static,
+    Requirement: SpecialSummonRequirement<State>,
+> ValidAction<State, Requirement> for SpecialSummon<State, Requirement>
 {
     type Filter = Requirement::Filter;
     type Output = TriggeredEvent<State, SpecialSummoned>;
@@ -64,7 +66,7 @@ impl<State: GetStateMut<Game>, Requirement: SpecialSummonRequirement<State>>
         TriggeredEvent::new(
             state,
             SpecialSummoned { player_id, card_id },
-            Summoned { player_id, card_id },
+            SpecialSummoned { player_id, card_id },
         )
     }
 }

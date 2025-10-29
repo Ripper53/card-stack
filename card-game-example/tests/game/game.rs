@@ -40,7 +40,7 @@ fn normal_summon() {
             .valid_zone(&player_id)
             .hand_zone()
             .filled_count(),
-        3,
+        4,
     );
     assert_eq!(
         main.game()
@@ -80,7 +80,7 @@ fn normal_summon() {
             .valid_zone(&player_id)
             .hand_zone()
             .filled_count(),
-        2,
+        3,
     );
     assert_eq!(
         game.zone_manager()
@@ -102,7 +102,7 @@ fn special_summon() {
             .valid_zone(&player_id)
             .hand_zone()
             .filled_count(),
-        3,
+        4,
     );
     assert_eq!(
         main.game()
@@ -144,7 +144,7 @@ fn special_summon() {
             .valid_zone(&player_id)
             .hand_zone()
             .filled_count(),
-        2,
+        3,
     );
     assert_eq!(
         game.zone_manager()
@@ -155,4 +155,106 @@ fn special_summon() {
     );
     //let r = event.consume::<>(todo!());
     //context.execute(NormalSummonMonster::new(Position::Attack));
+}
+
+#[test]
+fn card_event_system() {
+    let step = StartStep::new(GameBuilder::<'_, 2>::new(()));
+    let mut main = step.next_step();
+    let player_id = main.game().player_manager().active_player_id();
+    assert_eq!(
+        main.game()
+            .zone_manager()
+            .valid_zone(&player_id)
+            .hand_zone()
+            .filled_count(),
+        4,
+    );
+    assert_eq!(
+        main.game()
+            .zone_manager()
+            .valid_zone(&player_id)
+            .monster_zone()
+            .filled_count(),
+        0,
+    );
+    let card = main
+        .game()
+        .zone_manager()
+        .valid_zone(&player_id)
+        .hand_zone()
+        .cards()
+        .skip(3)
+        .next()
+        .unwrap();
+    let card_id = card.id();
+    let player_id = player_id.id();
+
+    let context = Validator::try_new(
+        main,
+        NormalSummonInput {
+            player_id,
+            card_id,
+            slot_id: SlotID::new(0),
+        },
+    )
+    .expect("expected a card in hand that can be normal summoned");
+    let normal_summon_event = context.execute(NormalSummon::new(Position::Attack));
+
+    let game = normal_summon_event.state().game();
+    let player_id = game.player_manager().active_player_id();
+    assert_eq!(
+        game.zone_manager()
+            .valid_zone(&player_id)
+            .hand_zone()
+            .filled_count(),
+        3,
+    );
+    assert_eq!(
+        game.zone_manager()
+            .valid_zone(&player_id)
+            .monster_zone()
+            .filled_count(),
+        1,
+    );
+
+    let card = normal_summon_event
+        .state()
+        .game()
+        .zone_manager()
+        .valid_zone(&player_id)
+        .hand_zone()
+        .cards()
+        .skip(2)
+        .next()
+        .unwrap();
+    let card_id = card.id();
+    let player_id = player_id.id();
+    let context = Validator::try_new(
+        main,
+        NormalSummonInput {
+            player_id,
+            card_id,
+            slot_id: SlotID::new(1),
+        },
+    )
+    .expect("expected a card in hand that can be normal summoned");
+    let normal_summon_event = context.execute(NormalSummon::new(Position::Attack));
+
+    let game = normal_summon_event.state().game();
+    let player_id = game.player_manager().active_player_id();
+    assert_eq!(
+        game.zone_manager()
+            .valid_zone(&player_id)
+            .hand_zone()
+            .filled_count(),
+        2,
+    );
+    assert_eq!(
+        game.zone_manager()
+            .valid_zone(&player_id)
+            .monster_zone()
+            .filled_count(),
+        2,
+    );
 }

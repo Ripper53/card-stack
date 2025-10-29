@@ -1,15 +1,19 @@
 use std::collections::HashMap;
 
 use card_game::{
-    CardGameBuilder,
     cards::{Card, CardManager},
     identifications::{PlayerID, PlayerManager},
     zones::FiniteZone,
+    CardGameBuilder,
 };
 use card_game_example::{
-    Game,
-    cards::{CardKind, monster::MonsterCard, specifics::BlueEyesWhiteDestinyConstructedDeck},
+    cards::{
+        monster::MonsterCard,
+        specifics::{BlueEyesWhiteDestinyConstructedDeck, TestCards},
+        CardKind,
+    },
     player::Player,
+    Game,
 };
 
 #[derive(Default)]
@@ -47,6 +51,12 @@ impl<'a, const PLAYER_COUNT: usize> CardGameBuilder<card_game_example::events::E
                 .add_card(card.into_kind())
                 .unwrap();
             let card = game.card_manager_mut().builder().alexandrite_dragon();
+            game.zone_manager_mut()
+                .valid_zone_mut(valid_player_id.unchecked_clone())
+                .hand_zone_mut()
+                .add_card(card.into_kind())
+                .unwrap();
+            let card = game.card_manager_mut().builder().passive_card_test();
             game.zone_manager_mut()
                 .valid_zone_mut(valid_player_id)
                 .hand_zone_mut()

@@ -1,6 +1,7 @@
 use card_game::{
     cards::{CardActions, CardManager},
     commands::{Command, CommandManager},
+    events::GetEventManager,
     identifications::PlayerID,
     stack::priority::GetState,
     steps::Step,
@@ -9,7 +10,10 @@ use card_game::{
 
 use crate::{
     Game,
-    events::EventManager,
+    events::{
+        EventManager,
+        summon::{NormalSummoned, SpecialSummoned},
+    },
     steps::{EndStep, GetStateMut, StepMut},
     zones::hand::HandZone,
 };
@@ -17,6 +21,16 @@ use crate::{
 pub struct MainStep {
     pub(crate) game: Game,
     available_normal_summons: usize,
+}
+impl From<MainStep> for Game {
+    fn from(main_step: MainStep) -> Self {
+        main_step.game
+    }
+}
+impl GetState<MainStep> for MainStep {
+    fn state(&self) -> &MainStep {
+        &self
+    }
 }
 impl GetState<CardActions> for MainStep {
     fn state(&self) -> &CardActions {
@@ -26,6 +40,22 @@ impl GetState<CardActions> for MainStep {
 impl GetState<CardManager<EventManager>> for MainStep {
     fn state(&self) -> &CardManager<EventManager> {
         self.game.card_manager()
+    }
+}
+impl GetEventManager<MainStep, NormalSummoned> for MainStep {
+    type Output = Game;
+    fn event_manager(
+        &self,
+    ) -> card_game::events::EventManager<MainStep, NormalSummoned, Self::Output> {
+        self.game.event_manager().event_manager()
+    }
+}
+impl GetEventManager<MainStep, SpecialSummoned> for MainStep {
+    type Output = Game;
+    fn event_manager(
+        &self,
+    ) -> card_game::events::EventManager<MainStep, SpecialSummoned, Self::Output> {
+        self.game.event_manager().event_manager()
     }
 }
 
