@@ -127,15 +127,38 @@ impl<EventState, Ev: Event<EventState>, Output> CollectedActions<EventState, Ev,
         }
     }
 }
-pub struct SimultaneousActionManager<State, E, Output> {
+pub struct SimultaneousActionManager<State, Ev, Output> {
     state: State,
     actions: Vec<SimultaneousAction<State, Output>>,
-    _m: std::marker::PhantomData<E>,
+    _m: std::marker::PhantomData<Ev>,
 }
 pub enum SimultaneousAction<State, Output> {
     Unresolved(DynAction<State, Output>),
     Resolved,
     Fizzled,
+}
+pub struct SingleAction<State, Output> {
+    state: State,
+    action: DynAction<State, Output>,
+}
+impl<State, Output> SingleAction<State, Output> {
+    pub fn resolve(self) -> SingleActionResolution<State, Output> {
+        match self.action.with_given_valid_input(self.state) {
+            Ok(output) => SingleActionResolution::Resolved(output),
+            Err(e) => SingleActionResolution::Fizzled {
+                state: e.state,
+                error: e.error,
+            },
+        }
+    }
+}
+pub enum SingleActionResolution<State, Output> {
+    Resolved(Output),
+    Fizzled {
+        state: State,
+        /// Why did it fizzle?
+        error: Box<dyn std::error::Error>,
+    },
 }
 impl<State, Output> SimultaneousAction<State, Output> {
     /// PANIC: if action is not unresolved
@@ -157,8 +180,8 @@ impl<F> ValidSimultaneousActionID<F> {
     pub(crate) fn new(id: SimultaneousActionID) -> Self {
         ValidSimultaneousActionID(id, std::marker::PhantomData::default())
     }
-    pub fn try_new<State, E, Output>(
-        simultaneous_action_manager: &SimultaneousActionManager<State, E, Output>,
+    pub fn try_new<State, Ev, Output>(
+        simultaneous_action_manager: &SimultaneousActionManager<State, Ev, Output>,
         id: SimultaneousActionID,
     ) -> Option<Self> {
         if matches!(
@@ -172,6 +195,9 @@ impl<F> ValidSimultaneousActionID<F> {
     }
 }
 impl<State, Ev, Output> SimultaneousActionManager<State, Ev, Output> {
+    pub fn simultaneous_action_count(&self) -> usize {
+        self.actions.len()
+    }
     pub fn simultaneous_action_ids(&self) -> impl Iterator<Item = ValidSimultaneousActionID<()>> {
         self.actions
             .iter()
@@ -224,12 +250,20 @@ impl<State: GetEventManager<State, Ev> + 'static, Ev: Event<State>> TriggeredEve
     pub fn event_input(&self) -> &Ev::Input {
         &self.input
     }
-    pub fn read(self) {
-        let collected_actions = self
+    pub fn collect(self) -> TriggeredEventResolution<State, Ev> {
+        let mut simultaneous_action_manager = self
             .state
             .event_manager()
             .collect_actions(&self.state, &self.event, self.input)
             .simultaneous_action_manager(self.state);
+        match simultaneous_action_manager.simultaneous_action_count() {
+            0 => TriggeredEventResolution::None(simultaneous_action_manager.state),
+            1 => TriggeredEventResolution::Action(SingleAction {
+                state: simultaneous_action_manager.state,
+                action: simultaneous_action_manager.actions.pop().unwrap().resolve(),
+            }),
+            _ => TriggeredEventResolution::SimultaneousActions(simultaneous_action_manager),
+        }
     }
     /*pub fn consume<Listener: EventListener<State, Ev>>(self) -> EventConsume<State, Ev, Listener>
     where
@@ -326,6 +360,11 @@ impl<State: GetEventManager<State, Ev> + 'static, Ev: Event<State>> TriggeredEve
             }
         }
     }*/
+}
+pub enum TriggeredEventResolution<State: GetEventManager<State, Ev>, Ev: Event<State>> {
+    None(State),
+    Action(SingleAction<State, State::Output>),
+    SimultaneousActions(SimultaneousActionManager<State, Ev, State::Output>),
 }
 pub(crate) struct DynEventListener<State, Ev: Event<State>, Output> {
     get_dyn_action: Box<dyn GetDynActionTrait<State, Ev, Output>>,

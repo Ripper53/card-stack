@@ -43,7 +43,7 @@ impl GetState<CardManager<EventManager>> for MainStep {
     }
 }
 impl GetEventManager<MainStep, NormalSummoned> for MainStep {
-    type Output = Game;
+    type Output = MainStep;
     fn event_manager(
         &self,
     ) -> card_game::events::EventManager<MainStep, NormalSummoned, Self::Output> {
@@ -51,7 +51,7 @@ impl GetEventManager<MainStep, NormalSummoned> for MainStep {
     }
 }
 impl GetEventManager<MainStep, SpecialSummoned> for MainStep {
-    type Output = Game;
+    type Output = MainStep;
     fn event_manager(
         &self,
     ) -> card_game::events::EventManager<MainStep, SpecialSummoned, Self::Output> {
