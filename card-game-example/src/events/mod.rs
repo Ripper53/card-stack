@@ -1,4 +1,4 @@
-use card_game::events::{GetEventManager, GetEventManagerMut};
+use card_game::events::{AddEventListener, GetEventManager};
 
 use crate::{
     Game,
@@ -10,7 +10,6 @@ use crate::{
 pub mod summon;
 
 pub struct EventManager {
-    summoned_during_mainstep: card_game::events::EventManager<MainStep, Summoned, MainStep>,
     normal_summoned_during_main_step:
         card_game::events::EventManager<MainStep, NormalSummoned, MainStep>,
     special_summoned_during_main_step:
@@ -20,19 +19,30 @@ pub struct EventManager {
 impl Default for EventManager {
     fn default() -> Self {
         EventManager {
-            summoned_during_mainstep: card_game::events::EventManager::empty(),
             normal_summoned_during_main_step: card_game::events::EventManager::empty(),
             special_summoned_during_main_step: card_game::events::EventManager::empty(),
         }
     }
 }
 
-impl GetEventManagerMut<MainStep, Summoned> for EventManager {
+impl AddEventListener<MainStep, Summoned> for EventManager {
     type Output = MainStep;
-    fn event_manager_mut(
+    fn add_listener<Listener: card_game::events::EventListener<MainStep, Summoned>>(
         &mut self,
-    ) -> &mut card_game::events::EventManager<MainStep, Summoned, Self::Output> {
-        &mut self.summoned_during_mainstep
+        listener: Listener,
+    ) where
+        <Listener::Action as card_game::validation::ValidAction<
+            MainStep,
+            <Listener::Filter as card_game::validation::StateFilter<
+                MainStep,
+                <Summoned as card_game::events::Event<MainStep>>::Input,
+            >>::ValidOutput,
+        >>::Output: Into<Self::Output>,
+    {
+        self.normal_summoned_during_main_step
+            .add_listener(listener.clone());
+        self.special_summoned_during_main_step
+            .add_listener(listener);
     }
 }
 impl GetEventManager<MainStep, NormalSummoned> for EventManager {
@@ -40,18 +50,24 @@ impl GetEventManager<MainStep, NormalSummoned> for EventManager {
     fn event_manager(
         &self,
     ) -> card_game::events::EventManager<MainStep, NormalSummoned, Self::Output> {
-        card_game::events::EventManager::<MainStep, NormalSummoned, Self::Output>::new_combined(
-            &self.summoned_during_mainstep,
-            &self.normal_summoned_during_main_step,
-        )
+        self.normal_summoned_during_main_step.clone()
     }
 }
-impl GetEventManagerMut<MainStep, NormalSummoned> for EventManager {
+impl AddEventListener<MainStep, NormalSummoned> for EventManager {
     type Output = MainStep;
-    fn event_manager_mut(
+    fn add_listener<Listener: card_game::events::EventListener<MainStep, NormalSummoned>>(
         &mut self,
-    ) -> &mut card_game::events::EventManager<MainStep, NormalSummoned, Self::Output> {
-        &mut self.normal_summoned_during_main_step
+        listener: Listener,
+    ) where
+        <Listener::Action as card_game::validation::ValidAction<
+            MainStep,
+            <Listener::Filter as card_game::validation::StateFilter<
+                MainStep,
+                <NormalSummoned as card_game::events::Event<MainStep>>::Input,
+            >>::ValidOutput,
+        >>::Output: Into<Self::Output>,
+    {
+        self.normal_summoned_during_main_step.add_listener(listener);
     }
 }
 
@@ -60,17 +76,24 @@ impl GetEventManager<MainStep, SpecialSummoned> for EventManager {
     fn event_manager(
         &self,
     ) -> card_game::events::EventManager<MainStep, SpecialSummoned, Self::Output> {
-        card_game::events::EventManager::<MainStep, SpecialSummoned, Self::Output>::new_combined(
-            &self.special_summoned_during_main_step,
-            &self.summoned_during_mainstep,
-        )
+        self.special_summoned_during_main_step.clone()
     }
 }
-impl GetEventManagerMut<MainStep, SpecialSummoned> for EventManager {
+impl AddEventListener<MainStep, SpecialSummoned> for EventManager {
     type Output = MainStep;
-    fn event_manager_mut(
+    fn add_listener<Listener: card_game::events::EventListener<MainStep, SpecialSummoned>>(
         &mut self,
-    ) -> &mut card_game::events::EventManager<MainStep, SpecialSummoned, Self::Output> {
-        &mut self.special_summoned_during_main_step
+        listener: Listener,
+    ) where
+        <Listener::Action as card_game::validation::ValidAction<
+            MainStep,
+            <Listener::Filter as card_game::validation::StateFilter<
+                MainStep,
+                <SpecialSummoned as card_game::events::Event<MainStep>>::Input,
+            >>::ValidOutput,
+        >>::Output: Into<Self::Output>,
+    {
+        self.special_summoned_during_main_step
+            .add_listener(listener);
     }
 }

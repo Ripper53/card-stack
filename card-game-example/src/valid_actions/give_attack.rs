@@ -1,6 +1,6 @@
 use card_game::{
     cards::CardID,
-    events::{EventListener, EventListenerConstructor, GetEventManagerMut},
+    events::{AddEventListener, EventListener, EventListenerConstructor},
     identifications::{
         ActionID, ActionIdentifier, PlayerID, SourceCardID, ValidCardID, ValidPlayerID,
     },
@@ -18,7 +18,7 @@ use crate::{
     },
     filters::{CardIn, FilterInput, IntoInput, OfType},
     steps::GetStateMut,
-    zones::monster::MonsterZone,
+    zones::{hand::HandZone, monster::MonsterZone},
 };
 
 #[derive(Clone, Debug)]

@@ -26,7 +26,7 @@ impl<'a> TestCards for CardBuilder<'a, EventManager> {
             Attack::new(1000),
             Defense::new(2000),
         ))
-        .with_event::<crate::Game, Summoned, PassiveGiveAttack>(GiveAttack::new(Attack::new(100)))
+        .with_event::<MainStep, Summoned, PassiveGiveAttack>(GiveAttack::new(Attack::new(100)))
         .finish()
     }
 }

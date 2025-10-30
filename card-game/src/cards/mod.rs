@@ -3,7 +3,7 @@ use card_stack::priority::GetState;
 pub use manager::*;
 
 use crate::events::{
-    DynEventListener, Event, EventListener, EventListenerConstructor, GetEventManagerMut,
+    AddEventListener, DynEventListener, Event, EventListener, EventListenerConstructor,
 };
 use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
 use state_validation::{
@@ -143,19 +143,17 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
                 <Ev as Event<State>>::Input,
             >>::ValidOutput,
         >>::Error: 'static,
-        EventManager: GetEventManagerMut<State, Ev>,
+        EventManager: AddEventListener<State, Ev>,
         EventManager::Output: 'static,
         <Listener::Action as ValidAction<
             State,
             <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
         >>::Output: Into<EventManager::Output>,
     {
-        self.event_manager
-            .event_manager_mut()
-            .add_listener(Listener::new_listener(
-                SourceCardID(self.card.id()),
-                listener_input,
-            ));
+        self.event_manager.add_listener(Listener::new_listener(
+            SourceCardID(self.card.id()),
+            listener_input,
+        ));
         self
     }
     /*pub fn with_event<

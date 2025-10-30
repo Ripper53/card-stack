@@ -26,6 +26,9 @@ impl<EventManager> CardManager<EventManager> {
     pub fn card_actions(&self) -> &CardActions {
         &self.card_actions
     }
+    pub fn event_manager(&self) -> &EventManager {
+        &self.event_manager
+    }
     pub fn builder(&mut self) -> CardBuilder<'_, EventManager> {
         CardBuilder::new(
             &mut self.card_actions,

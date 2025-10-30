@@ -1,7 +1,7 @@
 use card_game::{
     StateFilterInput,
     cards::CardID,
-    events::{Event, EventListener, GetEventManager, GetEventManagerMut},
+    events::{AddEventListener, Event, EventListener, GetEventManager},
     identifications::{PlayerID, SourceCardID},
     stack::priority::GetState,
     validation::StateFilterInputConversion,

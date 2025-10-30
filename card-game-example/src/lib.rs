@@ -28,7 +28,6 @@ pub struct Game {
     player_manager: PlayerManager<Player>,
     zone_manager: ZoneManager<Zones>,
     card_manager: CardManager<EventManager>,
-    event_manager: EventManager,
 }
 /// To allow foreign type impl
 pub struct GameState<T: GetState<Game>>(pub T);
@@ -58,7 +57,6 @@ impl Game {
             zone_manager: ZoneManager::new(&player_manager),
             player_manager,
             card_manager,
-            event_manager: EventManager::default(),
         }
     }
     pub fn player_manager(&self) -> &PlayerManager<Player> {
@@ -75,9 +73,6 @@ impl Game {
     }
     pub fn card_manager_mut(&mut self) -> &mut CardManager<EventManager> {
         &mut self.card_manager
-    }
-    pub fn event_manager(&self) -> &EventManager {
-        &self.event_manager
     }
 }
 

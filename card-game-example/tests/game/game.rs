@@ -202,18 +202,15 @@ fn card_event_system() {
     let normal_summon_event = context.execute(NormalSummon::new(Position::Attack));
     let events = normal_summon_event.collect();
 
-    match events {
-        TriggeredEventResolution::None(state) => {
-            unreachable!()
+    let main_step = match events {
+        TriggeredEventResolution::None(state) => state,
+        TriggeredEventResolution::Action(_) => unreachable!(),
+        TriggeredEventResolution::SimultaneousActions(a) => {
+            panic!("REEEEEEE: {}", a.simultaneous_action_count());
         }
-        TriggeredEventResolution::Action(action) => match action.resolve() {
-            SingleActionResolution::Resolved(game) => {}
-            SingleActionResolution::Fizzled { .. } => unreachable!(),
-        },
-        TriggeredEventResolution::SimultaneousActions(_) => unreachable!(),
-    }
+    };
 
-    /*let game = normal_summon_event.state().game();
+    let game = main_step.game();
     let player_id = game.player_manager().active_player_id();
     assert_eq!(
         game.zone_manager()
@@ -230,8 +227,7 @@ fn card_event_system() {
         1,
     );
 
-    let card = normal_summon_event
-        .state()
+    let card = main_step
         .game()
         .zone_manager()
         .valid_zone(&player_id)
@@ -243,7 +239,7 @@ fn card_event_system() {
     let card_id = card.id();
     let player_id = player_id.id();
     let context = Validator::try_new(
-        main,
+        main_step,
         NormalSummonInput {
             player_id,
             card_id,
@@ -253,7 +249,15 @@ fn card_event_system() {
     .expect("expected a card in hand that can be normal summoned");
     let normal_summon_event = context.execute(NormalSummon::new(Position::Attack));
 
-    let game = normal_summon_event.state().game();
+    let main_step = match normal_summon_event.collect() {
+        TriggeredEventResolution::Action(action) => match action.resolve() {
+            SingleActionResolution::Resolved(main_step) => main_step,
+            SingleActionResolution::Fizzled { .. } => unreachable!(),
+        },
+        TriggeredEventResolution::SimultaneousActions(_) => unreachable!(),
+        TriggeredEventResolution::None(_) => unreachable!(),
+    };
+    let game = main_step.game();
     let player_id = game.player_manager().active_player_id();
     assert_eq!(
         game.zone_manager()
@@ -268,5 +272,5 @@ fn card_event_system() {
             .monster_zone()
             .filled_count(),
         2,
-    );*/
+    );
 }

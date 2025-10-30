@@ -10,7 +10,10 @@ use card_game::{
 
 use crate::{
     Game,
-    cards::monster::{MonsterCard, MonsterZoneCard, Position},
+    cards::{
+        CardName,
+        monster::{MonsterCard, MonsterZoneCard, Position},
+    },
     events::summon::{NormalSummoned, Summoned},
     filters::{
         CardIn, EqualOrLowerThan, FilterInput, For, Free, In, Level, MonsterSlot, OfType, With,
@@ -78,6 +81,7 @@ impl ValidAction<MainStep, NormalSummonInput> for NormalSummon {
             .remove_monster_card(valid_card_id.into());
         let card_id = card.id();
         let card = MonsterZoneCard::new(card.take_kind().into(), self.position);
+        println!("card: {}", card.name());
         let _ = zones
             .monster_zone
             .valid_slot(valid_slot_id)

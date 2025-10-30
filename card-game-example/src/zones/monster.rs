@@ -113,7 +113,29 @@ impl Zone for MonsterZone {
         count
     }
     fn get_card(&self, card_id: card_game::cards::CardID) -> Option<&Card<Self::CardKind>> {
-        todo!()
+        if let Some(card) = self.slot_a.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_b.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_c.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_d.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_e.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else {
+            None
+        }
     }
     fn get_card_mut(
         &mut self,

@@ -21,6 +21,9 @@ impl<EventState: 'static, Ev: Event<EventState>, Output: 'static>
     pub fn empty() -> Self {
         EventManager { events: Vec::new() }
     }
+    pub fn count(&self) -> usize {
+        self.events.len()
+    }
     pub fn new_combined<
         StateA,
         StateB,
@@ -74,14 +77,47 @@ impl<EventState: 'static, Ev: Event<EventState>, Output: 'static>
     pub(crate) fn new(events: Vec<DynEventListener<EventState, Ev, Output>>) -> Self {
         EventManager { events }
     }
-    pub fn add_listener<Listener: EventListener<EventState, Ev>>(&mut self, listener: Listener)
-    where
+    pub fn add_listener<
+        NewState: 'static,
+        NewEv: Event<NewState>,
+        Listener: EventListener<NewState, NewEv>,
+    >(
+        &mut self,
+        listener: Listener,
+    ) where
         <Listener::Action as ValidAction<
+            NewState,
+            <Listener::Filter as StateFilter<NewState, NewEv::Input>>::ValidOutput,
+        >>::Output: Into<Output> + 'static,
+        EventState: GetState<NewState> + Into<NewState>,
+        Ev: Into<NewEv>,
+        Ev::Input: Into<NewEv::Input>,
+        DynEventListener<
+            NewState,
+            NewEv,
+            <Listener::Action as ValidAction<
+                NewState,
+                <Listener::Filter as StateFilter<NewState, NewEv::Input>>::ValidOutput,
+            >>::Output,
+        >: NewStateTrait<
+                EventState,
+                Ev,
+                <Listener::Action as ValidAction<
+                    NewState,
+                    <Listener::Filter as StateFilter<NewState, NewEv::Input>>::ValidOutput,
+                >>::Output,
+            >,
+        DynEventListener<
             EventState,
-            <Listener::Filter as StateFilter<EventState, Ev::Input>>::ValidOutput,
-        >>::Output: Into<Output>,
+            Ev,
+            <Listener::Action as ValidAction<
+                NewState,
+                <Listener::Filter as StateFilter<NewState, NewEv::Input>>::ValidOutput,
+            >>::Output,
+        >: NewOutputTrait<EventState, Ev, Output>,
     {
-        self.events.push(DynEventListener::new(listener));
+        let listener = DynEventListener::new(listener).new_state().new_output();
+        self.events.push(listener);
     }
     pub(crate) fn collect_actions(
         &self,
@@ -838,9 +874,14 @@ pub trait GetEventManager<State, Ev: Event<State>> {
     type Output;
     fn event_manager(&self) -> EventManager<State, Ev, Self::Output>;
 }
-pub trait GetEventManagerMut<State, Ev: Event<State>> {
+pub trait AddEventListener<State, Ev: Event<State>> {
     type Output;
-    fn event_manager_mut(&mut self) -> &mut EventManager<State, Ev, Self::Output>;
+    fn add_listener<Listener: EventListener<State, Ev>>(&mut self, listener: Listener)
+    where
+        <Listener::Action as ValidAction<
+            State,
+            <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
+        >>::Output: Into<Self::Output>;
 }
 
 pub trait Event<State>: Clone + 'static {

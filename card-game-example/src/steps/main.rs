@@ -47,7 +47,7 @@ impl GetEventManager<MainStep, NormalSummoned> for MainStep {
     fn event_manager(
         &self,
     ) -> card_game::events::EventManager<MainStep, NormalSummoned, Self::Output> {
-        self.game.event_manager().event_manager()
+        self.game.card_manager().event_manager().event_manager()
     }
 }
 impl GetEventManager<MainStep, SpecialSummoned> for MainStep {
@@ -55,7 +55,7 @@ impl GetEventManager<MainStep, SpecialSummoned> for MainStep {
     fn event_manager(
         &self,
     ) -> card_game::events::EventManager<MainStep, SpecialSummoned, Self::Output> {
-        self.game.event_manager().event_manager()
+        self.game.card_manager().event_manager().event_manager()
     }
 }
 
@@ -63,7 +63,7 @@ impl MainStep {
     pub(crate) fn new(game: Game) -> Self {
         MainStep {
             game,
-            available_normal_summons: 1,
+            available_normal_summons: usize::MAX,
         }
     }
     pub fn game(&self) -> &Game {
