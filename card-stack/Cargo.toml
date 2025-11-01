@@ -12,3 +12,6 @@ state-validation = { path = "../state-validation/state-validation", version = "0
     "input_collector",
 ] }
 thiserror = "2.0.14"
+
+[features]
+internals = []

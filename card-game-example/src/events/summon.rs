@@ -1,7 +1,9 @@
 use card_game::{
     StateFilterInput,
     cards::CardID,
-    events::{AddEventListener, Event, EventListener, GetEventManager},
+    events::{
+        AddEventListener, Event, EventAction, EventListener, GetEventManager, TriggeredEvent,
+    },
     identifications::{PlayerID, SourceCardID},
     stack::priority::GetState,
     validation::StateFilterInputConversion,
@@ -44,6 +46,7 @@ impl From<SpecialSummoned> for Summoned {
 }
 impl<State: GetState<Game>> Event<State> for Summoned {
     type Input = Self;
+    type Stackable = EventAction<State, Self, State>;
 }
 /*impl<State: GetState<Game>> GetEventManager<State, Summoned> for GameState<State> {
     type Output = Game;
@@ -85,6 +88,7 @@ impl From<Summoned> for NormalSummoned {
 }
 impl<State: GetState<Game>> Event<State> for NormalSummoned {
     type Input = Self;
+    type Stackable = EventAction<State, Self, State>;
 }
 
 #[derive(StateFilterInput, Clone, Copy)]
@@ -100,9 +104,24 @@ impl From<Summoned> for SpecialSummoned {
         }
     }
 }
-impl<State: GetState<Game>> Event<State> for SpecialSummoned {
+impl<State: GetState<Game> + GetEventManager<State, Self>> Event<State> for SpecialSummoned {
     type Input = Self;
+    //type Stackable = SpecialSummonedStackable;
+    //type Stackable = EventAction<State, Self, TriggeredEvent<State, Self>>;
+    type Stackable = EventAction<State, Self, State::Output>;
 }
+/*pub enum SpecialSummonedStackable<State> {
+    EventAction(EventAction<State, SpecialSummoned, TriggeredEvent<State, SpecialSummoned>>),
+}
+impl<State> From<EventAction<State, SpecialSummoned, TriggeredEvent<State, SpecialSummoned>>>
+    for SpecialSummonedStackable<State>
+{
+    fn from(
+        value: EventAction<State, SpecialSummoned, TriggeredEvent<State, SpecialSummoned>>,
+    ) -> Self {
+        SpecialSummonedStackable::EventAction(value)
+    }
+}*/
 /*impl<State: GetState<Game>> GetEventManager<State, SpecialSummoned> for GameState<State> {
     type Output = Game;
     fn event_manager(

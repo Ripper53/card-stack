@@ -180,12 +180,9 @@ impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
         state: &mut MainStep,
         FilterInput((valid_player_id, valid_card_id, valid_slot_id)): <Self::Filter as card_game::validation::StateFilter<MainStep, Self>>::ValidOutput,
     ) -> (
-        card_game::identifications::ValidPlayerID<()>,
-        card_game::identifications::ValidCardID<(
-            crate::filters::CardIn<Self::Zone>,
-            crate::filters::OfType<MonsterCard>,
-        )>,
-        crate::identifications::ValidSlotID<crate::filters::In<crate::zones::monster::MonsterZone>>,
+        ValidPlayerID<()>,
+        ValidCardID<(CardIn<Self::Zone>, OfType<MonsterCard>)>,
+        crate::identifications::ValidSlotID<In<MonsterZone>>,
     ) {
         // DO NOTHING
         (

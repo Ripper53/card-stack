@@ -32,3 +32,17 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
         self.stack.pop()
     }
 }
+
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
+    Stack<State, IncitingAction>
+{
+    pub fn into_state<NewState>(self) -> Stack<NewState, IncitingAction>
+    where
+        IncitingAction: crate::actions::IncitingActionInfo<NewState, Stackable = <IncitingAction as crate::actions::IncitingActionInfo<State>>::Stackable>,
+    {
+        Stack {
+            stack: self.stack,
+            inciting_action: self.inciting_action,
+        }
+    }
+}

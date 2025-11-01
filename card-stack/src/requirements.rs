@@ -11,17 +11,17 @@ pub trait ActionRequirement<State, Input> {
     /// All the possible inputs for the requirement (but does not necessarily pass the filter).
     fn collect_inputs(state: &State) -> CollectedInputs<State, impl Iterator<Item = Input>>;
 }
-struct NoIter;
-impl Iterator for NoIter {
-    type Item = ();
+struct NoIter<Item>(std::marker::PhantomData<Item>);
+impl<Item> Iterator for NoIter<Item> {
+    type Item = Item;
     fn next(&mut self) -> Option<Self::Item> {
         None
     }
 }
-impl<State> ActionRequirement<State, ()> for () {
+impl<State, Input> ActionRequirement<State, Input> for () {
     type Filter = ();
-    fn collect_inputs(_state: &State) -> CollectedInputs<State, impl Iterator<Item = ()>> {
-        CollectedInputs::new(NoIter)
+    fn collect_inputs(_state: &State) -> CollectedInputs<State, impl Iterator<Item = Input>> {
+        CollectedInputs::new(NoIter(std::marker::PhantomData::default()))
     }
 }
 
@@ -59,19 +59,13 @@ impl<Action: crate::actions::ActionSource, Value: Send + Sync> ActionSource
     }
 }
 
-pub struct RequirementAction<
-    Priority,
-    Input: StateFilterInput,
-    Action: crate::actions::ActionSource,
-> {
+pub struct RequirementAction<Priority, Input: StateFilterInput, Action> {
     priority: Priority,
     action: Action,
     _m: std::marker::PhantomData<Input>,
 }
 
-impl<Priority, Input: StateFilterInput, Action: crate::actions::ActionSource>
-    RequirementAction<Priority, Input, Action>
-{
+impl<Priority, Input: StateFilterInput, Action> RequirementAction<Priority, Input, Action> {
     pub fn priority(&self) -> &Priority {
         &self.priority
     }

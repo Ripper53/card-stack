@@ -5,7 +5,7 @@ use crate::{
     requirements::ActionRequirement,
 };
 
-pub trait ActionSource: Send + Sync + Sized {
+pub trait ActionSource: Sized {
     /// Where this action originates from.
     type Source: Send + Sync;
     /// Where this action originates from.
@@ -15,7 +15,7 @@ pub trait ActionSource: Send + Sync + Sized {
 ///
 /// **NOTE:** if it implements `StackAction` in addition to this trait,
 /// it can be put both on an empty stack and stacked stack.
-pub trait IncitingAction<State, Input>: IncitingActionInfo<State> + ActionSource {
+pub trait IncitingAction<State, Input>: IncitingActionInfo<State> {
     /// Requirement must be satisfied before this action can be resolved.
     type Requirement: ActionRequirement<Priority<State>, Input>;
 
@@ -39,9 +39,7 @@ pub trait IncitingActionInfo<State> {
 ///
 /// **NOTE:** if it implements `IncitingAction` in addition to this trait,
 /// it can be put both on an empty stack and stacked stack.
-pub trait StackAction<State, Input, IncitingAction: crate::actions::IncitingActionInfo<State>>:
-    ActionSource
-{
+pub trait StackAction<State, Input, IncitingAction: crate::actions::IncitingActionInfo<State>> {
     /// Requirement must be satisfied before this action can be resolved.
     type Requirement: ActionRequirement<PriorityStack<State, IncitingAction>, Input>;
 

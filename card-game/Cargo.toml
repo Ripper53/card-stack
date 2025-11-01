@@ -11,7 +11,9 @@ card-game-derive = { path = "../card-game-derive", version = "0.1", optional = t
 state-validation = { path = "../state-validation/state-validation", version = "0.1", default-features = false, features = [
     "input_collector",
 ] }
-card-stack = { path = "../card-stack", version = "0.1" }
+card-stack = { path = "../card-stack", version = "0.1", features = [
+    "internals",
+] }
 thiserror = "2.0.14"
 variadics_please = "1.1.0"
 

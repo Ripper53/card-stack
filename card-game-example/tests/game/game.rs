@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use card_game::{
     CardGameBuilder,
     commands::CommandManager,
-    events::{SingleActionResolution, TriggeredEventResolution},
+    events::{EventActionResolution, TriggeredEventResolution},
     identifications::SourceCardID,
     stack::priority::GetState,
     steps::Step,
@@ -251,8 +251,8 @@ fn card_event_system() {
 
     let main_step = match normal_summon_event.collect() {
         TriggeredEventResolution::Action(action) => match action.resolve() {
-            SingleActionResolution::Resolved(main_step) => main_step,
-            SingleActionResolution::Fizzled { .. } => unreachable!(),
+            EventActionResolution::Resolved(main_step) => main_step,
+            EventActionResolution::Fizzled { .. } => unreachable!(),
         },
         TriggeredEventResolution::SimultaneousActions(_) => unreachable!(),
         TriggeredEventResolution::None(_) => unreachable!(),

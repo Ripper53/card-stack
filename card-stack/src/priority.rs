@@ -32,6 +32,9 @@ impl<State> PriorityMut<Priority<State>> {
     pub(crate) fn new(priority: Priority<State>) -> Self {
         PriorityMut { priority }
     }
+    pub fn take_state(self) -> State {
+        self.priority.state
+    }
     pub fn take_priority(self) -> Priority<State> {
         self.priority
     }
@@ -78,6 +81,17 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
             priority,
             stack: crate::Stack::new(inciting_action),
         }
+    }
+    #[cfg(feature = "internals")]
+    pub fn from_stack(
+        priority: Priority<State>,
+        stack: crate::Stack<State, IncitingAction>,
+    ) -> Self {
+        PriorityStack { priority, stack }
+    }
+    #[cfg(feature = "internals")]
+    pub fn take_contents(self) -> (State, crate::Stack<State, IncitingAction>) {
+        (self.priority.state, self.stack)
     }
     pub fn stack(
         mut self,
