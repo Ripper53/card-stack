@@ -25,14 +25,14 @@ impl<Z: Zone> GetValidCardIDFromZone<Z> for ValidCardID<Z::CardFilter> {
 #[error("card {0} does not exist")]
 pub struct CardDoesNotExist(pub CardID);
 
-#[derive(StateFilterInput, Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct SourceCardID(pub CardID);
 impl std::fmt::Display for SourceCardID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
-#[derive(StateFilterInput, Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct TargetCardID(pub CardID);
 impl std::fmt::Display for TargetCardID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

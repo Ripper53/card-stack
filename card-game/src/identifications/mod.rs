@@ -13,7 +13,7 @@ pub trait CastTo<T> {
 #[macro_export]
 macro_rules! create_valid_identification {
     ($name: ident, $internal_id: ty) => {
-        #[derive(card_game::StateFilterInput, Debug)]
+        #[derive(Debug)]
         pub struct $name<F>($internal_id, ::std::marker::PhantomData<(F, *const ())>);
         impl<F> $name<F> {
             pub fn id(&self) -> $internal_id {

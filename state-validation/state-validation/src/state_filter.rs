@@ -14,9 +14,30 @@ impl<State, Input> StateFilter<State, Input> for () {
 }
 impl<
     State,
-    InitialInput: StateFilterInput,
-    Input0: StateFilterInput,
-    Input1: StateFilterInput,
+    InitialInput,
+    Input,
+    F: StateFilter<State, Input>,
+> StateFilter<State, InitialInput> for Condition<Input, F>
+where
+    InitialInput: StateFilterInputConversion<Input>,
+    <InitialInput as StateFilterInputConversion<Input>>::Remainder:
+        StateFilterInputCombination<F::ValidOutput>,
+{
+    type ValidOutput =
+        <<InitialInput as StateFilterInputConversion<Input>>::Remainder as StateFilterInputCombination<
+            F::ValidOutput,
+        >>::Combined;
+    type Error = F::Error;
+    fn filter(state: &State, value: InitialInput) -> Result<Self::ValidOutput, Self::Error> {
+        let (input, remainder) = value.split_take();
+        F::filter(state, input).map(|v| remainder.combine(v))
+    }
+}
+impl<
+    State,
+    InitialInput,
+    Input0,
+    Input1,
     F0: StateFilter<State, Input0>,
     F1: StateFilter<State, Input1>,
 > StateFilter<State, InitialInput> for (Condition<Input0, F0>, Condition<Input1, F1>)
@@ -58,10 +79,10 @@ pub enum StateFilterTwoChainError<E0: std::error::Error, E1: std::error::Error> 
 }
 impl<
     State,
-    InitialInput: StateFilterInput,
-    Input0: StateFilterInput,
-    Input1: StateFilterInput,
-    Input2: StateFilterInput,
+    InitialInput,
+    Input0,
+    Input1,
+    Input2,
     F0: StateFilter<State, Input0>,
     F1: StateFilter<State, Input1>,
     F2: StateFilter<State, Input2>,
@@ -132,11 +153,11 @@ pub enum StateFilterThreeChainError<E0: std::error::Error, E1: std::error::Error
 }
 impl<
     State,
-    InitialInput: StateFilterInput,
-    Input0: StateFilterInput,
-    Input1: StateFilterInput,
-    Input2: StateFilterInput,
-    Input3: StateFilterInput,
+    InitialInput,
+    Input0,
+    Input1,
+    Input2,
+    Input3,
     F0: StateFilter<State, Input0>,
     F1: StateFilter<State, Input1>,
     F2: StateFilter<State, Input2>,
@@ -231,12 +252,12 @@ pub enum StateFilterFourChainError<E0: std::error::Error, E1: std::error::Error,
 }
 impl<
     State,
-    InitialInput: StateFilterInput,
-    Input0: StateFilterInput,
-    Input1: StateFilterInput,
-    Input2: StateFilterInput,
-    Input3: StateFilterInput,
-    Input4: StateFilterInput,
+    InitialInput,
+    Input0,
+    Input1,
+    Input2,
+    Input3,
+    Input4,
     F0: StateFilter<State, Input0>,
     F1: StateFilter<State, Input1>,
     F2: StateFilter<State, Input2>,
@@ -354,13 +375,13 @@ pub enum StateFilterFiveChainError<E0: std::error::Error, E1: std::error::Error,
 }
 impl<
     State,
-    InitialInput: StateFilterInput,
-    Input0: StateFilterInput,
-    Input1: StateFilterInput,
-    Input2: StateFilterInput,
-    Input3: StateFilterInput,
-    Input4: StateFilterInput,
-    Input5: StateFilterInput,
+    InitialInput,
+    Input0,
+    Input1,
+    Input2,
+    Input3,
+    Input4,
+    Input5,
     F0: StateFilter<State, Input0>,
     F1: StateFilter<State, Input1>,
     F2: StateFilter<State, Input2>,
@@ -501,14 +522,14 @@ pub enum StateFilterSixChainError<E0: std::error::Error, E1: std::error::Error, 
 }
 impl<
     State,
-    InitialInput: StateFilterInput,
-    Input0: StateFilterInput,
-    Input1: StateFilterInput,
-    Input2: StateFilterInput,
-    Input3: StateFilterInput,
-    Input4: StateFilterInput,
-    Input5: StateFilterInput,
-    Input6: StateFilterInput,
+    InitialInput,
+    Input0,
+    Input1,
+    Input2,
+    Input3,
+    Input4,
+    Input5,
+    Input6,
     F0: StateFilter<State, Input0>,
     F1: StateFilter<State, Input1>,
     F2: StateFilter<State, Input2>,
@@ -672,15 +693,15 @@ pub enum StateFilterSevenChainError<E0: std::error::Error, E1: std::error::Error
 }
 impl<
     State,
-    InitialInput: StateFilterInput,
-    Input0: StateFilterInput,
-    Input1: StateFilterInput,
-    Input2: StateFilterInput,
-    Input3: StateFilterInput,
-    Input4: StateFilterInput,
-    Input5: StateFilterInput,
-    Input6: StateFilterInput,
-    Input7: StateFilterInput,
+    InitialInput,
+    Input0,
+    Input1,
+    Input2,
+    Input3,
+    Input4,
+    Input5,
+    Input6,
+    Input7,
     F0: StateFilter<State, Input0>,
     F1: StateFilter<State, Input1>,
     F2: StateFilter<State, Input2>,

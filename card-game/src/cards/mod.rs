@@ -43,7 +43,7 @@ impl<Kind> Card<Kind> {
     }
 }
 
-#[derive(StateFilterInput, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
 impl CardID {
     pub(crate) const fn new(id: usize) -> Self {

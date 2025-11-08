@@ -1,24 +1,22 @@
 use card_game::{
-    StateFilterInput,
     cards::CardID,
     identifications::{PlayerID, ValidCardID, ValidPlayerID},
-    validation::{StateFilterInputCombination, StateFilterInputConversion},
 };
+use state_validation::{StateFilterInput, StateFilterInputCombination, StateFilterInputConversion};
 
 use crate::{filters::FilterInput, identifications::ValidSlotID, zones::SlotID};
 
 #[derive(StateFilterInput)]
 pub struct NormalSummonInput {
+    #[conversion(T0 = ValidPlayerID<T0>)]
     pub player_id: PlayerID,
+    #[conversion(T1 = ValidCardID<T1>)]
     pub card_id: CardID,
+    #[conversion(T2 = ValidSlotID<T2>)]
     pub slot_id: SlotID,
 }
-pub struct A {
-    card_id: CardID,
-    slot_id: SlotID,
-}
 
-impl StateFilterInputConversion<PlayerID> for NormalSummonInput {
+/*impl StateFilterInputCombination<PlayerID> for NormalSummonInput {
     type Remainder = A;
     fn split_take(self) -> (PlayerID, Self::Remainder) {
         (
@@ -123,4 +121,4 @@ impl<F0, F1, F2> StateFilterInputCombination<(ValidPlayerID<F0>, ValidSlotID<F2>
     fn combine(self, (player_id, slot_id): (ValidPlayerID<F0>, ValidSlotID<F2>)) -> Self::Combined {
         (player_id, self.card_id, slot_id)
     }
-}
+}*/

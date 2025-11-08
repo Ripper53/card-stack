@@ -205,8 +205,11 @@ fn card_event_system() {
     let main_step = match events {
         TriggeredEventResolution::None(state) => state,
         TriggeredEventResolution::Action(_) => unreachable!(),
-        TriggeredEventResolution::SimultaneousActions(a) => {
-            panic!("REEEEEEE: {}", a.simultaneous_action_count());
+        TriggeredEventResolution::SimultaneousActions(actions) => {
+            unreachable!(
+                "Simultaneous Actions Count: {}",
+                actions.simultaneous_action_count()
+            );
         }
     };
 

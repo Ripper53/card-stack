@@ -29,6 +29,7 @@ version = "0.1.0"
 dependencies = [
  "card-game",
  "indexmap",
+ "state-validation",
  "thiserror",
  "variadics_please",
 ]
