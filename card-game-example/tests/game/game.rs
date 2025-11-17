@@ -7,7 +7,6 @@ use card_game::{
     identifications::SourceCardID,
     stack::priority::GetState,
     steps::Step,
-    validation::Validator,
     zones::{Zone, ZoneContext},
 };
 use card_game_example::{
@@ -18,7 +17,7 @@ use card_game_example::{
         specifics::NeoKaiserSeaHorseSpecialSummon,
     },
     events::summon::SpecialSummoned,
-    filters::{CardIn, FilterInput, OfType},
+    filters::{CardIn, OfType},
     player::Player,
     steps::{MainStep, StartStep},
     valid_actions::{
@@ -26,6 +25,7 @@ use card_game_example::{
     },
     zones::{SlotID, hand::HandZone},
 };
+use state_validation::Validator;
 
 use crate::utilities::GameBuilder;
 

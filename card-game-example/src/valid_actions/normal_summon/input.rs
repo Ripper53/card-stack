@@ -4,7 +4,7 @@ use card_game::{
 };
 use state_validation::{StateFilterInput, StateFilterInputCombination, StateFilterInputConversion};
 
-use crate::{filters::FilterInput, identifications::ValidSlotID, zones::SlotID};
+use crate::{identifications::ValidSlotID, zones::SlotID};
 
 #[derive(StateFilterInput)]
 pub struct NormalSummonInput {

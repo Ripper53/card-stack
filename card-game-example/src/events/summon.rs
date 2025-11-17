@@ -1,21 +1,19 @@
 use card_game::{
-    StateFilterInput,
     cards::CardID,
     events::{
         AddEventListener, Event, EventAction, EventListener, GetEventManager, TriggeredEvent,
     },
     identifications::{PlayerID, SourceCardID},
     stack::priority::GetState,
-    validation::StateFilterInputConversion,
 };
+use state_validation::{StateFilterInput, StateFilterInputConversion};
 
 use crate::{
     Game, GameState,
-    filters::FilterInput,
     steps::{GetStateMut, MainStep},
 };
 
-#[derive(StateFilterInput, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub enum Summoned {
     Normal(NormalSummoned),
     Special(SpecialSummoned),
@@ -54,24 +52,6 @@ impl<State: GetState<Game>> Event<State> for Summoned {
         self.0.state().event_manager().event_manager()
     }
 }*/
-impl StateFilterInputConversion<PlayerID> for Summoned {
-    type Remainder = FilterInput<CardID>;
-    fn split_take(self) -> (PlayerID, Self::Remainder) {
-        (self.player_id(), FilterInput(self.card_id()))
-    }
-}
-impl StateFilterInputConversion<CardID> for Summoned {
-    type Remainder = FilterInput<PlayerID>;
-    fn split_take(self) -> (CardID, Self::Remainder) {
-        (self.card_id(), FilterInput(self.player_id()))
-    }
-}
-impl StateFilterInputConversion<(PlayerID, CardID)> for Summoned {
-    type Remainder = FilterInput<()>;
-    fn split_take(self) -> ((PlayerID, CardID), Self::Remainder) {
-        ((self.player_id(), self.card_id()), FilterInput(()))
-    }
-}
 
 #[derive(StateFilterInput, Clone, Copy)]
 pub struct NormalSummoned {

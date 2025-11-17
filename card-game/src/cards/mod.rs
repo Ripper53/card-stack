@@ -1,5 +1,5 @@
 mod manager;
-use card_stack::priority::GetState;
+use card_stack::{NonEmptyInput, priority::GetState};
 pub use manager::*;
 
 use crate::events::{
@@ -45,6 +45,7 @@ impl<Kind> Card<Kind> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
+impl NonEmptyInput for CardID {}
 impl CardID {
     pub(crate) const fn new(id: usize) -> Self {
         CardID(id)
@@ -179,7 +180,7 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
 
 pub struct SourceCardFilter<Action>(std::marker::PhantomData<Action>);
 impl<
-    Input: StateFilterInput + StateFilterInputConversion<SourceCardID>,
+    Input: StateFilterInputConversion<SourceCardID>,
     Action: ValidAction<State, Input> + ActionIdentifier,
     State: GetState<CardActions>,
 > StateFilter<State, Input> for SourceCardFilter<Action>

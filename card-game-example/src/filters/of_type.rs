@@ -2,9 +2,9 @@ use card_game::{
     cards::CardID,
     identifications::{ValidCardID, ValidPlayerID},
     stack::priority::GetState,
-    validation::StateFilter,
     zones::Zone,
 };
+use state_validation::StateFilter;
 
 use crate::{
     Game,
@@ -12,7 +12,7 @@ use crate::{
         CardKind,
         monster::{MonsterCard, MonsterCardType},
     },
-    filters::{CardIn, FilterInput},
+    filters::CardIn,
     steps::MainStep,
     zones::{GetZone, hand::HandZone, monster::MonsterZone},
 };
@@ -45,22 +45,6 @@ impl<State: GetState<Game>, F> StateFilter<State, (ValidPlayerID<F>, ValidCardID
         }
     }
 }
-impl<State: GetState<Game>, F>
-    StateFilter<State, FilterInput<(ValidPlayerID<F>, ValidCardID<CardIn<HandZone>>)>>
-    for OfType<MonsterCard>
-{
-    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidCardID<(CardIn<HandZone>, Self)>)>;
-    type Error = CardIsNotMonsterError;
-    fn filter(
-        state: &State,
-        FilterInput((valid_player_id, valid_card_id)): FilterInput<(
-            ValidPlayerID<F>,
-            ValidCardID<CardIn<HandZone>>,
-        )>,
-    ) -> Result<Self::ValidOutput, Self::Error> {
-        Self::filter(state, (valid_player_id, valid_card_id)).map(|v| FilterInput(v))
-    }
-}
 
 impl<State: GetState<Game>, F>
     StateFilter<State, (ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>)>
@@ -83,21 +67,5 @@ impl<State: GetState<Game>, F>
         } else {
             Err(CardIsNotMonsterError(valid_card_id.id()))
         }
-    }
-}
-impl<State: GetState<Game>, F>
-    StateFilter<State, FilterInput<(ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>)>>
-    for OfType<MonsterCard>
-{
-    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidCardID<(CardIn<MonsterZone>, Self)>)>;
-    type Error = CardIsNotMonsterError;
-    fn filter(
-        state: &State,
-        FilterInput((valid_player_id, valid_card_id)): FilterInput<(
-            ValidPlayerID<F>,
-            ValidCardID<CardIn<MonsterZone>>,
-        )>,
-    ) -> Result<Self::ValidOutput, Self::Error> {
-        Self::filter(state, (valid_player_id, valid_card_id)).map(|v| FilterInput(v))
     }
 }

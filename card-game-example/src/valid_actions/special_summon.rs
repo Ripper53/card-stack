@@ -3,15 +3,15 @@ use card_game::{
     events::{Event, EventAction, FromEventAction, GetEventManager, TriggeredEvent},
     identifications::{ActionID, ActionIdentifier, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
-    validation::{StateFilter, StateFilterInput, ValidAction},
     zones::Zone,
 };
+use state_validation::{StateFilter, StateFilterInput, ValidAction};
 
 use crate::{
     Game,
     cards::monster::{MonsterCard, MonsterZoneCard, Position},
     events::summon::{SpecialSummoned, Summoned},
-    filters::{CardIn, FilterInput, In, OfType},
+    filters::{CardIn, In, OfType},
     identifications::ValidSlotID,
     steps::GetStateMut,
     zones::{ContainsMonsterCards, GetZone, hand::HandZone, monster::MonsterZone},
@@ -46,10 +46,7 @@ FromEventAction<State, SpecialSummoned, State::Output>,*/
     fn with_valid_input(
         self,
         mut state: State,
-        valid: <Self::Filter as card_game::validation::StateFilter<
-            State,
-            Requirement,
-        >>::ValidOutput,
+        valid: <Self::Filter as state_validation::StateFilter<State, Requirement>>::ValidOutput,
     ) -> Self::Output {
         let (valid_player_id, valid_card_id, valid_slot_id) =
             Requirement::handle_summon(&mut state, valid);
@@ -83,7 +80,7 @@ impl<State, Requirement: SpecialSummonRequirement<State>> ActionIdentifier
     }
 }
 
-pub trait SpecialSummonRequirement<State>: ActionIdentifier + StateFilterInput + Sized {
+pub trait SpecialSummonRequirement<State>: ActionIdentifier + Sized {
     type Filter: StateFilter<State, Self>;
     type Zone: ContainsMonsterCards;
     fn handle_summon(

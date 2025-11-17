@@ -46,3 +46,17 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
         }
     }
 }
+
+/// Marker trait which signifies a empty input.
+/// Used to differentiate empty and non-empty inputs
+/// for generic implementations using generic constraints.
+pub trait EmptyInput {
+    fn empty() -> Self;
+}
+impl EmptyInput for () {
+    fn empty() -> Self {}
+}
+/// Marker trait which signifies a non-empty input.
+/// Used to differentiate empty and non-empty inputs
+/// for generic implementations using generic constraints.
+pub trait NonEmptyInput {}

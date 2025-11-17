@@ -1,5 +1,10 @@
 use state_validation::StateFilterInput;
 
+use crate::{
+    EmptyInput, NonEmptyInput,
+    requirements::{RequirementAction, TryNewRequirementActionError},
+};
+
 pub trait GetState<State> {
     fn state(&self) -> &State;
 }
@@ -157,6 +162,41 @@ pub trait IncitingResolver<
         prioriy: PriorityMut<Priority<State>>,
         action: IncitingAction,
     ) -> Self::Resolved;
+}
+impl<
+    State,
+    IncitingAction: crate::actions::IncitingAction<State, (), Requirement = ()>,
+    Resolver: StackResolver<State, IncitingAction>,
+> IncitingResolver<State, (), IncitingAction> for Resolver
+{
+    type Resolved = IncitingAction::Resolved;
+    fn resolve_inciting(
+        priority: PriorityMut<Priority<State>>,
+        action: IncitingAction,
+    ) -> Self::Resolved {
+        action.resolve(priority, ())
+    }
+}
+impl<
+    State,
+    Input: NonEmptyInput,
+    IncitingAction: crate::actions::IncitingAction<State, Input>,
+    Resolver: StackResolver<State, IncitingAction>,
+> IncitingResolver<State, Input, IncitingAction> for Resolver
+{
+    type Resolved = Result<
+        RequirementAction<Priority<State>, Input, IncitingAction>,
+        TryNewRequirementActionError<Priority<State>, IncitingAction>,
+    >;
+    fn resolve_inciting(
+        priority: PriorityMut<Priority<State>>,
+        action: IncitingAction,
+    ) -> Self::Resolved {
+        RequirementAction::<Priority<State>, Input, IncitingAction>::try_new(
+            priority.take_priority(),
+            action,
+        )
+    }
 }
 pub trait StackResolver<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
     type HaltStack;

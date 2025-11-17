@@ -38,7 +38,7 @@ impl<State: GetStateMut<Game>> card_game::stack::actions::IncitingAction<State, 
         input: <<Self::Requirement as card_game::stack::requirements::ActionRequirement<
                 Priority<State>,
                 CharacterID,
-            >>::Filter as card_game::validation::StateFilter<Priority<State>, CharacterID>>::ValidOutput,
+            >>::Filter as state_validation::StateFilter<Priority<State>, CharacterID>>::ValidOutput,
     ) -> Self::Resolved {
         let character = priority
             .state_mut()
@@ -65,7 +65,7 @@ impl<State: GetStateMut<Game>, IncitingAction: card_game::stack::actions::Inciti
         input: <<Self::Requirement as card_game::stack::requirements::ActionRequirement<
             PriorityStack<State, IncitingAction>,
             CharacterID,
-        >>::Filter as card_game::validation::StateFilter<
+        >>::Filter as state_validation::StateFilter<
             PriorityStack<State, IncitingAction>,
             CharacterID,
         >>::ValidOutput,

@@ -4,9 +4,9 @@ use card_game::{
     identifications::{
         ActionID, ActionIdentifier, ActivePlayer, PlayerID, ValidCardID, ValidPlayerID,
     },
-    validation::{Condition, StateFilter, ValidAction},
     zones::{ArrayZone, Zone},
 };
+use state_validation::{Condition, StateFilter, ValidAction};
 
 use crate::{
     Game,
@@ -15,9 +15,7 @@ use crate::{
         monster::{MonsterCard, MonsterZoneCard, Position},
     },
     events::summon::{NormalSummoned, Summoned},
-    filters::{
-        CardIn, EqualOrLowerThan, FilterInput, For, Free, In, Level, MonsterSlot, OfType, With,
-    },
+    filters::{CardIn, EqualOrLowerThan, For, Free, In, Level, MonsterSlot, OfType, With},
     steps::MainStep,
     zones::{ContainsMonsterCards, SlotID, hand::HandZone, monster::MonsterZone},
 };
@@ -63,28 +61,25 @@ impl ValidAction<MainStep, NormalSummonInput> for NormalSummon {
     fn with_valid_input(
         self,
         mut state: MainStep,
-        (valid_player_id, valid_card_id, valid_slot_id): <Self::Filter as StateFilter<
-            MainStep,
-            NormalSummonInput,
-        >>::ValidOutput,
+        value: <Self::Filter as StateFilter<MainStep, NormalSummonInput>>::ValidOutput,
     ) -> Self::Output {
         if !state.use_normal_summon() {
             todo!("create a filter that checks if a normal summon can occur");
         }
-        let player_id = valid_player_id.id();
+        let player_id = value.player_id.id();
         let zones = state
             .game
             .zone_manager_mut()
-            .valid_zone_mut(valid_player_id);
+            .valid_zone_mut(value.player_id);
         let card = zones
             .hand_zone_mut()
-            .remove_monster_card(valid_card_id.into());
+            .remove_monster_card(value.card_id.into());
         let card_id = card.id();
         let card = MonsterZoneCard::new(card.take_kind().into(), self.position);
         println!("card: {}", card.name());
         let _ = zones
             .monster_zone
-            .valid_slot(valid_slot_id)
+            .valid_slot(value.slot_id)
             .put(Card::new(card_id, card).into_kind());
         TriggeredEvent::new(
             state,

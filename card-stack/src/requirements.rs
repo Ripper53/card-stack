@@ -18,9 +18,9 @@ impl<Item> Iterator for NoIter<Item> {
         None
     }
 }
-impl<State, Input> ActionRequirement<State, Input> for () {
+impl<State> ActionRequirement<State, ()> for () {
     type Filter = ();
-    fn collect_inputs(_state: &State) -> CollectedInputs<State, impl Iterator<Item = Input>> {
+    fn collect_inputs(_state: &State) -> CollectedInputs<State, impl Iterator<Item = ()>> {
         CollectedInputs::new(NoIter(std::marker::PhantomData::default()))
     }
 }
@@ -59,13 +59,13 @@ impl<Action: crate::actions::ActionSource, Value: Send + Sync> ActionSource
     }
 }
 
-pub struct RequirementAction<Priority, Input: StateFilterInput, Action> {
+pub struct RequirementAction<Priority, Input, Action> {
     priority: Priority,
     action: Action,
     _m: std::marker::PhantomData<Input>,
 }
 
-impl<Priority, Input: StateFilterInput, Action> RequirementAction<Priority, Input, Action> {
+impl<Priority, Input, Action> RequirementAction<Priority, Input, Action> {
     pub fn priority(&self) -> &Priority {
         &self.priority
     }
@@ -73,7 +73,7 @@ impl<Priority, Input: StateFilterInput, Action> RequirementAction<Priority, Inpu
         &self.action
     }
 }
-impl<State, Input: StateFilterInput, Action: crate::actions::IncitingAction<State, Input>>
+impl<State, Input, Action: crate::actions::IncitingAction<State, Input>>
     RequirementAction<Priority<State>, Input, Action>
 where
     Action::Requirement: ActionRequirement<Priority<State>, Input>,
@@ -142,7 +142,7 @@ impl<Priority, Action> std::fmt::Debug for TryNewRequirementActionError<Priority
 }
 impl<
     State,
-    Input: StateFilterInput,
+    Input,
     IncitingAction: crate::actions::IncitingActionInfo<State>,
     Action: crate::actions::StackAction<State, Input, IncitingAction>,
 > RequirementAction<PriorityStack<State, IncitingAction>, Input, Action>

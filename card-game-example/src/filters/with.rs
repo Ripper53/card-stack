@@ -2,9 +2,9 @@ use card_game::{
     cards::CardID,
     identifications::{CastTo, PlayerID, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
-    validation::{StateFilter, StateFilterInputConversion},
     zones::Zone,
 };
+use state_validation::{StateFilter, StateFilterInputConversion};
 
 use crate::{
     Game,
@@ -12,7 +12,7 @@ use crate::{
         CardKind,
         monster::{MonsterCard, MonsterCardType},
     },
-    filters::{CardIn, FilterInput, Free, In, MonsterSlot, OfType},
+    filters::{CardIn, Free, In, MonsterSlot, OfType},
     identifications::{SlotDoesNotExistError, ValidSlotID},
     zones::{GetZone, SlotID, hand::HandZone},
 };
@@ -30,19 +30,6 @@ impl<State: GetState<Game>, Z: GetZone, F> StateFilter<State, (ValidPlayerID<F>,
     ) -> Result<Self::ValidOutput, Self::Error> {
         ValidSlotID::try_new::<Z, _>(state.state(), &valid_player_id, slot_id)
             .map(|valid_slot_id| (valid_player_id, valid_slot_id))
-    }
-}
-impl<State: GetState<Game>, Z: GetZone, F>
-    StateFilter<State, FilterInput<(ValidPlayerID<F>, SlotID)>>
-    for With<(Free<MonsterSlot>, In<Z>)>
-{
-    type ValidOutput = FilterInput<(ValidPlayerID<F>, ValidSlotID<(Free<MonsterSlot>, In<Z>)>)>;
-    type Error = SlotDoesNotExistError;
-    fn filter(
-        state: &State,
-        FilterInput((valid_player_id, slot_id)): FilterInput<(ValidPlayerID<F>, SlotID)>,
-    ) -> Result<Self::ValidOutput, Self::Error> {
-        Self::filter(state, (valid_player_id, slot_id)).map(|v| FilterInput(v))
     }
 }
 
@@ -87,30 +74,6 @@ impl<State: GetState<Game>, F, const LEVEL: usize>
         } else {
             Ok((valid_player_id, valid_card_id.unchecked_replace_filter()))
         }
-    }
-}
-impl<State: GetState<Game>, F, const LEVEL: usize>
-    StateFilter<
-        State,
-        FilterInput<(
-            ValidPlayerID<F>,
-            ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
-        )>,
-    > for With<EqualOrLowerThan<Level<LEVEL>>>
-{
-    type ValidOutput = FilterInput<(
-        ValidPlayerID<F>,
-        ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>, Self)>,
-    )>;
-    type Error = MonsterLevelIsNotEqualOrLessThanError;
-    fn filter(
-        state: &State,
-        FilterInput((valid_player_id, valid_card_id)): FilterInput<(
-            ValidPlayerID<F>,
-            ValidCardID<(CardIn<HandZone>, OfType<MonsterCard>)>,
-        )>,
-    ) -> Result<Self::ValidOutput, Self::Error> {
-        Self::filter(state, (valid_player_id, valid_card_id)).map(|v| FilterInput(v))
     }
 }
 #[derive(thiserror::Error, Debug)]

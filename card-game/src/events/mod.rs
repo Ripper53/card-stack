@@ -200,7 +200,7 @@ impl<State, Output> SingleAction<State, Output> {
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct SimultaneousActionID(usize);
 use crate as card_game;
-create_valid_identification!(ValidSimultaneousActionID, SimultaneousActionID);
+create_valid_identification!(ValidSimultaneousActionID, SimultaneousActionID, with_copy);
 impl<F> ValidSimultaneousActionID<F> {
     pub(crate) fn new(id: SimultaneousActionID) -> Self {
         ValidSimultaneousActionID(id, std::marker::PhantomData::default())
@@ -306,7 +306,7 @@ impl<
         })
     }
 }
-impl<EventState, Ev: Event<EventState>, Output> IncitingAction<EventState, Ev::Input>
+impl<EventState, Ev: Event<EventState>, Output> IncitingAction<EventState, ()>
     for EventAction<EventState, Ev, Output>
 {
     type Requirement = ();
@@ -315,8 +315,8 @@ impl<EventState, Ev: Event<EventState>, Output> IncitingAction<EventState, Ev::I
         priority: card_stack::priority::PriorityMut<Priority<EventState>>,
         _: <<Self::Requirement as card_stack::requirements::ActionRequirement<
             Priority<EventState>,
-            Ev::Input,
-        >>::Filter as StateFilter<Priority<EventState>, Ev::Input>>::ValidOutput,
+            (),
+        >>::Filter as StateFilter<Priority<EventState>, ()>>::ValidOutput,
     ) -> Self::Resolved {
         match self.action.with_given_valid_input(priority.take_state()) {
             Ok(output) => EventActionResolution::Resolved(output),
@@ -1016,7 +1016,7 @@ pub trait AddEventListener<State, Ev: Event<State>> {
 }
 
 pub trait Event<State>: Clone + 'static {
-    type Input: StateFilterInput + Clone;
+    type Input: Clone;
     type Stackable;
     //fn event_id() -> EventID;
 }

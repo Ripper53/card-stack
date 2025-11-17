@@ -12,13 +12,48 @@ pub trait CastTo<T> {
 
 #[macro_export]
 macro_rules! create_valid_identification {
-    ($name: ident, $internal_id: ty) => {
-        #[derive(Debug)]
-        pub struct $name<F>($internal_id, ::std::marker::PhantomData<(F, *const ())>);
+    ($name: ident, $internal_id: ty, with_copy) => {
+        create_valid_identification!($name, $internal_id, core);
         impl<F> $name<F> {
             pub fn id(&self) -> $internal_id {
                 self.0
             }
+            pub fn unchecked_clone(&self) -> Self {
+                $name(self.0, ::std::marker::PhantomData::default())
+            }
+        }
+    };
+    ($name: ident, $internal_id: ty, with_clone) => {
+        create_valid_identification!($name, $internal_id, core);
+        impl<F> $name<F> {
+            pub fn id(&self) -> $internal_id {
+                self.0.clone()
+            }
+            pub fn unchecked_clone(&self) -> Self {
+                $name(self.0.clone(), ::std::marker::PhantomData::default())
+            }
+        }
+    };
+    ($name: ident, $internal_id: ty) => {
+        create_valid_identification!($name, $internal_id, core);
+        impl<F> $name<F> {
+            pub fn id(&self) -> &$internal_id {
+                &self.0
+            }
+        }
+    };
+    ($name: ident, $internal_id: ty, core) => {
+        pub struct $name<F>($internal_id, ::std::marker::PhantomData<(F, *const ())>);
+        impl<F> std::fmt::Debug for $name<F>
+        where
+            $internal_id: std::fmt::Debug,
+        {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "Valid({:?})", &self.0)
+            }
+        }
+        impl<F> card_game::stack::NonEmptyInput for $name<F> {}
+        impl<F> $name<F> {
             pub fn unchecked_replace_filter<NewF>(self) -> $name<NewF> {
                 $name(self.0, ::std::marker::PhantomData::default())
             }
@@ -39,9 +74,6 @@ macro_rules! create_valid_identification {
                 f: impl ::std::ops::FnOnce(&Self) -> ::std::option::Option<T>,
             ) -> T {
                 f(self).unwrap()
-            }
-            pub fn unchecked_clone(&self) -> Self {
-                $name(self.0, ::std::marker::PhantomData::default())
             }
         }
         impl<F> ::std::convert::From<$name<F>> for $internal_id {

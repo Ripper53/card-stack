@@ -1,4 +1,5 @@
 use card_game::stack::{
+    EmptyInput, NonEmptyInput,
     actions::ActionSource,
     priority::{GetState, Priority, PriorityStack},
     requirements::{ActionRequirement, RequirementAction, TryNewRequirementActionError},
@@ -14,50 +15,6 @@ use crate::{
 
 pub struct Resolver;
 
-pub struct NoInput;
-pub struct NoRequirement;
-impl<State> ActionRequirement<State, NoInput> for NoRequirement {
-    type Filter = ();
-    fn collect_inputs(
-        _state: &State,
-    ) -> state_validation::CollectedInputs<State, impl Iterator<Item = NoInput>> {
-        unreachable!();
-        state_validation::CollectedInputs::new(Vec::new().into_iter())
-    }
-}
-impl<
-    State,
-    IncitingAction: card_game::stack::actions::IncitingAction<State, NoInput, Requirement = NoRequirement>,
-> card_game::stack::priority::IncitingResolver<State, NoInput, IncitingAction> for Resolver
-{
-    type Resolved = IncitingAction::Resolved;
-    fn resolve_inciting(
-        priority: card_game::stack::priority::PriorityMut<Priority<State>>,
-        action: IncitingAction,
-    ) -> Self::Resolved {
-        action.resolve(priority, NoInput)
-    }
-}
-impl<
-    State,
-    Input: StateFilterInput,
-    IncitingAction: card_game::stack::actions::IncitingAction<State, Input>,
-> card_game::stack::priority::IncitingResolver<State, Input, IncitingAction> for Resolver
-{
-    type Resolved = Result<
-        RequirementAction<Priority<State>, Input, IncitingAction>,
-        TryNewRequirementActionError<Priority<State>, IncitingAction>,
-    >;
-    fn resolve_inciting(
-        priority: card_game::stack::priority::PriorityMut<Priority<State>>,
-        action: IncitingAction,
-    ) -> Self::Resolved {
-        RequirementAction::<Priority<State>, Input, IncitingAction>::try_new(
-            priority.take_priority(),
-            action,
-        )
-    }
-}
 impl<
     State: GetStateMut<Game>,
     IncitingAction: card_game::stack::actions::IncitingActionInfo<State, Stackable = crate::stack::StackAction>,
@@ -98,7 +55,7 @@ impl<
             StackAction::RemoveCharacters(remove_characters) => {
                 use card_game::stack::actions::StackAction;
                 card_game::stack::priority::Resolve::Continue(
-                    remove_characters.resolve(priority, NoInput),
+                    remove_characters.resolve(priority, ()),
                 )
             }
         }

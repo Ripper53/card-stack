@@ -1,10 +1,10 @@
 use card_game::{
-    StateFilterInput,
     cards::Card,
     identifications::{PlayerID, ValidCardID, ValidPlayerID},
-    impl_state_filter_combination,
+    stack::NonEmptyInput,
     zones::Zone,
 };
+use state_validation::StateFilterInput;
 
 use crate::{
     Game,
@@ -68,8 +68,9 @@ pub trait ContainsMonsterCards: Zone<CardFilter = CardIn<Self>> {
     ) -> Card<MonsterCard>;
 }
 
-#[derive(StateFilterInput, PartialEq, Eq, Hash, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct SlotID(usize);
+impl NonEmptyInput for SlotID {}
 impl SlotID {
     pub fn new(id: usize) -> Self {
         SlotID(id)
@@ -83,4 +84,3 @@ impl std::fmt::Display for SlotID {
         self.0.fmt(f)
     }
 }
-impl_state_filter_combination!(SlotID, 1, 8, T);

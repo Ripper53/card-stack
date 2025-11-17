@@ -1,5 +1,3 @@
-#[cfg(test)]
-use crate::resolvers::NoRequirement;
 use crate::{
     actions::{deal_damage::DealDamage, heal::Heal},
     game::{Game, GetStateMut},
@@ -49,11 +47,13 @@ impl From<Action> for StackAction {
 
 #[cfg(test)]
 pub struct RemoveCharacters(CharacterID);
+#[cfg(test)]
 impl Default for RemoveCharacters {
     fn default() -> Self {
         RemoveCharacters(CharacterID::new(0))
     }
 }
+#[cfg(test)]
 impl ActionSource for RemoveCharacters {
     type Source = CharacterID;
     fn source(&self) -> &Self::Source {
@@ -62,10 +62,9 @@ impl ActionSource for RemoveCharacters {
 }
 #[cfg(test)]
 impl<State: GetStateMut<Game>, IncitingAction: IncitingActionInfo<State>>
-    card_game::stack::actions::StackAction<State, crate::resolvers::NoInput, IncitingAction>
-    for RemoveCharacters
+    card_game::stack::actions::StackAction<State, (), IncitingAction> for RemoveCharacters
 {
-    type Requirement = NoRequirement;
+    type Requirement = ();
     type Resolved = PriorityStack<State, IncitingAction>;
     fn resolve(
         self,
@@ -74,10 +73,10 @@ impl<State: GetStateMut<Game>, IncitingAction: IncitingActionInfo<State>>
         >,
         _: <<Self::Requirement as card_game::stack::requirements::ActionRequirement<
             card_game::stack::priority::PriorityStack<State, IncitingAction>,
-            crate::resolvers::NoInput,
+            (),
         >>::Filter as state_validation::StateFilter<
             card_game::stack::priority::PriorityStack<State, IncitingAction>,
-            crate::resolvers::NoInput,
+            (),
         >>::ValidOutput,
     ) -> Self::Resolved {
         let state = priority.state_mut().state_mut();

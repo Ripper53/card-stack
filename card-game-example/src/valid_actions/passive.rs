@@ -2,8 +2,8 @@ use card_game::{
     cards::CardID,
     events::{Event, EventListener, EventListenerConstructor},
     identifications::SourceCardID,
-    validation::{StateFilter, ValidAction},
 };
+use state_validation::{StateFilter, ValidAction};
 
 use crate::steps::GetStateMut;
 

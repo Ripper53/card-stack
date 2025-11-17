@@ -1,20 +1,33 @@
 use card_game::{
-    StateFilterInput,
     cards::CardID,
+    create_valid_identification,
     identifications::{
         ActionID, ActionIdentifier, ActivePlayer, PlayerID, ValidCardID, ValidPlayerID,
     },
-    stack::priority::GetState,
-    validation::{Condition, StateFilter, ValidAction},
+    stack::{NonEmptyInput, priority::GetState},
 };
+use state_validation::{Condition, StateFilter, StateFilterInput, ValidAction};
 
 use crate::{
     Game,
     cards::monster::Position,
-    filters::{CardIn, FilterInput, For, Free, In, MonsterSlot, With},
+    filters::{CardIn, For, Free, In, MonsterSlot, With},
+    identifications::ValidSlotID,
     steps::MainStep,
     zones::{SlotID, hand::HandZone, monster::MonsterZone},
 };
+
+#[derive(StateFilterInput)]
+pub struct TributeSummonInput {
+    #[conversion(T0 = ValidPlayerID<T0>)]
+    pub player_id: PlayerID,
+    #[conversion(T1 = ValidCardID<T1>)]
+    pub card_id: CardID,
+    #[conversion(T2 = ValidSlotID<T2>)]
+    pub slot_id: SlotID,
+    #[conversion(T3 = ValidTribute<T3>)]
+    pub tribute: Tribute,
+}
 
 pub struct TributeSummon {
     position: Position,
@@ -26,34 +39,35 @@ impl TributeSummon {
     }
 }
 
-#[derive(StateFilterInput)]
 pub struct Tribute(pub CardID);
-#[derive(StateFilterInput)]
-pub struct ValidTribute(pub ValidCardID<CardIn<MonsterZone>>);
+impl NonEmptyInput for Tribute {}
+create_valid_identification!(ValidTribute, ValidCardID<CardIn<MonsterZone>>);
+impl<F> ValidTribute<F> {
+    pub(crate) fn new(card_id: ValidCardID<CardIn<MonsterZone>>) -> Self {
+        ValidTribute(card_id, std::marker::PhantomData::default())
+    }
+}
 
 impl ActionIdentifier for TributeSummon {
     fn action_id() -> ActionID {
         ActionID::new("tribute_summon")
     }
 }
-impl ValidAction<MainStep, FilterInput<(PlayerID, CardID, SlotID, Tribute)>> for TributeSummon {
+impl ValidAction<MainStep, TributeSummonInput> for TributeSummon {
     type Filter = (
-        Condition<FilterInput<PlayerID>, For<ActivePlayer>>,
-        Condition<FilterInput<(ValidPlayerID<ActivePlayer>, CardID)>, CardIn<HandZone>>,
+        Condition<PlayerID, For<ActivePlayer>>,
+        Condition<(ValidPlayerID<ActivePlayer>, CardID), CardIn<HandZone>>,
         Condition<
-            FilterInput<(ValidPlayerID<ActivePlayer>, SlotID)>,
+            (ValidPlayerID<ActivePlayer>, SlotID),
             With<(Free<MonsterSlot>, In<MonsterZone>)>,
         >,
-        Condition<FilterInput<(ValidPlayerID<ActivePlayer>, Tribute)>, CardIn<MonsterZone>>,
+        Condition<(ValidPlayerID<ActivePlayer>, Tribute), CardIn<MonsterZone>>,
     );
-    type Output = (ValidPlayerID<ActivePlayer>, ValidTribute);
+    type Output = (ValidPlayerID<ActivePlayer>, ValidTribute<()>);
     fn with_valid_input(
         self,
         state: MainStep,
-        FilterInput(valid): <Self::Filter as StateFilter<
-            MainStep,
-            FilterInput<(PlayerID, CardID, SlotID, Tribute)>,
-        >>::ValidOutput,
+        valid: <Self::Filter as StateFilter<MainStep, TributeSummonInput>>::ValidOutput,
     ) -> Self::Output {
         todo!()
     }

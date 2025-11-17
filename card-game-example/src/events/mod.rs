@@ -31,9 +31,9 @@ impl AddEventListener<MainStep, Summoned> for EventManager {
         &mut self,
         listener: Listener,
     ) where
-        <Listener::Action as card_game::validation::ValidAction<
+        <Listener::Action as state_validation::ValidAction<
             MainStep,
-            <Listener::Filter as card_game::validation::StateFilter<
+            <Listener::Filter as state_validation::StateFilter<
                 MainStep,
                 <Summoned as card_game::events::Event<MainStep>>::Input,
             >>::ValidOutput,
@@ -59,9 +59,9 @@ impl AddEventListener<MainStep, NormalSummoned> for EventManager {
         &mut self,
         listener: Listener,
     ) where
-        <Listener::Action as card_game::validation::ValidAction<
+        <Listener::Action as state_validation::ValidAction<
             MainStep,
-            <Listener::Filter as card_game::validation::StateFilter<
+            <Listener::Filter as state_validation::StateFilter<
                 MainStep,
                 <NormalSummoned as card_game::events::Event<MainStep>>::Input,
             >>::ValidOutput,
@@ -85,9 +85,9 @@ impl AddEventListener<MainStep, SpecialSummoned> for EventManager {
         &mut self,
         listener: Listener,
     ) where
-        <Listener::Action as card_game::validation::ValidAction<
+        <Listener::Action as state_validation::ValidAction<
             MainStep,
-            <Listener::Filter as card_game::validation::StateFilter<
+            <Listener::Filter as state_validation::StateFilter<
                 MainStep,
                 <SpecialSummoned as card_game::events::Event<MainStep>>::Input,
             >>::ValidOutput,

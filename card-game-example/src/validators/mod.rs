@@ -1,7 +1,5 @@
-use card_game::{
-    cards::CardID, identifications::PlayerID, stack::priority::GetState, steps::Step,
-    validation::Validator,
-};
+use card_game::{cards::CardID, identifications::PlayerID, stack::priority::GetState, steps::Step};
+use state_validation::Validator;
 
 use crate::{
     Game,

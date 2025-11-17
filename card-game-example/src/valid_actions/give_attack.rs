@@ -5,9 +5,9 @@ use card_game::{
         ActionID, ActionIdentifier, PlayerID, SourceCardID, ValidCardID, ValidPlayerID,
     },
     stack::priority::GetState,
-    validation::{Condition, StateFilter, ValidAction},
     zones::Zone,
 };
+use state_validation::{Condition, StateFilter, ValidAction};
 
 use crate::{
     Game,
@@ -16,7 +16,7 @@ use crate::{
         EventManager,
         summon::{SpecialSummoned, Summoned},
     },
-    filters::{CardIn, FilterInput, IntoInput, OfType},
+    filters::{CardIn, OfType},
     steps::GetStateMut,
     zones::{hand::HandZone, monster::MonsterZone},
 };
@@ -37,21 +37,18 @@ impl ActionIdentifier for GiveAttack {
         ActionID::new("give_attack")
     }
 }
-impl<State: GetStateMut<Game>> ValidAction<State, FilterInput<(PlayerID, CardID)>> for GiveAttack {
+impl<State: GetStateMut<Game>> ValidAction<State, (PlayerID, CardID)> for GiveAttack {
     type Filter = (
-        Condition<FilterInput<(PlayerID, CardID)>, CardIn<MonsterZone>>,
-        Condition<
-            FilterInput<(ValidPlayerID<()>, ValidCardID<CardIn<MonsterZone>>)>,
-            OfType<MonsterCard>,
-        >,
+        Condition<(PlayerID, CardID), CardIn<MonsterZone>>,
+        Condition<(ValidPlayerID<()>, ValidCardID<CardIn<MonsterZone>>), OfType<MonsterCard>>,
     );
     type Output = State;
     fn with_valid_input(
         self,
         mut state: State,
-        FilterInput((valid_player_id, valid_card_id)): <Self::Filter as card_game::validation::StateFilter<
+        (valid_player_id, valid_card_id): <Self::Filter as state_validation::StateFilter<
             State,
-            FilterInput<(PlayerID, CardID)>,
+            (PlayerID, CardID),
         >>::ValidOutput,
     ) -> Self::Output {
         let card = state
@@ -66,17 +63,16 @@ impl<State: GetStateMut<Game>> ValidAction<State, FilterInput<(PlayerID, CardID)
 }
 
 impl<State: GetStateMut<Game>, F>
-    ValidAction<State, FilterInput<(ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>)>>
-    for GiveAttack
+    ValidAction<State, (ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>)> for GiveAttack
 {
     type Filter = OfType<MonsterCard>;
     type Output = State;
     fn with_valid_input(
         self,
         mut state: State,
-        FilterInput((valid_player_id, valid_card_id)): <Self::Filter as StateFilter<
+        (valid_player_id, valid_card_id): <Self::Filter as StateFilter<
             State,
-            FilterInput<(ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>)>,
+            (ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>),
         >>::ValidOutput,
     ) -> Self::Output {
         let card = state

@@ -3,7 +3,7 @@ use state_validation::StateFilterInput;
 use crate::{cards::CardID, create_valid_identification, zones::Zone};
 
 use crate as card_game;
-create_valid_identification!(ValidCardID, CardID);
+create_valid_identification!(ValidCardID, CardID, with_copy);
 impl<F> ValidCardID<F> {
     pub(crate) fn new(card_id: CardID) -> Self {
         ValidCardID(card_id, std::marker::PhantomData::default())

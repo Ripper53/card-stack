@@ -5,7 +5,7 @@ use crate::{
     zones::{GetZone, SlotID, Zones},
 };
 
-create_valid_identification!(ValidSlotID, SlotID);
+create_valid_identification!(ValidSlotID, SlotID, with_copy);
 impl<F> ValidSlotID<F> {
     pub fn try_new<Z: GetZone, F0>(
         game: &Game,

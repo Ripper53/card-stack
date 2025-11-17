@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use crate::create_valid_identification;
-use state_validation::StateFilterInput;
+use card_stack::NonEmptyInput;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerID(usize);
-impl StateFilterInput for PlayerID {}
+impl NonEmptyInput for PlayerID {}
 impl PlayerID {
     fn next_player_id(&self, max_players: usize) -> Self {
         PlayerID((self.0 + 1) % max_players)
@@ -18,7 +18,7 @@ impl std::fmt::Display for PlayerID {
 }
 
 use crate as card_game;
-create_valid_identification!(ValidPlayerID, PlayerID);
+create_valid_identification!(ValidPlayerID, PlayerID, with_copy);
 impl From<ValidPlayerID<ActivePlayer>> for ValidPlayerID<()> {
     fn from(valid_id: ValidPlayerID<ActivePlayer>) -> Self {
         ValidPlayerID(valid_id.0, std::marker::PhantomData::default())

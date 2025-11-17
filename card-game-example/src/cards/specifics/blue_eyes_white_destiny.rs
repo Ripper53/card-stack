@@ -1,5 +1,4 @@
 use card_game::{
-    StateFilterInput,
     cards::{Card, CardBuilder, CardID, SourceCardFilter},
     events::TriggeredEvent,
     identifications::{
@@ -7,7 +6,9 @@ use card_game::{
         ValidCardID, ValidPlayerID,
     },
     stack::priority::GetState,
-    validation::{Condition, StateFilterInputCombination, StateFilterInputConversion},
+};
+use state_validation::{
+    Condition, StateFilterInput, StateFilterInputCombination, StateFilterInputConversion,
 };
 
 use crate::{
@@ -25,7 +26,8 @@ use crate::{
         EventManager,
         summon::{NormalSummoned, Summoned},
     },
-    filters::{Any, CardIn, FilterInput, For, Free, In, MonsterSlot, OfType, StaticName, With},
+    filters::{Any, CardIn, For, Free, In, MonsterSlot, OfType, StaticName, With},
+    identifications::ValidSlotID,
     steps::MainStep,
     valid_actions::{GiveAttack, PassiveGiveAttack, SpecialSummon, SpecialSummonRequirement},
     zones::{SlotID, hand::HandZone, monster::MonsterZone},
@@ -109,48 +111,12 @@ impl<'a> BlueEyesWhiteDestinyConstructedDeck for CardBuilder<'a, EventManager> {
 
 #[derive(StateFilterInput)]
 pub struct NeoKaiserSeaHorseSpecialSummon {
+    #[conversion(T0 = ValidPlayerID<T0>)]
     pub player_id: PlayerID,
+    #[conversion(T1 = ValidCardID<T1>)]
     pub source_card_id: SourceCardID,
+    #[conversion(T2 = ValidSlotID<T2>)]
     pub slot_id: SlotID,
-}
-impl StateFilterInputConversion<FilterInput<PlayerID>> for NeoKaiserSeaHorseSpecialSummon {
-    type Remainder = FilterInput<(SourceCardID, SlotID)>;
-    fn split_take(self) -> (FilterInput<PlayerID>, Self::Remainder) {
-        (
-            FilterInput(self.player_id),
-            FilterInput((self.source_card_id, self.slot_id)),
-        )
-    }
-}
-impl StateFilterInputConversion<FilterInput<(PlayerID, SourceCardID)>>
-    for NeoKaiserSeaHorseSpecialSummon
-{
-    type Remainder = FilterInput<SlotID>;
-    fn split_take(self) -> (FilterInput<(PlayerID, SourceCardID)>, Self::Remainder) {
-        (
-            FilterInput((self.player_id, self.source_card_id)),
-            FilterInput(self.slot_id),
-        )
-    }
-}
-impl StateFilterInputConversion<SourceCardID> for NeoKaiserSeaHorseSpecialSummon {
-    type Remainder = FilterInput<(PlayerID, SlotID)>;
-    fn split_take(self) -> (SourceCardID, Self::Remainder) {
-        (
-            self.source_card_id,
-            FilterInput((self.player_id, self.slot_id)),
-        )
-    }
-}
-impl StateFilterInputCombination<FilterInput<(PlayerID, SlotID)>> for SourceCardID {
-    type Combined = NeoKaiserSeaHorseSpecialSummon;
-    fn combine(self, value: FilterInput<(PlayerID, SlotID)>) -> Self::Combined {
-        NeoKaiserSeaHorseSpecialSummon {
-            player_id: value.0.0,
-            source_card_id: self,
-            slot_id: value.0.1,
-        }
-    }
 }
 impl ActionIdentifier for NeoKaiserSeaHorseSpecialSummon {
     fn action_id() -> ActionID {
@@ -160,14 +126,14 @@ impl ActionIdentifier for NeoKaiserSeaHorseSpecialSummon {
 impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
     type Filter = (
         Condition<Self, SourceCardFilter<SpecialSummon<MainStep, Self>>>,
-        Condition<FilterInput<PlayerID>, For<ActivePlayer>>,
-        Condition<FilterInput<(ValidPlayerID<ActivePlayer>, ValidCardID<()>)>, CardIn<Self::Zone>>,
+        Condition<PlayerID, For<ActivePlayer>>,
+        Condition<(ValidPlayerID<ActivePlayer>, ValidCardID<()>), CardIn<Self::Zone>>,
         Condition<
-            FilterInput<(ValidPlayerID<ActivePlayer>, ValidCardID<CardIn<Self::Zone>>)>,
+            (ValidPlayerID<ActivePlayer>, ValidCardID<CardIn<Self::Zone>>),
             OfType<MonsterCard>,
         >,
         Condition<
-            FilterInput<(ValidPlayerID<ActivePlayer>, SlotID)>,
+            (ValidPlayerID<ActivePlayer>, SlotID),
             With<(Free<MonsterSlot>, In<MonsterZone>)>,
         >,
         /*Condition<
@@ -178,7 +144,7 @@ impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
     type Zone = HandZone;
     fn handle_summon(
         state: &mut MainStep,
-        FilterInput((valid_player_id, valid_card_id, valid_slot_id)): <Self::Filter as card_game::validation::StateFilter<MainStep, Self>>::ValidOutput,
+        value: <Self::Filter as state_validation::StateFilter<MainStep, Self>>::ValidOutput,
     ) -> (
         ValidPlayerID<()>,
         ValidCardID<(CardIn<Self::Zone>, OfType<MonsterCard>)>,
@@ -186,9 +152,9 @@ impl SpecialSummonRequirement<MainStep> for NeoKaiserSeaHorseSpecialSummon {
     ) {
         // DO NOTHING
         (
-            valid_player_id.into(),
-            valid_card_id,
-            valid_slot_id.unchecked_replace_filter(),
+            value.player_id.into(),
+            value.source_card_id,
+            value.slot_id.unchecked_replace_filter(),
         )
     }
 }
