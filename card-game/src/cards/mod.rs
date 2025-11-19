@@ -7,8 +7,7 @@ use crate::events::{
 };
 use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
 use state_validation::{
-    StateFilter, StateFilterInput, StateFilterInputCombination, StateFilterInputConversion,
-    ValidAction,
+    StateFilter, StateFilterInputCombination, StateFilterInputConversion, ValidAction,
 };
 
 pub struct Card<Kind> {
@@ -112,43 +111,31 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
     where
         <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
             State,
-            <Ev as Event<State>>::Input,
+            Listener,
         >>::ValidOutput: 'static,
         <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
             State,
-            <Ev as Event<State>>::Input,
+            Listener,
         >>::Error: 'static,
         <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
             State,
-            <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
-                State,
-                <Ev as Event<State>>::Input,
-            >>::ValidOutput,
+            <Ev as Event<State>>::Input,
         >>::Filter as StateFilter<
             State,
-            <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
-                State,
-                <Ev as Event<State>>::Input,
-            >>::ValidOutput,
+            <Ev as Event<State>>::Input,
         >>::ValidOutput: 'static,
         <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
             State,
-            <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
-                State,
-                <Ev as Event<State>>::Input,
-            >>::ValidOutput,
+            <Ev as Event<State>>::Input,
         >>::Filter as StateFilter<
             State,
-            <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
-                State,
-                <Ev as Event<State>>::Input,
-            >>::ValidOutput,
+            <Ev as Event<State>>::Input,
         >>::Error: 'static,
         EventManager: AddEventListener<State, Ev>,
         EventManager::Output: 'static,
         <Listener::Action as ValidAction<
             State,
-            <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
+            <Ev as Event<State>>::Input,
         >>::Output: Into<EventManager::Output>,
     {
         self.event_manager.add_listener(Listener::new_listener(

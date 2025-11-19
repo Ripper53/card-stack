@@ -8,7 +8,7 @@ use card_game::{
     stack::priority::GetState,
 };
 use state_validation::{
-    Condition, StateFilterInput, StateFilterInputCombination, StateFilterInputConversion,
+    Condition, StateFilterConversion, StateFilterInputCombination, StateFilterInputConversion,
 };
 
 use crate::{
@@ -109,7 +109,7 @@ impl<'a> BlueEyesWhiteDestinyConstructedDeck for CardBuilder<'a, EventManager> {
     }
 }
 
-#[derive(StateFilterInput)]
+#[derive(StateFilterConversion)]
 pub struct NeoKaiserSeaHorseSpecialSummon {
     #[conversion(T0 = ValidPlayerID<T0>)]
     pub player_id: PlayerID,

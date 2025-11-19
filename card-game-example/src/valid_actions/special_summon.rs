@@ -5,7 +5,7 @@ use card_game::{
     stack::priority::GetState,
     zones::Zone,
 };
-use state_validation::{StateFilter, StateFilterInput, ValidAction};
+use state_validation::{StateFilter, ValidAction};
 
 use crate::{
     Game,

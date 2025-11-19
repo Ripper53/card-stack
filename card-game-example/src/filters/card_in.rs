@@ -8,7 +8,7 @@ use card_game::{
     steps::Step,
     zones::Zone,
 };
-use state_validation::{StateFilter, StateFilterInput, StateFilterTwoChainError};
+use state_validation::{StateFilter, StateFilterTwoChainError};
 
 use crate::{
     Game,
@@ -26,6 +26,30 @@ impl<State: GetState<Game>, Z: GetZone> StateFilter<State, Summoned> for CardIn<
     type Error = PlayerOrCardError;
     fn filter(state: &State, summoned: Summoned) -> Result<Self::ValidOutput, Self::Error> {
         CardIn::filter(state, (summoned.player_id(), summoned.card_id()))
+    }
+}
+impl<State: GetState<Game>, Z: GetZone> StateFilter<State, CardID> for CardIn<Z> {
+    type ValidOutput = (ValidPlayerID<()>, ValidCardID<Self>);
+    type Error = CardDoesNotExist;
+    fn filter(state: &State, card_id: CardID) -> Result<Self::ValidOutput, Self::Error> {
+        let state = state.state();
+        if let Some(valid) = state
+            .player_manager()
+            .players()
+            .find_map(|valid_player_id| {
+                if let Ok(valid_card_id) =
+                    ValidCardID::try_new(card_id, Z::get_zone(state, &valid_player_id))
+                {
+                    Some((valid_player_id, valid_card_id))
+                } else {
+                    None
+                }
+            })
+        {
+            Ok(valid)
+        } else {
+            Err(CardDoesNotExist(card_id))
+        }
     }
 }
 impl<State: GetState<Game>, Z: GetZone> StateFilter<State, (PlayerID, CardID)> for CardIn<Z> {

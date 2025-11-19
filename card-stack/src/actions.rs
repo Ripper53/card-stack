@@ -1,4 +1,4 @@
-use state_validation::{StateFilter, StateFilterInput};
+use state_validation::StateFilter;
 
 use crate::{
     priority::{Priority, PriorityMut, PriorityStack},

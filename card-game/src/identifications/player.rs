@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::create_valid_identification;
+use crate::{cards::CardID, create_valid_identification};
 use card_stack::NonEmptyInput;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

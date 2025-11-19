@@ -6,7 +6,7 @@ use card_game::{
     },
     stack::{NonEmptyInput, priority::GetState},
 };
-use state_validation::{Condition, StateFilter, StateFilterInput, ValidAction};
+use state_validation::{Condition, StateFilter, StateFilterConversion, ValidAction};
 
 use crate::{
     Game,
@@ -17,7 +17,7 @@ use crate::{
     zones::{SlotID, hand::HandZone, monster::MonsterZone},
 };
 
-#[derive(StateFilterInput)]
+#[derive(StateFilterConversion)]
 pub struct TributeSummonInput {
     #[conversion(T0 = ValidPlayerID<T0>)]
     pub player_id: PlayerID,

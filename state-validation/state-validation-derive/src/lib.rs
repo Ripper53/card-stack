@@ -8,13 +8,6 @@ use syn::{
     parse_macro_input, parse_quote,
 };
 
-#[derive(darling::FromDeriveInput)]
-#[darling(attributes(state_filter_input))]
-struct StateFilterInputData {
-    remainder_type: Option<Type>,
-    remainder: Option<Expr>,
-}
-
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct ConversionSort {
     sort_number: usize,
@@ -40,19 +33,17 @@ enum ConversionType {
     Type(syn::Type),
     Generic {
         generic_ident: Vec<syn::Ident>,
-        path: syn::Path,
+        ty: syn::Type,
     },
 }
 impl syn::parse::Parse for ConversionType {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
             let generic_ident = input.parse()?;
+            let generic_ident = vec![generic_ident];
             let _: syn::Token![=] = input.parse()?;
-            let path = input.parse()?;
-            Ok(ConversionType::Generic {
-                generic_ident: vec![generic_ident],
-                path,
-            })
+            let ty = input.parse()?;
+            Ok(ConversionType::Generic { generic_ident, ty })
         } else {
             input.parse().map(ConversionType::Type)
         }
@@ -64,18 +55,15 @@ impl quote::ToTokens for ConversionType {
             ConversionType::Type(ty) => {
                 tokens.append_all(ty.to_token_stream());
             }
-            ConversionType::Generic {
-                generic_ident,
-                path,
-            } => {
-                tokens.append_all(quote::quote!(#path));
+            ConversionType::Generic { generic_ident, ty } => {
+                tokens.append_all(quote::quote!(#ty));
             }
         }
     }
 }
 
-#[proc_macro_derive(StateFilterInput, attributes(state_filter_input, conversion))]
-pub fn state_filter_input(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(StateFilterConversion, attributes(conversion))]
+pub fn state_filter_conversion(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as syn::DeriveInput);
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
@@ -85,7 +73,6 @@ pub fn state_filter_input(input: TokenStream) -> TokenStream {
         .into_iter()
         .map(|ty| ty.ident.clone())
         .collect();
-    //let data = StateFilterInputData::from_derive_input(&ast).unwrap();
     let state_conversions = match &ast.data {
         syn::Data::Struct(s) => {
             let fields_count = s.fields.len();
@@ -476,8 +463,8 @@ fn extract_generics_from_type(ty: &Type) -> Generics {
     generics
 }
 
-fn collect_generics<'a>(
-    ty: &'a Type,
+fn collect_generics(
+    ty: &Type,
     type_params: &mut BTreeSet<syn::Ident>,
     lifetime_params: &mut BTreeSet<Lifetime>,
     const_params: &mut BTreeSet<syn::Ident>,

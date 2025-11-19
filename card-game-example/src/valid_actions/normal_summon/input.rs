@@ -2,11 +2,13 @@ use card_game::{
     cards::CardID,
     identifications::{PlayerID, ValidCardID, ValidPlayerID},
 };
-use state_validation::{StateFilterInput, StateFilterInputCombination, StateFilterInputConversion};
+use state_validation::{
+    StateFilterConversion, StateFilterInputCombination, StateFilterInputConversion,
+};
 
 use crate::{identifications::ValidSlotID, zones::SlotID};
 
-#[derive(StateFilterInput)]
+#[derive(StateFilterConversion)]
 pub struct NormalSummonInput {
     #[conversion(T0 = ValidPlayerID<T0>)]
     pub player_id: PlayerID,

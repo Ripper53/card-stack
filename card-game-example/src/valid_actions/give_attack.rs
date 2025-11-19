@@ -7,7 +7,7 @@ use card_game::{
     stack::priority::GetState,
     zones::Zone,
 };
-use state_validation::{Condition, StateFilter, ValidAction};
+use state_validation::{Condition, StateFilter, StateFilterConversion, ValidAction};
 
 use crate::{
     Game,
@@ -85,9 +85,22 @@ impl<State: GetStateMut<Game>, F>
         state
     }
 }
+impl<State: GetStateMut<Game>> ValidAction<State, Summoned> for GiveAttack {
+    type Filter = <Self as ValidAction<State, (PlayerID, CardID)>>::Filter;
+    type Output = State;
+    fn with_valid_input(
+        self,
+        state: State,
+        valid: <Self::Filter as StateFilter<State, (PlayerID, CardID)>>::ValidOutput,
+    ) -> Self::Output {
+        <Self as ValidAction<State, (PlayerID, CardID)>>::with_valid_input(self, state, valid)
+    }
+}
 
-#[derive(Clone)]
+#[derive(StateFilterConversion, Clone)]
 pub struct PassiveGiveAttack {
+    #[conversion(T = ValidCardID<T>)]
+    #[conversion(T = (ValidPlayerID<()>, ValidCardID<T>))]
     source_card_id: CardID,
     give_attack: GiveAttack,
 }
@@ -101,9 +114,14 @@ impl PassiveGiveAttack {
     }
 }
 impl<State: GetStateMut<Game>> EventListener<State, Summoned> for PassiveGiveAttack {
-    type Filter = CardIn<MonsterZone>;
+    type Filter = Condition<CardID, CardIn<MonsterZone>>;
     type Action = GiveAttack;
-    fn action(&self, _state: &State, _event: &Summoned) -> Self::Action {
+    fn action(
+        &self,
+        state: &State,
+        event: &Summoned,
+        value: <Self::Filter as StateFilter<State, Self>>::ValidOutput,
+    ) -> Self::Action {
         self.give_attack.clone()
     }
 }

@@ -6,7 +6,7 @@ use card_game::{
     identifications::{PlayerID, SourceCardID},
     stack::priority::GetState,
 };
-use state_validation::{StateFilterInput, StateFilterInputConversion};
+use state_validation::{StateFilterConversion, StateFilterInputConversion};
 
 use crate::{
     Game, GameState,
@@ -46,6 +46,16 @@ impl<State: GetState<Game>> Event<State> for Summoned {
     type Input = Self;
     type Stackable = EventAction<State, Self, State>;
 }
+impl StateFilterInputConversion<(PlayerID, CardID)> for Summoned {
+    type Remainder = ();
+    fn split_take(self) -> ((PlayerID, CardID), Self::Remainder) {
+        let result = match self {
+            Summoned::Normal(s) => (s.player_id, s.card_id),
+            Summoned::Special(s) => (s.player_id, s.card_id),
+        };
+        (result, ())
+    }
+}
 /*impl<State: GetState<Game>> GetEventManager<State, Summoned> for GameState<State> {
     type Output = Game;
     fn event_manager(&self) -> card_game::events::EventManager<State, Summoned, Self::Output> {
@@ -53,7 +63,7 @@ impl<State: GetState<Game>> Event<State> for Summoned {
     }
 }*/
 
-#[derive(StateFilterInput, Clone, Copy)]
+#[derive(StateFilterConversion, Clone, Copy)]
 pub struct NormalSummoned {
     pub player_id: PlayerID,
     pub card_id: CardID,
@@ -71,7 +81,7 @@ impl<State: GetState<Game>> Event<State> for NormalSummoned {
     type Stackable = EventAction<State, Self, State>;
 }
 
-#[derive(StateFilterInput, Clone, Copy)]
+#[derive(StateFilterConversion, Clone, Copy)]
 pub struct SpecialSummoned {
     pub player_id: PlayerID,
     pub card_id: CardID,

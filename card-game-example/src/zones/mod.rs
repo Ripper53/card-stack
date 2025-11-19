@@ -4,7 +4,6 @@ use card_game::{
     stack::NonEmptyInput,
     zones::Zone,
 };
-use state_validation::StateFilterInput;
 
 use crate::{
     Game,

@@ -3,10 +3,11 @@ use card_game::{
     events::{Event, EventListener, EventListenerConstructor},
     identifications::SourceCardID,
 };
-use state_validation::{StateFilter, ValidAction};
+use state_validation::{Condition, StateFilter, ValidAction};
 
-use crate::steps::GetStateMut;
+use crate::{Game, steps::GetStateMut};
 
+/*
 #[derive(Clone)]
 pub struct Passive<T: Clone> {
     source_card_id: CardID,
@@ -24,21 +25,33 @@ impl<T: Clone> Passive<T> {
 pub trait PassiveAction<State, Input> {
     type Filter: StateFilter<State, Input>;
 }
-/*impl<
+impl<
     State: GetStateMut<Game>,
     T: Clone
         + PassiveAction<State, Ev::Input>
-        + ValidAction<State, <<T as PassiveAction<State, Ev::Input>>::Filter as StateFilter<State, Ev::Input>>::ValidOutput>,
+        + ValidAction<State, <<T as PassiveAction<State, Ev::Input>>::Filter as StateFilter<State, Ev::Input>>::ValidOutput>
+        + 'static,
     Ev: Event<State>,
 > EventListener<State, Ev> for Passive<T>
 {
-    type Filter = <T as PassiveAction<State, Ev::Input>>::Filter;
+    type Filter = (
+        Condition<Ev::Input, <T as PassiveAction<State, Ev::Input>>::Filter>,
+        Condition<
+            <<T as PassiveAction<State, Ev::Input>>::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
+            <T as ValidAction<State, <<T as PassiveAction<State, Ev::Input>>::Filter as StateFilter<State, Ev::Input>>::ValidOutput>>::Filter,
+        >,
+    );
     type Action = T;
     fn action(&self, _state: &State, _event: &Ev) -> Self::Action {
         self.action.clone()
     }
 }
-impl<State: GetStateMut<Game>, T: Clone, Ev: Event<State>> EventListenerConstructor<State, Ev>
+impl<State: GetStateMut<Game>, T: Clone
+        + PassiveAction<State, Ev::Input>
+        + ValidAction<State, <<T as PassiveAction<State, Ev::Input>>::Filter as StateFilter<State, Ev::Input>>::ValidOutput>
+        + 'static,
+     Ev: Event<State>,
+> EventListenerConstructor<State, Ev>
     for Passive<T>
 {
     type Input = T;

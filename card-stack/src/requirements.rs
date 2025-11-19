@@ -1,4 +1,4 @@
-use state_validation::{CollectedInputs, StateFilter, StateFilterInput};
+use state_validation::{CollectedInputs, StateFilter};
 
 use crate::{
     actions::ActionSource,

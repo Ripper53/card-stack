@@ -1,5 +1,3 @@
-use state_validation::StateFilterInput;
-
 use crate::{
     EmptyInput, NonEmptyInput,
     requirements::{RequirementAction, TryNewRequirementActionError},
