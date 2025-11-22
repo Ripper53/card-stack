@@ -67,7 +67,8 @@ impl<History, State, Input, Filter: StateFilter<State, Input>>
         mut self,
         action: Action,
     ) -> Action::Output {
-        self.history.push(action.info(self.validator.valid_value()));
+        self.history
+            .push(action.info(self.validator.valid_output()));
         self.validator.execute(action)
     }
 }

@@ -36,7 +36,7 @@ impl<History, State, Input, Filter: StateFilter<State, Input>>
     ) -> HistoricalContext<History, Action::Output> {
         self.history
             .0
-            .push(action.info(self.validator.valid_value()));
+            .push(action.info(self.validator.valid_output()));
         HistoricalContext::new(self.history, self.validator.execute(action))
     }
 }
