@@ -10,6 +10,24 @@ pub trait CastTo<T> {
     fn cast_ref(&self) -> &T;
 }
 
+/// ID that allows mutation.
+///
+/// Ex. `ValidCardID` -> `MutID<ValidCardID>`
+/// can be used to retrieve a mutable reference to a card
+#[derive(Debug)]
+pub struct MutID<ID>(ID);
+impl<ID> MutID<ID> {
+    pub(crate) fn new(id: ID) -> Self {
+        MutID(id)
+    }
+    pub fn id(&self) -> &ID {
+        &self.0
+    }
+    pub fn take_id(self) -> ID {
+        self.0
+    }
+}
+
 #[macro_export]
 macro_rules! create_valid_identification {
     ($name: ident, $internal_id: ty, with_copy) => {

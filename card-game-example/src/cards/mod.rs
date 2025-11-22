@@ -36,6 +36,7 @@ impl std::fmt::Display for Name {
     }
 }
 
+#[derive(Debug)]
 pub enum CardKind {
     Monster(MonsterCardType),
     Spell(SpellCard),

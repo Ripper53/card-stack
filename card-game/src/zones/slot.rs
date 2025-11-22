@@ -1,5 +1,5 @@
 use crate::{
-    cards::Card,
+    cards::{Card, CardCommandManager},
     zones::{FiniteZone, InfiniteZone, Zone},
 };
 

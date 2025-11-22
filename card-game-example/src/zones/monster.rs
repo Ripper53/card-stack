@@ -141,7 +141,29 @@ impl Zone for MonsterZone {
         &mut self,
         card_id: card_game::cards::CardID,
     ) -> Option<&mut Card<Self::CardKind>> {
-        todo!()
+        if let Some(card) = self.slot_a.occupier_mut()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_b.occupier_mut()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_c.occupier_mut()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_d.occupier_mut()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_e.occupier_mut()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else {
+            None
+        }
     }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>> {
         match index {

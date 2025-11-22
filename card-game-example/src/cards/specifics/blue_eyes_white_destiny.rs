@@ -104,7 +104,6 @@ impl<'a> BlueEyesWhiteDestinyConstructedDeck for CardBuilder<'a, EventManager> {
             Attack::new(2000),
             Defense::new(100),
         ))
-        .with_event::<MainStep, Summoned, PassiveGiveAttack>(GiveAttack::new(Attack::new(1000)))
         .finish()
     }
 }

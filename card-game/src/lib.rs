@@ -120,10 +120,12 @@ use crate::{cards::CardManager, identifications::PlayerIDBuilder};
 pub mod abilities;
 pub mod cards;
 pub mod commands;
+mod context;
 pub mod events;
 pub mod identifications;
 pub mod steps;
 pub mod zones;
+pub use context::*;
 
 pub trait CardGameBuilder<EventManager: Default>: Sized {
     type GenerationData;

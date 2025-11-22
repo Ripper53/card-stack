@@ -1,15 +1,18 @@
-mod manager;
-use card_stack::{NonEmptyInput, priority::GetState};
-pub use manager::*;
-
 use crate::events::{
     AddEventListener, DynEventListener, Event, EventListener, EventListenerConstructor,
 };
 use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
+use card_stack::{NonEmptyInput, priority::GetState};
 use state_validation::{
     StateFilter, StateFilterInputCombination, StateFilterInputConversion, ValidAction,
 };
 
+mod command;
+mod manager;
+pub use command::*;
+pub use manager::*;
+
+#[derive(Debug)]
 pub struct Card<Kind> {
     id: CardID,
     kind: Kind,
@@ -24,9 +27,6 @@ impl<Kind> Card<Kind> {
     }
     pub fn kind(&self) -> &Kind {
         &self.kind
-    }
-    pub fn kind_mut(&mut self) -> &mut Kind {
-        &mut self.kind
     }
     pub fn take_kind(self) -> Kind {
         self.kind

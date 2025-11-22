@@ -1,5 +1,6 @@
 use crate::cards::monster::MonsterCard;
 
+#[derive(Debug)]
 pub struct XyzMonsterCard {
     monster: MonsterCard,
 }

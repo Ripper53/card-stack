@@ -13,12 +13,21 @@ pub use xyz::*;
 
 use crate::cards::{CardName, Name};
 
+#[derive(Debug)]
 pub enum MonsterCardType {
     Monster(MonsterCard),
     Special(SpecialMonsterCardType),
 }
 
 impl MonsterCardType {
+    pub fn attack(&self) -> Attack {
+        match self {
+            MonsterCardType::Monster(monster) => monster.attack,
+            MonsterCardType::Special(special) => match special {
+                _ => todo!(),
+            },
+        }
+    }
     pub fn add_attack(&mut self, attack: Attack) {
         match self {
             MonsterCardType::Monster(monster) => {
@@ -46,6 +55,7 @@ impl From<MonsterCard> for MonsterCardType {
     }
 }
 
+#[derive(Debug)]
 pub enum SpecialMonsterCardType {
     Fusion(FusionMonsterCard),
     Ritual(RitualMonsterCard),
@@ -59,6 +69,7 @@ impl CardName for SpecialMonsterCardType {
     }
 }
 
+#[derive(Debug)]
 pub struct MonsterCard {
     name: Name,
     level: Level,
@@ -128,6 +139,9 @@ impl MonsterZoneCard {
     }
     pub fn kind_mut(&mut self) -> &mut MonsterCardType {
         &mut self.monster_card
+    }
+    pub fn attack(&self) -> Attack {
+        self.monster_card.attack()
     }
 }
 

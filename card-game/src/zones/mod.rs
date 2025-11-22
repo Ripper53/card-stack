@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     cards::{Card, CardID},
-    identifications::{PlayerID, PlayerManager, ValidCardID, ValidPlayerID},
+    identifications::{MutID, PlayerID, PlayerManager, ValidCardID, ValidPlayerID},
 };
 
 mod context;
@@ -46,15 +46,16 @@ pub trait Zone: Sized {
     fn player_id(&self) -> PlayerID;
     fn filled_count(&self) -> usize;
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>>;
-    fn get_card_mut(&mut self, card_id: CardID) -> Option<&mut Card<Self::CardKind>>;
+    fn get_card_mut(&mut self, card_id: MutID<CardID>) -> Option<&mut Card<Self::CardKind>>;
     fn valid_card(&self, valid_card_id: &ValidCardID<Self::CardFilter>) -> &Card<Self::CardKind> {
         self.get_card(valid_card_id.id()).unwrap()
     }
     fn valid_card_mut(
         &mut self,
-        valid_card_id: ValidCardID<Self::CardFilter>,
+        valid_card_id: MutID<ValidCardID<Self::CardFilter>>,
     ) -> &mut Card<Self::CardKind> {
-        self.get_card_mut(valid_card_id.id()).unwrap()
+        self.get_card_mut(MutID::new(valid_card_id.take_id().id()))
+            .unwrap()
     }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>>;
     fn cards(&self) -> impl Iterator<Item = &Card<Self::CardKind>>;

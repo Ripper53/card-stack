@@ -13,7 +13,7 @@ use card_game_example::{
     Game,
     cards::{
         CardName,
-        monster::{MonsterCard, Position},
+        monster::{Attack, MonsterCard, Position},
         specifics::NeoKaiserSeaHorseSpecialSummon,
     },
     events::summon::SpecialSummoned,
@@ -189,6 +189,17 @@ fn card_event_system() {
         .unwrap();
     let card_id = card.id();
     let player_id = player_id.id();
+    /*panic!(
+        "{:?}",
+        main.game()
+            .zone_manager()
+            .get_zone(player_id)
+            .unwrap()
+            .hand_zone()
+            .cards()
+            .map(|f| f.name())
+            .collect::<Vec<_>>()
+    );*/
 
     let context = Validator::try_new(
         main,
@@ -225,6 +236,15 @@ fn card_event_system() {
             .filled_count(),
         3,
     );
+    /*panic!(
+        "{:?}",
+        game.zone_manager()
+            .valid_zone(&player_id)
+            .hand_zone()
+            .cards()
+            .map(|f| f.name())
+            .collect::<Vec<_>>()
+    );*/
     assert_eq!(
         game.zone_manager()
             .valid_zone(&player_id)
@@ -278,5 +298,16 @@ fn card_event_system() {
             .monster_zone()
             .filled_count(),
         2,
+    );
+    assert_eq!(
+        game.zone_manager()
+            .valid_zone(&player_id)
+            .monster_zone()
+            .get_card(card_id)
+            .unwrap()
+            .kind()
+            .kind()
+            .attack(),
+        Attack::new(2100),
     );
 }
