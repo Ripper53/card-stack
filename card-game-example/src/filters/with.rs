@@ -1,6 +1,8 @@
 use card_game::{
     cards::CardID,
-    identifications::{CastTo, PlayerID, ValidCardID, ValidPlayerID},
+    identifications::{
+        CastTo, FilterSupertype, PlayerID, UncheckedReplaceFilter, ValidCardID, ValidPlayerID,
+    },
     stack::priority::GetState,
     zones::Zone,
 };
@@ -18,6 +20,7 @@ use crate::{
 };
 
 pub struct With<T>(std::marker::PhantomData<T>);
+impl<T> FilterSupertype<Self> for With<T> {}
 
 impl<State: GetState<Game>, Z: GetZone, F> StateFilter<State, (ValidPlayerID<F>, SlotID)>
     for With<(Free<MonsterSlot>, In<Z>)>

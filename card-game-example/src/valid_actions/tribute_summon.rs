@@ -5,6 +5,7 @@ use card_game::{
         ActionID, ActionIdentifier, ActivePlayer, PlayerID, ValidCardID, ValidPlayerID,
     },
     stack::{NonEmptyInput, priority::GetState},
+    zones::Zone,
 };
 use state_validation::{Condition, StateFilter, StateFilterConversion, ValidAction};
 
@@ -41,9 +42,9 @@ impl TributeSummon {
 
 pub struct Tribute(pub CardID);
 impl NonEmptyInput for Tribute {}
-create_valid_identification!(ValidTribute, ValidCardID<CardIn<MonsterZone>>);
+create_valid_identification!(ValidTribute, ValidCardID<<MonsterZone as Zone>::CardFilter>);
 impl<F> ValidTribute<F> {
-    pub(crate) fn new(card_id: ValidCardID<CardIn<MonsterZone>>) -> Self {
+    pub(crate) fn new(card_id: ValidCardID<<MonsterZone as Zone>::CardFilter>) -> Self {
         ValidTribute(card_id, std::marker::PhantomData::default())
     }
 }

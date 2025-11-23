@@ -1,6 +1,6 @@
 use card_game::{
     cards::CardID,
-    identifications::{ValidCardID, ValidPlayerID},
+    identifications::{FilterSupertype, MutID, UncheckedReplaceFilter, ValidCardID, ValidPlayerID},
     stack::priority::GetState,
     zones::Zone,
 };
@@ -10,7 +10,7 @@ use crate::{
     Game,
     cards::{
         CardKind,
-        monster::{MonsterCard, MonsterCardType},
+        monster::{MonsterCard, MonsterCardType, MonsterZoneCard},
     },
     filters::CardIn,
     steps::MainStep,
@@ -18,6 +18,8 @@ use crate::{
 };
 
 pub struct OfType<T>(std::marker::PhantomData<T>);
+impl<T> FilterSupertype<Self> for OfType<T> {}
+impl FilterSupertype<OfType<MonsterCard>> for OfType<MonsterZoneCard> {}
 
 #[derive(thiserror::Error, Debug)]
 #[error("card {0} does not exist")]
@@ -47,14 +49,22 @@ impl<State: GetState<Game>, F> StateFilter<State, (ValidPlayerID<F>, ValidCardID
 }
 
 impl<State: GetState<Game>, F>
-    StateFilter<State, (ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>)>
-    for OfType<MonsterCard>
+    StateFilter<
+        State,
+        (
+            ValidPlayerID<F>,
+            ValidCardID<<MonsterZone as Zone>::CardFilter>,
+        ),
+    > for OfType<MonsterCard>
 {
     type ValidOutput = (ValidPlayerID<F>, ValidCardID<(CardIn<MonsterZone>, Self)>);
     type Error = CardIsNotMonsterError;
     fn filter(
         state: &State,
-        (valid_player_id, valid_card_id): (ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>),
+        (valid_player_id, valid_card_id): (
+            ValidPlayerID<F>,
+            ValidCardID<<MonsterZone as Zone>::CardFilter>,
+        ),
     ) -> Result<Self::ValidOutput, Self::Error> {
         let card = state
             .state()
@@ -66,6 +76,41 @@ impl<State: GetState<Game>, F>
             Ok((valid_player_id, valid_card_id.unchecked_replace_filter()))
         } else {
             Err(CardIsNotMonsterError(valid_card_id.id()))
+        }
+    }
+}
+
+impl<State: GetState<Game>, F>
+    StateFilter<
+        State,
+        (
+            ValidPlayerID<F>,
+            MutID<ValidCardID<<MonsterZone as Zone>::CardFilter>>,
+        ),
+    > for OfType<MonsterCard>
+{
+    type ValidOutput = (
+        ValidPlayerID<F>,
+        MutID<ValidCardID<(CardIn<MonsterZone>, Self)>>,
+    );
+    type Error = CardIsNotMonsterError;
+    fn filter(
+        state: &State,
+        (valid_player_id, valid_card_id): (
+            ValidPlayerID<F>,
+            MutID<ValidCardID<<MonsterZone as Zone>::CardFilter>>,
+        ),
+    ) -> Result<Self::ValidOutput, Self::Error> {
+        let card = state
+            .state()
+            .zone_manager()
+            .valid_zone(&valid_player_id)
+            .monster_zone
+            .valid_card(valid_card_id.id());
+        if matches!(card.kind().kind(), MonsterCardType::Monster(_)) {
+            Ok((valid_player_id, valid_card_id.unchecked_replace_filter()))
+        } else {
+            Err(CardIsNotMonsterError(valid_card_id.take_id().id()))
         }
     }
 }

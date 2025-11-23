@@ -26,7 +26,119 @@ impl<ID> MutID<ID> {
     pub fn take_id(self) -> ID {
         self.0
     }
+    pub fn into_id<NewID>(self) -> MutID<NewID>
+    where
+        ID: Into<NewID>,
+    {
+        MutID(self.0.into())
+    }
 }
+impl<T: CastTo<CastedT>, CastedT> CastTo<CastedT> for MutID<T> {
+    fn cast_ref(&self) -> &CastedT {
+        self.0.cast_ref()
+    }
+}
+impl<T: UncheckedReplaceFilter> UncheckedReplaceFilter for MutID<T> {
+    type Output<F> = MutID<T::Output<F>>;
+    fn unchecked_replace_filter<F>(self) -> Self::Output<F> {
+        MutID(self.0.unchecked_replace_filter())
+    }
+}
+
+pub trait UncheckedReplaceFilter {
+    type Output<F>;
+    fn unchecked_replace_filter<F>(self) -> Self::Output<F>;
+}
+
+pub trait FilterSupertype<T> {}
+//impl<T: FilterSupertype<IntoT>, IntoT> FilterSupertype<(T,)> for (IntoT,) {}
+//impl<T> FilterSupertype<()> for T {}
+macro_rules! impl_filter_supertype_for_tuple {
+    ($($list_ty: ident),* | |) => {};
+    ($($list_ty: ident),* | $first_into_ty: ident $(,)? | $($lost_ty: ident),*) => {};
+    ($($list_ty: ident),* | $first_into_ty: ident, $second_into_ty: ident $(,)? | $($lost_ty: ident),*) => {};
+    ($first_ty: ident $(, $list_ty: ident)+ $(,)? | $first_into_ty: ident $(, $list_into_ty: ident)+ | $($lost_ty: ident),*) => {
+        impl<$($list_ty: FilterSupertype<$list_into_ty>,)* $($lost_ty,)* $($list_into_ty,)* $first_ty> FilterSupertype<($($list_into_ty),*)> for ($($list_ty,)* $($lost_ty,)* $first_ty) {}
+        impl_filter_supertype_for_tuple!($($list_ty),* | $($list_into_ty),* | $($lost_ty,)* $first_ty);
+    };
+    ($($list_ty: ident),+ | $($list_into_ty: ident),+ $(,)?) => {
+        impl<$($list_ty: FilterSupertype<$list_into_ty>,)* $($list_into_ty),*> FilterSupertype<($($list_into_ty),*)> for ($($list_ty),*) {}
+        impl_filter_supertype_for_tuple!($($list_ty),* | $($list_into_ty),* |);
+    };
+}
+impl_filter_supertype_for_tuple!(T0, T1 | IntoT0, IntoT1);
+impl_filter_supertype_for_tuple!(T0, T1, T2 | IntoT0, IntoT1, IntoT2);
+impl_filter_supertype_for_tuple!(T0, T1, T2, T3 | IntoT0, IntoT1, IntoT2, IntoT3);
+impl_filter_supertype_for_tuple!(T0, T1, T2, T3, T4 | IntoT0, IntoT1, IntoT2, IntoT3, IntoT4);
+impl_filter_supertype_for_tuple!(
+    T0,
+    T1,
+    T2,
+    T3,
+    T4,
+    T5 | IntoT0,
+    IntoT1,
+    IntoT2,
+    IntoT3,
+    IntoT4,
+    IntoT5,
+);
+impl_filter_supertype_for_tuple!(
+    T0,
+    T1,
+    T2,
+    T3,
+    T4,
+    T5,
+    T6 | IntoT0,
+    IntoT1,
+    IntoT2,
+    IntoT3,
+    IntoT4,
+    IntoT5,
+    IntoT6,
+);
+impl_filter_supertype_for_tuple!(
+    T0,
+    T1,
+    T2,
+    T3,
+    T4,
+    T5,
+    T6,
+    T7 | IntoT0,
+    IntoT1,
+    IntoT2,
+    IntoT3,
+    IntoT4,
+    IntoT5,
+    IntoT6,
+    IntoT7,
+);
+
+/*
+impl<
+    T0: FilterSupertype<IntoT0>,
+    T1: FilterSupertype<IntoT1>,
+    T2: FilterSupertype<IntoT2>,
+    IntoT0,
+    IntoT1,
+    IntoT2,
+> FilterSupertype<(T0, T1, T2)> for (IntoT0, IntoT1, IntoT2)
+{
+}
+impl<
+    T0: FilterSupertype<IntoT0>,
+    T1: FilterSupertype<IntoT1>,
+    T2: FilterSupertype<IntoT2>,
+    T3: FilterSupertype<IntoT3>,
+    IntoT0,
+    IntoT1,
+    IntoT2,
+    IntoT3,
+> FilterSupertype<(T0, T1, T2, T3)> for (IntoT0, IntoT1, IntoT2, IntoT3)
+{
+}*/
 
 #[macro_export]
 macro_rules! create_valid_identification {
@@ -71,10 +183,13 @@ macro_rules! create_valid_identification {
             }
         }
         impl<F> card_game::stack::NonEmptyInput for $name<F> {}
-        impl<F> $name<F> {
-            pub fn unchecked_replace_filter<NewF>(self) -> $name<NewF> {
+        impl<F> card_game::identifications::UncheckedReplaceFilter for $name<F> {
+            type Output<NewF> = $name<NewF>;
+            fn unchecked_replace_filter<NewF>(self) -> Self::Output<NewF> {
                 $name(self.0, ::std::marker::PhantomData::default())
             }
+        }
+        impl<F> $name<F> {
             pub fn get<T>(
                 &self,
                 f: impl ::std::ops::FnOnce(&Self) -> ::std::option::Option<&T>,
@@ -92,6 +207,12 @@ macro_rules! create_valid_identification {
                 f: impl ::std::ops::FnOnce(&Self) -> ::std::option::Option<T>,
             ) -> T {
                 f(self).unwrap()
+            }
+            pub fn into_filter<NewF>(self) -> $name<NewF>
+            where
+                F: card_game::identifications::FilterSupertype<NewF>,
+            {
+                $name(self.0, ::std::marker::PhantomData::default())
             }
         }
         impl<F> ::std::convert::From<$name<F>> for $internal_id {

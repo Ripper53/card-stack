@@ -120,6 +120,9 @@ impl MonsterCard {
     pub fn level(&self) -> Level {
         self.level
     }
+    pub fn add_attack(&mut self, attack: Attack) {
+        self.attack += attack;
+    }
 }
 
 pub struct MonsterZoneCard {

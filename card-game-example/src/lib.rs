@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use card_game::{
+    ActionHistory,
     cards::CardManager,
     identifications::{PlayerID, PlayerManager},
     stack::priority::GetState,
@@ -28,6 +29,7 @@ pub struct Game {
     player_manager: PlayerManager<Player>,
     zone_manager: ZoneManager<Zones>,
     card_manager: CardManager<EventManager>,
+    action_history: ActionHistory<()>,
 }
 /// To allow foreign type impl
 pub struct GameState<T: GetState<Game>>(pub T);
@@ -57,6 +59,7 @@ impl Game {
             zone_manager: ZoneManager::new(&player_manager),
             player_manager,
             card_manager,
+            action_history: ActionHistory::new(),
         }
     }
     pub fn player_manager(&self) -> &PlayerManager<Player> {

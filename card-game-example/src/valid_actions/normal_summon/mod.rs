@@ -73,7 +73,7 @@ impl ValidAction<MainStep, NormalSummonInput> for NormalSummon {
             .valid_zone_mut(value.player_id);
         let card = zones
             .hand_zone_mut()
-            .remove_monster_card(value.card_id.into());
+            .remove_monster_card(value.card_id.into_filter());
         let card_id = card.id();
         let card = MonsterZoneCard::new(card.take_kind().into(), self.position);
         println!("card: {}", card.name());

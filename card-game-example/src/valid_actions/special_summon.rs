@@ -54,7 +54,7 @@ FromEventAction<State, SpecialSummoned, State::Output>,*/
             state.state_mut(),
             valid_player_id.unchecked_clone(),
         );
-        let card = zone.remove_monster_card(valid_card_id.into());
+        let card = zone.remove_monster_card(valid_card_id);
         let card_id = card.id();
         let card = MonsterZoneCard::new(card.take_kind().into(), self.position);
         let player_id = valid_player_id.id();

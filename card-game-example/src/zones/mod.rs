@@ -56,10 +56,10 @@ impl card_game::zones::Zones for Zones {
     }
 }
 
-pub trait GetZone: Zone<CardFilter = CardIn<Self>> {
+pub trait GetZone: Zone {
     fn get_zone<'a, F>(game: &'a Game, player_id: &'a ValidPlayerID<F>) -> &'a Self;
 }
-pub trait ContainsMonsterCards: Zone<CardFilter = CardIn<Self>> {
+pub trait ContainsMonsterCards: Zone {
     fn get_zone_mut<'a, F>(game: &'a mut Game, player_id: ValidPlayerID<F>) -> &'a mut Self;
     fn remove_monster_card(
         &mut self,

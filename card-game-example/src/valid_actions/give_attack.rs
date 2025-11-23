@@ -1,8 +1,9 @@
 use card_game::{
-    cards::CardID,
+    ActionInfo,
+    cards::{CardCommandManager, CardID},
     events::{AddEventListener, EventListener, EventListenerConstructor},
     identifications::{
-        ActionID, ActionIdentifier, PlayerID, SourceCardID, ValidCardID, ValidPlayerID,
+        ActionID, ActionIdentifier, MutID, PlayerID, SourceCardID, ValidCardID, ValidPlayerID,
     },
     stack::priority::GetState,
     zones::Zone,
@@ -37,10 +38,34 @@ impl ActionIdentifier for GiveAttack {
         ActionID::new("give_attack")
     }
 }
+impl<F>
+    ActionInfo<
+        (),
+        (
+            ValidPlayerID<F>,
+            MutID<ValidCardID<(CardIn<MonsterZone>, OfType<MonsterCard>)>>,
+        ),
+    > for GiveAttack
+{
+    fn info(
+        &self,
+        input: &(
+            ValidPlayerID<F>,
+            MutID<ValidCardID<(CardIn<MonsterZone>, OfType<MonsterCard>)>>,
+        ),
+    ) {
+    }
+}
 impl<State: GetStateMut<Game>> ValidAction<State, (PlayerID, CardID)> for GiveAttack {
     type Filter = (
         Condition<(PlayerID, CardID), CardIn<MonsterZone>>,
-        Condition<(ValidPlayerID<()>, ValidCardID<CardIn<MonsterZone>>), OfType<MonsterCard>>,
+        Condition<
+            (
+                ValidPlayerID<()>,
+                ValidCardID<(CardIn<MonsterZone>, OfType<MonsterZoneCard>)>,
+            ),
+            OfType<MonsterCard>,
+        >,
     );
     type Output = State;
     fn with_valid_input(
@@ -51,19 +76,22 @@ impl<State: GetStateMut<Game>> ValidAction<State, (PlayerID, CardID)> for GiveAt
             (PlayerID, CardID),
         >>::ValidOutput,
     ) -> Self::Output {
-        let card = state
-            .state_mut()
-            .zone_manager_mut()
-            .valid_zone_mut(valid_player_id)
-            .monster_zone
-            .valid_card_mut(valid_card_id.into());
-        card.kind_mut().kind_mut().add_attack(self.attack);
-        state
+        let r = CardCommandManager::new(valid_card_id)
+            // TODO
+            .with_history(card_game::ActionHistory::new())
+            .validate_with_input(state, move |valid_card_id| (valid_player_id, valid_card_id))
+            .unwrap();
+        r.execute(self)
     }
 }
-
 impl<State: GetStateMut<Game>, F>
-    ValidAction<State, (ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>)> for GiveAttack
+    ValidAction<
+        State,
+        (
+            ValidPlayerID<F>,
+            MutID<ValidCardID<<MonsterZone as Zone>::CardFilter>>,
+        ),
+    > for GiveAttack
 {
     type Filter = OfType<MonsterCard>;
     type Output = State;
@@ -72,7 +100,10 @@ impl<State: GetStateMut<Game>, F>
         mut state: State,
         (valid_player_id, valid_card_id): <Self::Filter as StateFilter<
             State,
-            (ValidPlayerID<F>, ValidCardID<CardIn<MonsterZone>>),
+            (
+                ValidPlayerID<F>,
+                MutID<ValidCardID<<MonsterZone as Zone>::CardFilter>>,
+            ),
         >>::ValidOutput,
     ) -> Self::Output {
         let card = state
@@ -80,18 +111,59 @@ impl<State: GetStateMut<Game>, F>
             .zone_manager_mut()
             .valid_zone_mut(valid_player_id)
             .monster_zone
-            .valid_card_mut(valid_card_id.into());
-        card.kind_mut().kind_mut().add_attack(self.attack);
+            .valid_monster_card_mut(valid_card_id);
+        card.add_attack(self.attack);
+        state
+    }
+}
+impl<State: GetStateMut<Game>, F>
+    ValidAction<
+        State,
+        (
+            ValidPlayerID<F>,
+            MutID<ValidCardID<(CardIn<MonsterZone>, OfType<MonsterCard>)>>,
+        ),
+    > for GiveAttack
+{
+    type Filter = ();
+    type Output = State;
+    fn with_valid_input(
+        self,
+        mut state: State,
+        (valid_player_id, valid_card_id): <Self::Filter as StateFilter<
+            State,
+            (
+                ValidPlayerID<F>,
+                MutID<ValidCardID<(CardIn<MonsterZone>, OfType<MonsterCard>)>>,
+            ),
+        >>::ValidOutput,
+    ) -> Self::Output {
+        let card = state
+            .state_mut()
+            .zone_manager_mut()
+            .valid_zone_mut(valid_player_id)
+            .monster_zone
+            .valid_monster_card_mut(valid_card_id);
+        card.add_attack(self.attack);
         state
     }
 }
 impl<State: GetStateMut<Game>> ValidAction<State, Summoned> for GiveAttack {
-    type Filter = <Self as ValidAction<State, (PlayerID, CardID)>>::Filter;
-    type Output = State;
+    type Filter = (
+        Condition<(PlayerID, CardID), CardIn<MonsterZone>>,
+        Condition<
+            (
+                ValidPlayerID<()>,
+                ValidCardID<<MonsterZone as Zone>::CardFilter>,
+            ),
+            OfType<MonsterCard>,
+        >,
+    );
+    type Output = <Self as ValidAction<State, (PlayerID, CardID)>>::Output;
     fn with_valid_input(
         self,
         state: State,
-        valid: <Self::Filter as StateFilter<State, (PlayerID, CardID)>>::ValidOutput,
+        valid: <Self::Filter as StateFilter<State, Summoned>>::ValidOutput,
     ) -> Self::Output {
         <Self as ValidAction<State, (PlayerID, CardID)>>::with_valid_input(self, state, valid)
     }
@@ -118,9 +190,9 @@ impl<State: GetStateMut<Game>> EventListener<State, Summoned> for PassiveGiveAtt
     type Action = GiveAttack;
     fn action(
         &self,
-        state: &State,
-        event: &Summoned,
-        value: <Self::Filter as StateFilter<State, Self>>::ValidOutput,
+        _state: &State,
+        _event: &Summoned,
+        _value: <Self::Filter as StateFilter<State, Self>>::ValidOutput,
     ) -> Self::Action {
         self.give_attack.clone()
     }

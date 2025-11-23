@@ -1,7 +1,7 @@
 use card_game::{
     cards::Card,
     define_slot_iter,
-    identifications::PlayerID,
+    identifications::{MutID, PlayerID},
     zones::{Slot, SlotZone, Zone},
 };
 
@@ -94,7 +94,7 @@ impl Zone for SpellZone {
     }
     fn get_card_mut(
         &mut self,
-        card_id: card_game::cards::CardID,
+        card_id: MutID<card_game::cards::CardID>,
     ) -> Option<&mut Card<Self::CardKind>> {
         todo!()
     }

@@ -1,8 +1,8 @@
 use card_game::{
     cards::CardID,
     identifications::{
-        ActivePlayer, CardDoesNotExist, GetValidCardIDFromZone, PlayerDoesNotExist, PlayerID,
-        ValidCardID, ValidPlayerID,
+        ActivePlayer, CardDoesNotExist, FilterSupertype, GetValidCardIDFromZone,
+        PlayerDoesNotExist, PlayerID, ValidCardID, ValidPlayerID,
     },
     stack::priority::GetState,
     steps::Step,
@@ -20,16 +20,17 @@ use crate::{
 };
 
 pub struct CardIn<T>(std::marker::PhantomData<T>);
+impl<T> FilterSupertype<Self> for CardIn<T> {}
 
 impl<State: GetState<Game>, Z: GetZone> StateFilter<State, Summoned> for CardIn<Z> {
-    type ValidOutput = (ValidPlayerID<()>, ValidCardID<Self>);
+    type ValidOutput = (ValidPlayerID<()>, ValidCardID<Z::CardFilter>);
     type Error = PlayerOrCardError;
     fn filter(state: &State, summoned: Summoned) -> Result<Self::ValidOutput, Self::Error> {
-        CardIn::filter(state, (summoned.player_id(), summoned.card_id()))
+        CardIn::<Z>::filter(state, (summoned.player_id(), summoned.card_id()))
     }
 }
 impl<State: GetState<Game>, Z: GetZone> StateFilter<State, CardID> for CardIn<Z> {
-    type ValidOutput = (ValidPlayerID<()>, ValidCardID<Self>);
+    type ValidOutput = (ValidPlayerID<()>, ValidCardID<Z::CardFilter>);
     type Error = CardDoesNotExist;
     fn filter(state: &State, card_id: CardID) -> Result<Self::ValidOutput, Self::Error> {
         let state = state.state();
@@ -53,7 +54,7 @@ impl<State: GetState<Game>, Z: GetZone> StateFilter<State, CardID> for CardIn<Z>
     }
 }
 impl<State: GetState<Game>, Z: GetZone> StateFilter<State, (PlayerID, CardID)> for CardIn<Z> {
-    type ValidOutput = (ValidPlayerID<()>, ValidCardID<Self>);
+    type ValidOutput = (ValidPlayerID<()>, ValidCardID<Z::CardFilter>);
     type Error = PlayerOrCardError;
     fn filter(
         state: &State,
@@ -76,7 +77,7 @@ pub enum PlayerOrCardError {
 impl<State: GetState<Game>, Z: GetZone, F> StateFilter<State, (ValidPlayerID<F>, CardID)>
     for CardIn<Z>
 {
-    type ValidOutput = (ValidPlayerID<F>, ValidCardID<Self>);
+    type ValidOutput = (ValidPlayerID<F>, ValidCardID<Z::CardFilter>);
     type Error = CardDoesNotExist;
     fn filter(
         state: &State,
@@ -90,7 +91,7 @@ impl<State: GetState<Game>, Z: GetZone, F> StateFilter<State, (ValidPlayerID<F>,
 impl<State: GetState<Game>, Z: GetZone, F> StateFilter<State, (ValidPlayerID<F>, ValidCardID<()>)>
     for CardIn<Z>
 {
-    type ValidOutput = (ValidPlayerID<F>, ValidCardID<Self>);
+    type ValidOutput = (ValidPlayerID<F>, ValidCardID<Z::CardFilter>);
     type Error = CardDoesNotExist;
     fn filter(
         state: &State,

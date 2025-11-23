@@ -28,6 +28,9 @@ impl<Kind> Card<Kind> {
     pub fn kind(&self) -> &Kind {
         &self.kind
     }
+    pub fn kind_mut(&mut self) -> &mut Kind {
+        &mut self.kind
+    }
     pub fn take_kind(self) -> Kind {
         self.kind
     }

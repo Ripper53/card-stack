@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use card_game::{
     cards::{Card, CardID},
-    identifications::{PlayerID, ValidCardID, ValidPlayerID},
+    identifications::{MutID, PlayerID, ValidCardID, ValidPlayerID},
     zones::{ArrayZone, FiniteZone, InfiniteZone, Zone},
 };
 use indexmap::IndexMap;
@@ -13,7 +13,7 @@ use crate::{
         monster::{MonsterCard, MonsterCardType},
     },
     filters::{CardIn, OfType},
-    zones::{ContainsMonsterCards, GetZone},
+    zones::{ContainsMonsterCards, GetZone, monster::MonsterZone},
 };
 
 pub struct HandZone {
@@ -74,8 +74,8 @@ impl Zone for HandZone {
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>> {
         self.cards.get(&card_id)
     }
-    fn get_card_mut(&mut self, card_id: CardID) -> Option<&mut Card<Self::CardKind>> {
-        self.cards.get_mut(&card_id)
+    fn get_card_mut(&mut self, card_id: MutID<CardID>) -> Option<&mut Card<Self::CardKind>> {
+        self.cards.get_mut(card_id.id())
     }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>> {
         self.cards.get_index(index).map(|(_k, v)| v)

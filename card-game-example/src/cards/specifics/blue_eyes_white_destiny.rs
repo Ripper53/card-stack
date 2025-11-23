@@ -3,7 +3,7 @@ use card_game::{
     events::TriggeredEvent,
     identifications::{
         ActionID, ActionIdentifier, ActivePlayer, PlayerID, SourceCardID, TargetCardID,
-        ValidCardID, ValidPlayerID,
+        UncheckedReplaceFilter, ValidCardID, ValidPlayerID,
     },
     stack::priority::GetState,
 };
