@@ -1,4 +1,4 @@
-use state_validation::{StateFilter, ValidAction, Validator};
+use state_validation::{StateFilter, ValidAction, ValidationError, Validator};
 
 pub struct HistoricalContext<History, State> {
     history: ActionHistory<History>,
@@ -12,7 +12,8 @@ impl<History, State> HistoricalContext<History, State> {
     pub fn validate<Input, Filter: StateFilter<State, Input>>(
         self,
         input: Input,
-    ) -> Result<ValidContext<History, State, Input, Filter>, Filter::Error> {
+    ) -> Result<ValidContext<History, State, Input, Filter>, ValidationError<State, Filter::Error>>
+    {
         Ok(ValidContext {
             history: self.history,
             validator: Validator::try_new(self.state, input)?,

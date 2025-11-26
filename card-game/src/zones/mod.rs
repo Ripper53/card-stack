@@ -43,7 +43,6 @@ impl<Z: Zones> ZoneManager<Z> {
 pub trait Zone: Sized {
     type CardKind;
     type CardFilter;
-    fn player_id(&self) -> PlayerID;
     fn filled_count(&self) -> usize;
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>>;
     fn get_card_mut(&mut self, card_id: MutID<CardID>) -> Option<&mut Card<Self::CardKind>>;

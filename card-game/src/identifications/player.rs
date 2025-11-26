@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
-use crate::{cards::CardID, create_valid_identification};
+use crate::{cards::CardID, create_valid_identification, identifications::MutID};
 use card_stack::NonEmptyInput;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerID(usize);
 impl NonEmptyInput for PlayerID {}
 impl PlayerID {
+    pub fn new(id: usize) -> Self {
+        PlayerID(id)
+    }
     fn next_player_id(&self, max_players: usize) -> Self {
         PlayerID((self.0 + 1) % max_players)
     }
@@ -29,7 +32,7 @@ impl<F> ValidPlayerID<F> {
         ValidPlayerID(player_id, std::marker::PhantomData::default())
     }
 }
-impl<F> ValidPlayerID<F> {
+impl ValidPlayerID<()> {
     pub fn try_new<P>(
         player_manager: &PlayerManager<P>,
         player_id: PlayerID,
@@ -78,6 +81,18 @@ impl<P> PlayerManager<P> {
             .keys()
             .copied()
             .map(|player_id| ValidPlayerID::new(player_id))
+    }
+    pub fn get_player(&self, player_id: PlayerID) -> Option<&P> {
+        self.players.get(&player_id)
+    }
+    pub fn get_player_mut(&mut self, player_id: MutID<PlayerID>) -> Option<&mut P> {
+        self.players.get_mut(player_id.id())
+    }
+    pub fn valid_player<F>(&self, valid_player_id: &ValidPlayerID<F>) -> &P {
+        self.get_player(valid_player_id.id()).unwrap()
+    }
+    pub fn valid_player_mut<F>(&mut self, valid_player_id: ValidPlayerID<F>) -> &mut P {
+        self.players.get_mut(&valid_player_id.id()).unwrap()
     }
 }
 

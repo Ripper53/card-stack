@@ -4,7 +4,7 @@ use card_stack::priority::GetState;
 use state_validation::ValidAction;
 
 use crate::{
-    cards::{CardBuilder, CardCommand, CardID},
+    cards::{CardBuilder, CardID},
     identifications::ActionID,
 };
 

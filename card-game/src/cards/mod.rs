@@ -7,9 +7,7 @@ use state_validation::{
     StateFilter, StateFilterInputCombination, StateFilterInputConversion, ValidAction,
 };
 
-mod command;
 mod manager;
-pub use command::*;
 pub use manager::*;
 
 #[derive(Debug)]
@@ -34,6 +32,12 @@ impl<Kind> Card<Kind> {
     pub fn take_kind(self) -> Kind {
         self.kind
     }
+    pub fn replace_kind<NewKind>(self, f: impl FnOnce(Kind) -> NewKind) -> Card<NewKind> {
+        Card {
+            id: self.id,
+            kind: f(self.kind),
+        }
+    }
     pub fn into_kind<NewKind>(self) -> Card<NewKind>
     where
         Kind: Into<NewKind>,
@@ -49,7 +53,7 @@ impl<Kind> Card<Kind> {
 pub struct CardID(usize);
 impl NonEmptyInput for CardID {}
 impl CardID {
-    pub(crate) const fn new(id: usize) -> Self {
+    pub const fn new(id: usize) -> Self {
         CardID(id)
     }
     pub(crate) fn clone_id(&self) -> Self {

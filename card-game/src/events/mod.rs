@@ -221,6 +221,7 @@ impl ValidSimultaneousActionID<()> {
 }
 impl<State, Ev: Event<State>, Output> SimultaneousActionManager<State, Ev, Output>
 where
+    Ev::Input: 'static,
     EventAction<State, Ev, Output>: Into<Ev::Stackable>,
 {
     pub fn simultaneous_action_count(&self) -> usize {
@@ -249,6 +250,7 @@ where
         PriorityStack<State, EventAction<State, Ev, Output>>,
         ResolveSimultaneousActionsError<State, Ev, Output>,
     > {
+        order.dedup();
         if order.len() != self.actions.len()
             || !self
                 .actions
@@ -270,10 +272,25 @@ where
         }
         Ok(stack)
     }
+    pub fn execute(mut self, action_id: ValidSimultaneousActionID<()>) -> Output {
+        let action = self.actions.remove(&action_id.0).unwrap();
+        if let Ok(output) = action.with_given_valid_input(self.state, self.event_input) {
+            output
+        } else {
+            unreachable!()
+        }
+    }
 }
 pub struct EventAction<EventState, Ev: Event<EventState>, Output> {
     event_input: Ev::Input,
     action: DynAction<EventState, Ev, Output>,
+}
+impl<EventState, Ev: Event<EventState>, Output> std::fmt::Debug
+    for EventAction<EventState, Ev, Output>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "EventAction {{ ... }}")
+    }
 }
 impl<EventState, Ev: Event<EventState>, Output> EventAction<EventState, Ev, Output> {
     fn new(event_input: Ev::Input, action: DynAction<EventState, Ev, Output>) -> Self {
