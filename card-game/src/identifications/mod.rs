@@ -5,6 +5,7 @@ mod player;
 pub use action::*;
 pub use card::*;
 pub use player::*;
+use state_validation::{StateFilterInputCombination, StateFilterInputConversion};
 
 pub trait CastTo<T> {
     fn cast_ref(&self) -> &T;
@@ -42,6 +43,32 @@ impl<T: UncheckedReplaceFilter> UncheckedReplaceFilter for MutID<T> {
     type Output<F> = MutID<T::Output<F>>;
     fn unchecked_replace_filter<F>(self) -> Self::Output<F> {
         MutID(self.0.unchecked_replace_filter())
+    }
+}
+#[derive(Debug)]
+pub struct MutIDRemainder<ID>(std::marker::PhantomData<ID>);
+impl<ID> StateFilterInputConversion<ID> for MutID<ID> {
+    type Remainder = MutIDRemainder<ID>;
+    fn split_take(self) -> (ID, Self::Remainder) {
+        (self.0, MutIDRemainder(std::marker::PhantomData::default()))
+    }
+}
+/*impl<T: StateFilterInputConversion<ID>, ID> StateFilterInputConversion<T>
+    for MutID<ID, T::Remainder>
+{
+    type Remainder = MutIDRemainder<ID>;
+    fn split_take(self) -> (ID, Self::Remainder) {
+        (self.0, MutIDRemainder(std::marker::PhantomData::default()))
+    }
+}*/
+impl<T: StateFilterInputConversion<ID>, ID> StateFilterInputCombination<T> for MutIDRemainder<ID>
+where
+    T::Remainder: StateFilterInputCombination<MutID<ID>>,
+{
+    type Combined = <T::Remainder as StateFilterInputCombination<MutID<ID>>>::Combined;
+    fn combine(self, value: T) -> Self::Combined {
+        let (id, remainder) = value.split_take();
+        remainder.combine(MutID::new(id))
     }
 }
 

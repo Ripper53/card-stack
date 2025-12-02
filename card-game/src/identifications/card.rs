@@ -1,3 +1,4 @@
+use crate::identifications::MutID;
 use crate::{cards::CardID, create_valid_identification, zones::Zone};
 
 use crate as card_game;
@@ -9,6 +10,7 @@ impl<F> ValidCardID<F> {
 }
 pub trait GetValidCardIDFromZone<Z: Zone>: Sized {
     fn try_new(card_id: CardID, zone: &Z) -> Result<Self, CardDoesNotExist>;
+    fn try_new_mut(card_id: MutID<CardID>, zone: &Z) -> Result<MutID<Self>, CardDoesNotExist>;
 }
 impl<Z: Zone> GetValidCardIDFromZone<Z> for ValidCardID<Z::CardFilter> {
     fn try_new(card_id: CardID, zone: &Z) -> Result<Self, CardDoesNotExist> {
@@ -17,6 +19,9 @@ impl<Z: Zone> GetValidCardIDFromZone<Z> for ValidCardID<Z::CardFilter> {
         } else {
             Err(CardDoesNotExist(card_id))
         }
+    }
+    fn try_new_mut(card_id: MutID<CardID>, zone: &Z) -> Result<MutID<Self>, CardDoesNotExist> {
+        Self::try_new(*card_id.id(), zone).map(|valid_card_id| MutID::new(valid_card_id))
     }
 }
 #[derive(thiserror::Error, Debug)]
