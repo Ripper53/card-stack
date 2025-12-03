@@ -31,6 +31,23 @@ impl<State: GetState<InnerState>, InnerState> GetState<InnerState> for Priority<
 pub struct PriorityMut<Priority> {
     priority: Priority,
 }
+impl<State: GetState<InnerState>, InnerState> GetState<InnerState>
+    for PriorityMut<Priority<State>>
+{
+    fn state(&self) -> &InnerState {
+        self.priority.state.state()
+    }
+}
+impl<
+    State: GetState<InnerState>,
+    InnerState,
+    IncitingAction: crate::actions::IncitingActionInfo<State>,
+> GetState<InnerState> for PriorityMut<PriorityStack<State, IncitingAction>>
+{
+    fn state(&self) -> &InnerState {
+        self.priority.state()
+    }
+}
 impl<State> PriorityMut<Priority<State>> {
     pub(crate) fn new(priority: Priority<State>) -> Self {
         PriorityMut { priority }
