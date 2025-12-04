@@ -7,7 +7,7 @@ use std::{
 use crate::{create_valid_identification, identifications::SourceCardID};
 use card_stack::{
     actions::{ActionSource, IncitingAction, IncitingActionInfo, StackAction},
-    priority::{GetState, Priority, PriorityStack},
+    priority::{CombineState, GetState, Priority, PriorityStack, TakeState},
 };
 use state_validation::{StateFilter, ValidAction};
 
@@ -21,16 +21,22 @@ impl<State: 'static, Ev: Event<State>, Output> Clone for EventManager<State, Ev,
         }
     }
 }
-
-impl<EventState: 'static, Ev: Event<EventState>, Output: 'static>
-    EventManager<EventState, Ev, Output>
-{
+impl<State: 'static, Ev: Event<State>, Output> Default for EventManager<State, Ev, Output> {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+impl<State: 'static, Ev: Event<State>, Output> EventManager<State, Ev, Output> {
     pub fn empty() -> Self {
         EventManager { events: Vec::new() }
     }
     pub fn count(&self) -> usize {
         self.events.len()
     }
+}
+impl<EventState: 'static, Ev: Event<EventState>, Output: 'static>
+    EventManager<EventState, Ev, Output>
+{
     pub fn new_combined<
         StateA,
         StateB,
@@ -146,12 +152,14 @@ struct CollectedActions<State, Ev: Event<State>, Output> {
     actions: Vec<DynAction<State, Ev, Output>>,
 }
 impl<EventState, Ev: Event<EventState>, Output> CollectedActions<EventState, Ev, Output> {
-    fn simultaneous_action_manager(
+    fn simultaneous_action_manager<State>(
         self,
-        state: EventState,
-    ) -> SimultaneousActionManager<EventState, Ev, Output>
+        state: State,
+    ) -> SimultaneousActionManager<State, Ev, Output>
     where
-        EventAction<EventState, Ev, Output>: Into<Ev::Stackable>,
+        State: GetEventManager<Ev, State = EventState>,
+        Ev: Event<State, Input = <Ev as Event<EventState>>::Input>,
+        EventAction<EventState, Ev, Output>: Into<<Ev as Event<EventState>>::Stackable>,
     {
         SimultaneousActionManager {
             state,
@@ -165,31 +173,49 @@ impl<EventState, Ev: Event<EventState>, Output> CollectedActions<EventState, Ev,
         }
     }
 }
-pub struct SimultaneousActionManager<State, Ev: Event<State>, Output>
-where
-    EventAction<State, Ev, Output>: Into<Ev::Stackable>,
+pub struct SimultaneousActionManager<
+    State: GetEventManager<Ev>,
+    Ev: Event<State> + Event<State::State>,
+    Output,
+> where
+    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
 {
     state: State,
-    event_input: Ev::Input,
-    actions: HashMap<SimultaneousActionID, DynAction<State, Ev, Output>>,
+    event_input: <Ev as Event<State::State>>::Input,
+    actions: HashMap<SimultaneousActionID, DynAction<State::State, Ev, Output>>,
 }
-pub struct SingleAction<State, Ev: Event<State>, Output> {
-    state: State,
-    event_input: Ev::Input,
-    action: DynAction<State, Ev, Output>,
-}
-impl<State, Ev: Event<State>, Output> SingleAction<State, Ev, Output>
-where
-    Ev::Input: 'static,
+pub struct SingleAction<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
 {
-    pub fn resolve(self) -> EventActionResolution<State, Output> {
-        match self
-            .action
-            .with_given_valid_input(self.state, self.event_input)
-        {
-            Ok(output) => EventActionResolution::Resolved(output),
+    state: State,
+    event_input: <Ev as Event<State::State>>::Input,
+    action: DynAction<State::State, Ev, Output>,
+}
+impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
+    SingleAction<State, Ev, Output>
+where
+    <Ev as Event<State>>::Input: 'static,
+    <Ev as Event<State::State>>::Input: 'static,
+{
+    pub fn resolve(
+        self,
+    ) -> EventActionResolution<
+        State,
+        <Output as CombineState<
+            <State as TakeState<<State as GetEventManager<Ev>>::State>>::Remainder,
+        >>::Combined,
+    >
+    where
+        State: TakeState<<State as GetEventManager<Ev>>::State>,
+        Output:
+            CombineState<<State as TakeState<<State as GetEventManager<Ev>>::State>>::Remainder>,
+        <State as TakeState<<State as GetEventManager<Ev>>::State>>::Remainder:
+            CombineState<<State as GetEventManager<Ev>>::State, Combined = State>,
+    {
+        let (state, remainder) = self.state.take_state();
+        match self.action.with_given_valid_input(state, self.event_input) {
+            Ok(output) => EventActionResolution::Resolved(output.combine(remainder)),
             Err(e) => EventActionResolution::Fizzled {
-                state: e.state,
+                state: remainder.combine(e.state),
                 error: e.error,
             },
         }
@@ -204,26 +230,18 @@ impl<F> ValidSimultaneousActionID<F> {
         ValidSimultaneousActionID(id, std::marker::PhantomData::default())
     }
 }
-impl ValidSimultaneousActionID<()> {
-    pub fn try_new<State, Ev: Event<State>, Output>(
-        simultaneous_action_manager: &SimultaneousActionManager<State, Ev, Output>,
-        id: SimultaneousActionID,
-    ) -> Option<Self>
-    where
-        EventAction<State, Ev, Output>: Into<Ev::Stackable>,
-    {
-        if simultaneous_action_manager.actions.contains_key(&id) {
+impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
+    SimultaneousActionManager<State, Ev, Output>
+where
+    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
+{
+    pub fn verify(&self, id: SimultaneousActionID) -> Option<ValidSimultaneousActionID<()>> {
+        if self.actions.contains_key(&id) {
             Some(ValidSimultaneousActionID::new(id))
         } else {
             None
         }
     }
-}
-impl<State, Ev: Event<State>, Output> SimultaneousActionManager<State, Ev, Output>
-where
-    Ev::Input: 'static,
-    EventAction<State, Ev, Output>: Into<Ev::Stackable>,
-{
     pub fn simultaneous_action_count(&self) -> usize {
         self.actions.len()
     }
@@ -241,13 +259,24 @@ where
             .enumerate()
             .map(|(index, action)| ValidSimultaneousActionID::new(SimultaneousActionID(index)))
     }
+}
+impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
+    SimultaneousActionManager<State, Ev, Output>
+where
+    <Ev as Event<State>>::Input: 'static,
+    <Ev as Event<State::State>>::Input: 'static,
+    EventAction<State, Ev, Output>: Into<<Ev as Event<State>>::Stackable>,
+    EventAction<State::State, Ev, Output>: IncitingActionInfo<State>
+        + Into<<Ev as Event<State::State>>::Stackable>
+        + Into<<EventAction<State::State, Ev, Output> as IncitingActionInfo<State>>::Stackable>,
+{
     /// Resolves in order.
     /// First element is put on the stack last.
     pub fn resolve(
         mut self,
         mut order: Vec<ValidSimultaneousActionID<()>>,
     ) -> Result<
-        PriorityStack<State, EventAction<State, Ev, Output>>,
+        PriorityStack<State, EventAction<State::State, Ev, Output>>,
         ResolveSimultaneousActionsError<State, Ev, Output>,
     > {
         order.dedup();
@@ -272,10 +301,18 @@ where
         }
         Ok(stack)
     }
-    pub fn execute(mut self, action_id: ValidSimultaneousActionID<()>) -> Output {
+    pub fn execute(
+        mut self,
+        action_id: ValidSimultaneousActionID<()>,
+    ) -> <Output as CombineState<<State as TakeState<State::State>>::Remainder>>::Combined
+    where
+        State: TakeState<State::State>,
+        Output: CombineState<<State as TakeState<State::State>>::Remainder>,
+    {
+        let (state, remainder) = self.state.take_state();
         let action = self.actions.remove(&action_id.0).unwrap();
-        if let Ok(output) = action.with_given_valid_input(self.state, self.event_input) {
-            output
+        if let Ok(output) = action.with_given_valid_input(state, self.event_input) {
+            output.combine(remainder)
         } else {
             unreachable!()
         }
@@ -409,9 +446,13 @@ pub enum EventActionResolution<State, Output> {
     },
 }
 #[derive(thiserror::Error)]
-pub enum ResolveSimultaneousActionsError<State, Ev: Event<State>, Output>
-where
-    EventAction<State, Ev, Output>: Into<Ev::Stackable>,
+pub enum ResolveSimultaneousActionsError<
+    State: GetEventManager<Ev>,
+    Ev: Event<State> + Event<State::State>,
+    Output,
+> where
+    EventAction<State, Ev, Output>: Into<<Ev as Event<State>>::Stackable>,
+    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
 {
     #[error("not all actions are ordered")]
     NotAllActionsAreOrdered(SimultaneousActionManager<State, Ev, Output>),
@@ -423,31 +464,42 @@ pub struct TriggeredEvent<State, Ev: Event<State>> {
     input: Ev::Input,
 }
 
-impl<State: GetEventManager<State, Ev> + 'static, Ev: Event<State>> TriggeredEvent<State, Ev>
-where
-    EventAction<State, Ev, State::Output>: Into<Ev::Stackable>,
-{
-    pub fn new(state: State, event: Ev, input: Ev::Input) -> Self {
-        TriggeredEvent {
-            state,
-            event,
-            input,
-        }
-    }
+impl<State, Ev: Event<State>> TriggeredEvent<State, Ev> {
     pub fn state(&self) -> &State {
         &self.state
     }
     pub fn event(&self) -> &Ev {
         &self.event
     }
-    pub fn event_input(&self) -> &Ev::Input {
+    pub fn event_input(&self) -> &<Ev as Event<State>>::Input {
         &self.input
+    }
+}
+impl<
+    State: GetState<State::State> + GetEventManager<Ev> + 'static,
+    Ev: Event<State>
+        + Event<
+            State::State,
+            Input = <Ev as Event<State>>::Input,
+            Stackable = <Ev as Event<State>>::Stackable,
+        >,
+> TriggeredEvent<State, Ev>
+where
+    EventAction<<State as GetEventManager<Ev>>::State, Ev, State::Output>:
+        Into<<Ev as Event<<State as GetEventManager<Ev>>::State>>::Stackable>,
+{
+    pub fn new(state: State, event: Ev, input: <Ev as Event<State>>::Input) -> Self {
+        TriggeredEvent {
+            state,
+            event,
+            input,
+        }
     }
     pub fn collect(self) -> TriggeredEventResolution<State, Ev> {
         let mut simultaneous_action_manager = self
             .state
             .event_manager()
-            .collect_actions(&self.state, &self.event, self.input)
+            .collect_actions(self.state.state(), &self.event, self.input)
             .simultaneous_action_manager(self.state);
         match simultaneous_action_manager.simultaneous_action_count() {
             0 => TriggeredEventResolution::None(simultaneous_action_manager.state),
@@ -464,105 +516,12 @@ where
             _ => TriggeredEventResolution::SimultaneousActions(simultaneous_action_manager),
         }
     }
-    /*pub fn consume<Listener: EventListener<State, Ev>>(self) -> EventConsume<State, Ev, Listener>
-    where
-        State: GetEventManager<State, Ev, Listener>,
-        <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput: StateFilterInput,
-    {
-        let event_manager = self.state.event_manager();
-        match event_manager.events.len() {
-            0 => EventConsume {
-                kind: EventConsumeType::Finished(self.state),
-                _m: std::marker::PhantomData::default(),
-            },
-            1 => {
-                match <Listener::Filter as StateFilter<State, Ev::Input>>::filter(
-                    &self.state,
-                    self.input,
-                ) {
-                    Ok(valid_output) => {
-                        match <Listener::Action as ValidAction<
-                            State,
-                            <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
-                        >>::Filter::filter(&self.state, valid_output)
-                        {
-                            Ok(valid_output) => {
-                                let mut event_actions = event_manager
-                                    .collect_actions(&self.state, &self.event, valid_output)
-                                    .simultaneous_action_manager(self.state);
-                                // UNWRAP: because length of events is 1, so there will be exactly 1 action.
-                                let mut action = event_actions.actions.pop().unwrap();
-                                let result = action.resolve().with_valid_input(
-                                    event_actions.state,
-                                    event_actions.valid_input,
-                                );
-                                EventConsume {
-                                    kind: EventConsumeType::Result(result),
-                                    _m: std::marker::PhantomData::default(),
-                                }
-                            }
-                            Err(error) => EventConsume {
-                                kind: EventConsumeType::ActionFizzle {
-                                    state: self.state,
-                                    error,
-                                },
-                                _m: std::marker::PhantomData::default(),
-                            },
-                        }
-                    }
-                    Err(error) => EventConsume {
-                        kind: EventConsumeType::EventFizzle {
-                            state: self.state,
-                            error,
-                        },
-                        _m: std::marker::PhantomData::default(),
-                    },
-                }
-            }
-            _ => {
-                match <Listener::Filter as StateFilter<State, Ev::Input>>::filter(
-                    &self.state,
-                    self.input,
-                ) {
-                    Ok(valid_output) => {
-                        match <Listener::Action as ValidAction<
-                            State,
-                            <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
-                        >>::Filter::filter(&self.state, valid_output)
-                        {
-                            Ok(valid_output) => {
-                                let event_actions = event_manager
-                                    .collect_actions(&self.state, &self.event, valid_output)
-                                    .simultaneous_action_manager(self.state);
-                                EventConsume {
-                                    kind: EventConsumeType::SimultaneousActions(event_actions),
-                                    _m: std::marker::PhantomData::default(),
-                                }
-                            }
-                            Err(error) => EventConsume {
-                                kind: EventConsumeType::ActionFizzle {
-                                    state: self.state,
-                                    error,
-                                },
-                                _m: std::marker::PhantomData::default(),
-                            },
-                        }
-                    }
-                    Err(error) => EventConsume {
-                        kind: EventConsumeType::EventFizzle {
-                            state: self.state,
-                            error,
-                        },
-                        _m: std::marker::PhantomData::default(),
-                    },
-                }
-            }
-        }
-    }*/
 }
-pub enum TriggeredEventResolution<State: GetEventManager<State, Ev>, Ev: Event<State>>
-where
-    EventAction<State, Ev, State::Output>: Into<Ev::Stackable>,
+pub enum TriggeredEventResolution<
+    State: GetEventManager<Ev>,
+    Ev: Event<State> + Event<State::State>,
+> where
+    EventAction<State::State, Ev, State::Output>: Into<<Ev as Event<State::State>>::Stackable>,
 {
     None(State),
     Action(SingleAction<State, Ev, State::Output>),
@@ -1075,10 +1034,27 @@ pub enum EventConsumeType<State, E0, E1, R, ActionManager> {
     Result(R),
     SimultaneousActions(ActionManager),
 }*/
-pub trait GetEventManager<State, Ev: Event<State>> {
+pub trait GetEventManager<Ev: Event<Self::State>> {
+    type State;
     type Output;
-    fn event_manager(&self) -> EventManager<State, Ev, Self::Output>;
+    fn event_manager(&self) -> EventManager<Self::State, Ev, Self::Output>;
 }
+impl<
+    State: GetState<<State as GetEventManager<Ev>>::State> + GetEventManager<Ev>,
+    Ev: Event<<State as GetEventManager<Ev>>::State>,
+    IncitingAction: IncitingActionInfo<State>,
+> GetEventManager<Ev> for PriorityStack<State, IncitingAction>
+where
+    <State as GetEventManager<Ev>>::State:
+        GetEventManager<Ev, State = <State as GetEventManager<Ev>>::State>,
+{
+    type State = <State as GetEventManager<Ev>>::State;
+    type Output = <<State as GetEventManager<Ev>>::State as GetEventManager<Ev>>::Output;
+    fn event_manager(&self) -> EventManager<Self::State, Ev, Self::Output> {
+        self.state().event_manager()
+    }
+}
+
 pub trait AddEventListener<State, Ev: Event<State>> {
     type Output;
     fn add_listener<Listener: EventListener<State, Ev>>(&mut self, listener: Listener)

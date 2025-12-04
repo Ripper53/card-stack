@@ -6,6 +6,14 @@ use crate::{
 pub trait GetState<State> {
     fn state(&self) -> &State;
 }
+pub trait TakeState<State> {
+    type Remainder;
+    fn take_state(self) -> (State, Self::Remainder);
+}
+pub trait CombineState<State> {
+    type Combined;
+    fn combine(self, state: State) -> Self::Combined;
+}
 
 /// `State`: state of the entire game.
 pub struct Priority<State> {
@@ -25,6 +33,20 @@ impl<State> Priority<State> {
 impl<State: GetState<InnerState>, InnerState> GetState<InnerState> for Priority<State> {
     fn state(&self) -> &InnerState {
         self.state.state()
+    }
+}
+#[derive(Debug)]
+pub struct PriorityRemainder(());
+impl<State> TakeState<State> for Priority<State> {
+    type Remainder = PriorityRemainder;
+    fn take_state(self) -> (State, Self::Remainder) {
+        (self.state, PriorityRemainder(()))
+    }
+}
+impl<State> CombineState<State> for PriorityRemainder {
+    type Combined = Priority<State>;
+    fn combine(self, state: State) -> Self::Combined {
+        Priority::new(state)
     }
 }
 
@@ -129,6 +151,42 @@ impl<
 {
     fn state(&self) -> &InnerState {
         self.priority.state()
+    }
+}
+pub struct PriorityStackRemainder<State, IncitingAction: crate::actions::IncitingActionInfo<State>>(
+    crate::Stack<State, IncitingAction>,
+);
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
+    PriorityStackRemainder<State, IncitingAction>
+{
+    pub fn create_stack<NewState>(self, state: NewState) -> PriorityStack<NewState, IncitingAction>
+    where
+        IncitingAction: crate::actions::IncitingActionInfo<NewState, Stackable = <IncitingAction as crate::actions::IncitingActionInfo<State>>::Stackable>,
+    {
+        PriorityStack {
+            priority: Priority::new(state),
+            stack: self.0.into_state(),
+        }
+    }
+}
+
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>> TakeState<State>
+    for PriorityStack<State, IncitingAction>
+{
+    type Remainder = PriorityStackRemainder<State, IncitingAction>;
+    fn take_state(self) -> (State, Self::Remainder) {
+        (self.priority.state, PriorityStackRemainder(self.stack))
+    }
+}
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>> CombineState<State>
+    for PriorityStackRemainder<State, IncitingAction>
+{
+    type Combined = PriorityStack<State, IncitingAction>;
+    fn combine(self, state: State) -> Self::Combined {
+        PriorityStack {
+            priority: Priority::new(state),
+            stack: self.0,
+        }
     }
 }
 
