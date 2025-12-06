@@ -1,3 +1,4 @@
+use card_stack::priority::GetState;
 use state_validation::{StateFilter, ValidAction, ValidationError, Validator};
 
 pub struct HistoricalContext<History, State> {
@@ -30,14 +31,15 @@ impl<History, State, Input, Filter: StateFilter<State, Input>>
     ValidContext<History, State, Input, Filter>
 {
     pub fn action<
-        Action: ValidAction<State, Input, Filter = Filter> + ActionInfo<History, Filter::ValidOutput>,
+        Action: ValidAction<State, Input, Filter = Filter>
+            + ActionInfo<State, Filter::ValidOutput, History>,
     >(
         mut self,
         action: Action,
     ) -> HistoricalContext<History, Action::Output> {
         self.history
             .0
-            .push(action.info(self.validator.valid_output()));
+            .push(action.info(self.validator.state(), self.validator.valid_output()));
         HistoricalContext::new(self.history, self.validator.execute(action))
     }
 }
@@ -66,6 +68,6 @@ impl<'a, History> IntoIterator for &'a ActionHistory<History> {
     }
 }
 
-pub trait ActionInfo<Info, Input> {
-    fn info(&self, input: &Input) -> Info;
+pub trait ActionInfo<State, Input, Info> {
+    fn info(&self, state: &State, input: &Input) -> Info;
 }

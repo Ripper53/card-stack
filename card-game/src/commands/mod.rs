@@ -59,13 +59,14 @@ impl<History, State, Input, Filter: StateFilter<State, Input>>
     Command<History, State, Input, Filter>
 {
     pub fn execute<
-        Action: ValidAction<State, Input, Filter = Filter> + ActionInfo<History, Filter::ValidOutput>,
+        Action: ValidAction<State, Input, Filter = Filter>
+            + ActionInfo<State, Filter::ValidOutput, History>,
     >(
         mut self,
         action: Action,
     ) -> Action::Output {
         self.history
-            .push(action.info(self.validator.valid_output()));
+            .push(action.info(self.validator.state(), self.validator.valid_output()));
         self.validator.execute(action)
     }
 }
