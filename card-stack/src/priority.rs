@@ -10,9 +10,27 @@ pub trait TakeState<State> {
     type Remainder;
     fn take_state(self) -> (State, Self::Remainder);
 }
+impl<State> TakeState<State> for State {
+    type Remainder = ();
+    fn take_state(self) -> (State, Self::Remainder) {
+        (self, ())
+    }
+}
 pub trait CombineState<State> {
     type Combined;
     fn combine(self, state: State) -> Self::Combined;
+}
+impl<State> CombineState<()> for State {
+    type Combined = State;
+    fn combine(self, (): ()) -> Self::Combined {
+        self
+    }
+}
+impl<State: NonEmptyInput> CombineState<State> for () {
+    type Combined = State;
+    fn combine(self, state: State) -> Self::Combined {
+        state
+    }
 }
 
 /// `State`: state of the entire game.
@@ -43,7 +61,7 @@ impl<State> TakeState<State> for Priority<State> {
         (self.state, PriorityRemainder(()))
     }
 }
-impl<State> CombineState<State> for PriorityRemainder {
+impl<State: NonEmptyInput> CombineState<State> for PriorityRemainder {
     type Combined = Priority<State>;
     fn combine(self, state: State) -> Self::Combined {
         Priority::new(state)
@@ -178,8 +196,8 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>> TakeState
         (self.priority.state, PriorityStackRemainder(self.stack))
     }
 }
-impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>> CombineState<State>
-    for PriorityStackRemainder<State, IncitingAction>
+impl<State: NonEmptyInput, IncitingAction: crate::actions::IncitingActionInfo<State>>
+    CombineState<State> for PriorityStackRemainder<State, IncitingAction>
 {
     type Combined = PriorityStack<State, IncitingAction>;
     fn combine(self, state: State) -> Self::Combined {
