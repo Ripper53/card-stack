@@ -42,7 +42,12 @@ impl<T: CastTo<CastedT>, CastedT> CastTo<CastedT> for MutID<T> {
 impl<T: UncheckedReplaceFilter> UncheckedReplaceFilter for MutID<T> {
     type Output<F> = MutID<T::Output<F>>;
     fn unchecked_replace_filter<F>(self) -> Self::Output<F> {
-        MutID(self.0.unchecked_replace_filter())
+        MutID::new(self.0.unchecked_replace_filter())
+    }
+}
+impl<T: UncheckedClone> UncheckedClone for MutID<T> {
+    fn unchecked_clone(&self) -> Self {
+        MutID::new(self.0.unchecked_clone())
     }
 }
 #[derive(Debug)]
@@ -75,6 +80,10 @@ where
 pub trait UncheckedReplaceFilter {
     type Output<F>;
     fn unchecked_replace_filter<F>(self) -> Self::Output<F>;
+}
+
+pub trait UncheckedClone {
+    fn unchecked_clone(&self) -> Self;
 }
 
 pub trait FilterSupertype<T> {}
@@ -175,9 +184,6 @@ macro_rules! create_valid_identification {
             pub fn id(&self) -> $internal_id {
                 self.0
             }
-            pub fn unchecked_clone(&self) -> Self {
-                $name(self.0, ::std::marker::PhantomData::default())
-            }
         }
     };
     ($name: ident, $internal_id: ty, with_clone) => {
@@ -185,9 +191,6 @@ macro_rules! create_valid_identification {
         impl<F> $name<F> {
             pub fn id(&self) -> $internal_id {
                 self.0.clone()
-            }
-            pub fn unchecked_clone(&self) -> Self {
-                $name(self.0.clone(), ::std::marker::PhantomData::default())
             }
         }
     };
@@ -214,6 +217,11 @@ macro_rules! create_valid_identification {
             type Output<NewF> = $name<NewF>;
             fn unchecked_replace_filter<NewF>(self) -> Self::Output<NewF> {
                 $name(self.0, ::std::marker::PhantomData::default())
+            }
+        }
+        impl<F> card_game::identifications::UncheckedClone for $name<F> {
+            fn unchecked_clone(&self) -> Self {
+                Self(self.0.clone(), ::std::marker::PhantomData::default())
             }
         }
         impl<F> $name<F> {
