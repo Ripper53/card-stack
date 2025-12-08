@@ -14,6 +14,11 @@ use state_validation::{StateFilter, ValidAction};
 pub struct EventManager<State: 'static, Ev: Event<State>, Output> {
     events: Vec<DynEventListener<State, Ev, Output>>,
 }
+impl<State: 'static, Ev: Event<State>, Output> std::fmt::Debug for EventManager<State, Ev, Output> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventManager").finish_non_exhaustive()
+    }
+}
 impl<State: 'static, Ev: Event<State>, Output> Clone for EventManager<State, Ev, Output> {
     fn clone(&self) -> Self {
         EventManager {
@@ -391,7 +396,7 @@ where
     fn resolve(
         self,
         priority: card_stack::priority::PriorityMut<Priority<EventState>>,
-        _: <<Self::Requirement as card_stack::requirements::ActionRequirement<
+        (): <<Self::Requirement as card_stack::requirements::ActionRequirement<
             Priority<EventState>,
             (),
         >>::Filter as StateFilter<Priority<EventState>, ()>>::ValidOutput,
