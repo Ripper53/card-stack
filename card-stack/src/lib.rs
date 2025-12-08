@@ -7,6 +7,19 @@ pub struct Stack<State, IncitingAction: crate::actions::IncitingActionInfo<State
     stack: Vec<IncitingAction::Stackable>,
 }
 
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State> + std::fmt::Debug>
+    std::fmt::Debug for Stack<State, IncitingAction>
+where
+    IncitingAction::Stackable: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Stack")
+            .field("inciting_action", &self.inciting_action)
+            .field("stack", &self.stack)
+            .finish()
+    }
+}
+
 impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
     Stack<State, IncitingAction>
 {

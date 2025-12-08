@@ -8,6 +8,7 @@ use crate::{
     identifications::ActionID,
 };
 
+#[derive(Debug, Clone)]
 pub struct CardManager<EventManager> {
     next_card_id_index: usize,
     card_actions: CardActions,
@@ -44,6 +45,7 @@ impl<EventManager> GetState<CardActions> for CardManager<EventManager> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct CardActions {
     card_actions: HashMap<ActionID, HashSet<CardID>>,
 }

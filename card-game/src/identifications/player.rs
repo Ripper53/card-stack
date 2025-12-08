@@ -53,6 +53,7 @@ pub struct PlayerDoesNotExist(PlayerID);
 #[derive(Debug)]
 pub struct ActivePlayer;
 
+#[derive(Debug, Clone)]
 pub struct PlayerManager<P> {
     current_player_id: PlayerID,
     pub(crate) players: HashMap<PlayerID, P>,

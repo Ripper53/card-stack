@@ -37,6 +37,11 @@ impl<State: NonEmptyInput> CombineState<State> for () {
 pub struct Priority<State> {
     state: State,
 }
+impl<State> std::fmt::Debug for Priority<State> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Priority").finish_non_exhaustive()
+    }
+}
 impl<State> Priority<State> {
     pub fn new(state: State) -> Self {
         Priority { state }
@@ -131,6 +136,18 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
 pub struct PriorityStack<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
     priority: Priority<State>,
     stack: crate::Stack<State, IncitingAction>,
+}
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State> + std::fmt::Debug>
+    std::fmt::Debug for PriorityStack<State, IncitingAction>
+where
+    IncitingAction::Stackable: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PriorityStack")
+            .field("priority", &self.priority)
+            .field("stack", &self.stack)
+            .finish()
+    }
 }
 
 impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
@@ -250,7 +267,7 @@ pub trait IncitingResolver<
 {
     type Resolved;
     fn resolve_inciting(
-        prioriy: PriorityMut<Priority<State>>,
+        priority: PriorityMut<Priority<State>>,
         action: IncitingAction,
     ) -> Self::Resolved;
 }
@@ -292,7 +309,7 @@ impl<
 pub trait StackResolver<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
     type HaltStack;
     fn resolve_stack(
-        prioriy: PriorityMut<PriorityStack<State, IncitingAction>>,
+        priority: PriorityMut<PriorityStack<State, IncitingAction>>,
         action: IncitingAction::Stackable,
     ) -> Resolve<PriorityStack<State, IncitingAction>, Self::HaltStack>;
 }

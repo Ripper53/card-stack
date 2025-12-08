@@ -184,6 +184,18 @@ pub struct SimultaneousActionManager<
     event_input: <Ev as Event<State::State>>::Input,
     actions: HashMap<SimultaneousActionID, DynAction<State::State, Ev, Output>>,
 }
+impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output> std::fmt::Debug
+    for SimultaneousActionManager<State, Ev, Output>
+where
+    <Ev as Event<State::State>>::Input: std::fmt::Debug,
+    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SimultaneousActionManager")
+            .field("event_input", &self.event_input)
+            .finish_non_exhaustive()
+    }
+}
 pub struct SingleAction<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
 {
     state: State,
@@ -326,7 +338,7 @@ impl<EventState, Ev: Event<EventState>, Output> std::fmt::Debug
     for EventAction<EventState, Ev, Output>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "EventAction {{ ... }}")
+        f.debug_struct("EventAction").finish_non_exhaustive()
     }
 }
 impl<EventState, Ev: Event<EventState>, Output> EventAction<EventState, Ev, Output> {
@@ -457,11 +469,41 @@ pub enum ResolveSimultaneousActionsError<
     #[error("not all actions are ordered")]
     NotAllActionsAreOrdered(SimultaneousActionManager<State, Ev, Output>),
 }
+impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output> std::fmt::Debug
+    for ResolveSimultaneousActionsError<State, Ev, Output>
+where
+    EventAction<State, Ev, Output>: Into<<Ev as Event<State>>::Stackable>,
+    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
+    <Ev as Event<<State as GetEventManager<Ev>>::State>>::Input: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResolveSimultaneousActionsError::NotAllActionsAreOrdered(action_manager) => f
+                .debug_tuple("NotAllActionsAreOrdered")
+                .field(action_manager)
+                .finish(),
+        }
+    }
+}
 
 pub struct TriggeredEvent<State, Ev: Event<State>> {
     state: State,
     event: Ev,
     input: Ev::Input,
+}
+
+impl<State: std::fmt::Debug, Ev: Event<State> + std::fmt::Debug> std::fmt::Debug
+    for TriggeredEvent<State, Ev>
+where
+    Ev::Input: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TriggeredEvent")
+            .field("state", &self.state)
+            .field("event", &self.event)
+            .field("input", &self.input)
+            .finish()
+    }
 }
 
 impl<State, Ev: Event<State>> TriggeredEvent<State, Ev> {

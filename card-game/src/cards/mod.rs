@@ -10,7 +10,7 @@ use state_validation::{
 mod manager;
 pub use manager::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Card<Kind> {
     id: CardID,
     kind: Kind,

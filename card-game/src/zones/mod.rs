@@ -5,11 +5,10 @@ use crate::{
     identifications::{MutID, PlayerID, PlayerManager, ValidCardID, ValidPlayerID},
 };
 
-mod context;
 mod slot;
-pub use context::*;
 pub use slot::*;
 
+#[derive(Debug, Clone)]
 pub struct ZoneManager<Z: Zones> {
     zones: HashMap<PlayerID, Z>,
 }
@@ -25,6 +24,16 @@ impl<Z: Zones> ZoneManager<Z> {
             zones.insert(player_id, Z::new(player_id));
         }
         ZoneManager { zones }
+    }
+    pub fn zones(&self) -> impl Iterator<Item = (ValidPlayerID<()>, &Z)> {
+        self.zones
+            .iter()
+            .map(|(player_id, zone)| (ValidPlayerID::new(*player_id), zone))
+    }
+    pub fn zones_mut(&mut self) -> impl Iterator<Item = (ValidPlayerID<()>, &mut Z)> {
+        self.zones
+            .iter_mut()
+            .map(|(player_id, zone)| (ValidPlayerID::new(*player_id), zone))
     }
     pub fn get_zone(&self, player_id: PlayerID) -> Option<&Z> {
         self.zones.get(&player_id)
@@ -58,6 +67,11 @@ pub trait Zone: Sized {
     }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>>;
     fn cards(&self) -> impl Iterator<Item = &Card<Self::CardKind>>;
+    fn valid_cards(
+        &self,
+    ) -> impl Iterator<Item = (ValidCardID<Self::CardFilter>, &Card<Self::CardKind>)> {
+        self.cards().map(|card| (ValidCardID::new(card.id()), card))
+    }
 }
 pub trait FiniteZone: ArrayZone {
     fn max_count(&self) -> usize;
