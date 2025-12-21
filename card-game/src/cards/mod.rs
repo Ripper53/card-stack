@@ -2,6 +2,7 @@ use crate::events::{
     AddEventListener, DynEventListener, Event, EventListener, EventListenerConstructor,
 };
 use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
+use card_stack::priority::PriorityMut;
 use card_stack::{NonEmptyInput, priority::GetState};
 use state_validation::{
     StateFilter, StateFilterInputCombination, StateFilterInputConversion, ValidAction,
@@ -109,7 +110,7 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
     }
     pub fn with_event<
         State: 'static,
-        Ev: Event<State>,
+        Ev: Event<PriorityMut<State>>,
         Listener: EventListener<State, Ev> + EventListenerConstructor<State, Ev>,
     >(
         self,
@@ -125,24 +126,24 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
             Listener,
         >>::Error: 'static,
         <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
-            State,
-            <Ev as Event<State>>::Input,
+            PriorityMut<State>,
+            Ev::Input,
         >>::Filter as StateFilter<
-            State,
-            <Ev as Event<State>>::Input,
+            PriorityMut<State>,
+            Ev::Input,
         >>::ValidOutput: 'static,
         <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
-            State,
-            <Ev as Event<State>>::Input,
+            PriorityMut<State>,
+            Ev::Input,
         >>::Filter as StateFilter<
-            State,
-            <Ev as Event<State>>::Input,
+            PriorityMut<State>,
+            Ev::Input,
         >>::Error: 'static,
         EventManager: AddEventListener<State, Ev>,
         EventManager::Output: 'static,
         <Listener::Action as ValidAction<
-            State,
-            <Ev as Event<State>>::Input,
+            PriorityMut< State>,
+            Ev::Input,
         >>::Output: Into<EventManager::Output>,
     {
         self.event_manager.add_listener(Listener::new_listener(

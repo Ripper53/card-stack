@@ -7,31 +7,143 @@ use std::{
 use crate::{create_valid_identification, identifications::SourceCardID};
 use card_stack::{
     actions::{ActionSource, IncitingAction, IncitingActionInfo, StackAction},
-    priority::{CombineState, GetState, Priority, PriorityStack, TakeState},
+    priority::{GetState, IncitingResolver, Priority, PriorityMut, PriorityStack},
 };
-use state_validation::{StateFilter, ValidAction};
+use state_validation::{
+    StateFilter, ValidAction,
+    dynamic::{DynStateFilter, DynValidAction},
+};
 
-pub struct EventManager<State: 'static, Ev: Event<State>, Output> {
+pub struct EventManager<State: 'static, Ev: Event<PriorityMut<State>>, Output> {
     events: Vec<DynEventListener<State, Ev, Output>>,
 }
-impl<State: 'static, Ev: Event<State>, Output> std::fmt::Debug for EventManager<State, Ev, Output> {
+pub type EventPriorityStack<State, Ev: Event<PriorityMut<State>>, Output> =
+    PriorityStack<State, EventAction<Priority<State>, Ev, Output>>;
+pub(crate) struct DynEventListener<State, Ev: Event<PriorityMut<State>>, Output> {
+    valid_action: Box<dyn AnyClone>,
+    filter: for<'a> fn(&'a State, Box<dyn Any>) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
+    get_action: for<'a> fn(
+        Box<dyn Any>,
+        &'a State,
+        &'a Ev,
+        Box<dyn Any>,
+    ) -> DynValidAction<PriorityMut<State>, Ev::Input, Output>,
+}
+impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<State, Ev, Output> {
+    fn new<T: EventListener<State, Ev> + 'static>(valid_action: T) -> Self
+    where
+        T::Action: 'static,
+        <T::Filter as StateFilter<State, T>>::ValidOutput: 'static,
+        <T::Filter as StateFilter<State, T>>::Error: 'static,
+        <T::Action as ValidAction<PriorityMut<State>, Ev::Input>>::Output: Into<Output>,
+        <<T::Action as ValidAction<PriorityMut<State>, Ev::Input>>::Filter as StateFilter<
+            PriorityMut<State>,
+            Ev::Input,
+        >>::ValidOutput: 'static,
+        <<T::Action as ValidAction<PriorityMut<State>, Ev::Input>>::Filter as StateFilter<
+            PriorityMut<State>,
+            Ev::Input,
+        >>::Error: 'static,
+    {
+        DynEventListener {
+            valid_action: Box::new(valid_action),
+            filter: |state, input| match <T::Filter>::filter(state, *input.downcast().unwrap()) {
+                Ok(v) => Ok(Box::new(v)),
+                Err(e) => Err(Box::new(e)),
+            },
+            get_action: |valid_action, state, event, valid| {
+                struct IntoIndirection<T, Output>(T, std::marker::PhantomData<Output>);
+                impl<T: Clone, Output> Clone for IntoIndirection<T, Output> {
+                    fn clone(&self) -> Self {
+                        IntoIndirection(self.0.clone(), std::marker::PhantomData::default())
+                    }
+                }
+                impl<State, Input, T: ValidAction<State, Input>, Output> ValidAction<State, Input>
+                    for IntoIndirection<T, Output>
+                where
+                    T::Output: Into<Output>,
+                {
+                    type Filter = T::Filter;
+                    type Output = Output;
+                    fn with_valid_input(
+                        self,
+                        state: State,
+                        valid: <Self::Filter as StateFilter<State, Input>>::ValidOutput,
+                    ) -> Self::Output {
+                        self.0.with_valid_input(state, valid).into()
+                    }
+                }
+                DynValidAction::new(IntoIndirection(
+                    T::action(
+                        valid_action.downcast_ref().unwrap(),
+                        state,
+                        event,
+                        *valid.downcast().unwrap(),
+                    ),
+                    std::marker::PhantomData::default(),
+                ))
+            },
+        }
+    }
+    fn get_action(
+        &self,
+        state: &State,
+        event: &Ev,
+    ) -> Result<DynValidAction<PriorityMut<State>, Ev::Input, Output>, Box<dyn std::error::Error>>
+    {
+        match (self.filter)(state, self.valid_action.any_clone()) {
+            Ok(valid) => Ok((self.get_action)(
+                self.valid_action.any_clone(),
+                state,
+                event,
+                valid,
+            )),
+            Err(error) => Err(error),
+        }
+    }
+}
+impl<State, Ev: Event<PriorityMut<State>>, Output> Clone for DynEventListener<State, Ev, Output> {
+    fn clone(&self) -> Self {
+        DynEventListener {
+            valid_action: self.valid_action.any_clone(),
+            filter: self.filter,
+            get_action: self.get_action,
+        }
+    }
+}
+trait AnyClone: Any {
+    fn any_clone(&self) -> Box<dyn AnyClone>;
+}
+impl<T: Clone + 'static> AnyClone for T {
+    fn any_clone(&self) -> Box<dyn AnyClone> {
+        Box::new(self.clone())
+    }
+}
+
+impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> std::fmt::Debug
+    for EventManager<State, Ev, Output>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EventManager").finish_non_exhaustive()
     }
 }
-impl<State: 'static, Ev: Event<State>, Output> Clone for EventManager<State, Ev, Output> {
+impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> Clone
+    for EventManager<State, Ev, Output>
+{
     fn clone(&self) -> Self {
         EventManager {
             events: self.events.clone(),
         }
     }
 }
-impl<State: 'static, Ev: Event<State>, Output> Default for EventManager<State, Ev, Output> {
+impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> Default
+    for EventManager<State, Ev, Output>
+{
     fn default() -> Self {
         Self::empty()
     }
 }
-impl<State: 'static, Ev: Event<State>, Output> EventManager<State, Ev, Output> {
+impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> EventManager<State, Ev, Output> {
     pub fn empty() -> Self {
         EventManager { events: Vec::new() }
     }
@@ -39,135 +151,67 @@ impl<State: 'static, Ev: Event<State>, Output> EventManager<State, Ev, Output> {
         self.events.len()
     }
 }
-impl<EventState: 'static, Ev: Event<EventState>, Output: 'static>
+impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
     EventManager<EventState, Ev, Output>
 {
-    pub fn new_combined<
-        StateA,
-        StateB,
-        EvA: Event<StateA>,
-        EvB: Event<StateB>,
-        OutputA: Into<Output> + 'static,
-        OutputB: Into<Output> + 'static,
-    >(
-        event_manager_a: &EventManager<StateA, EvA, OutputA>,
-        event_manager_b: &EventManager<StateB, EvB, OutputB>,
-    ) -> EventManager<EventState, Ev, Output>
-    where
-        EventState: Into<StateA> + Into<StateB>,
-        Ev: Into<EvA> + Into<EvB>,
-        Ev::Input: Into<EvA::Input> + Into<EvB::Input>,
-        DynEventListener<StateA, EvA, OutputA>: NewStateTrait<EventState, Ev, OutputA>,
-        DynEventListener<StateB, EvB, OutputB>: NewStateTrait<EventState, Ev, OutputB>,
-        DynEventListener<EventState, Ev, OutputA>: NewOutputTrait<EventState, Ev, Output>,
-        DynEventListener<EventState, Ev, OutputB>: NewOutputTrait<EventState, Ev, Output>,
-    {
-        let mut events: Vec<DynEventListener<EventState, Ev, Output>> =
-            Vec::with_capacity(event_manager_a.events.len() + event_manager_b.events.len());
-        for event in event_manager_a.events.iter().cloned() {
-            events.push(event.new_state().new_output());
-        }
-        for event in event_manager_b.events.iter().cloned() {
-            events.push(event.new_state().new_output());
-        }
-        EventManager { events }
-    }
-    pub fn combine<
-        NewState: 'static,
-        NewEv: Event<NewState> + Event<EventState>,
-        NewOutput: Into<Output> + 'static,
-    >(
-        mut self,
-        new_event_manager: &EventManager<NewState, NewEv, NewOutput>,
-    ) -> Self
-    where
-        EventState: Into<NewState>,
-        Ev: Into<NewEv>,
-        Ev::Input: Into<<NewEv as Event<EventState>>::Input>,
-        DynEventListener<NewState, NewEv, NewOutput>: NewStateTrait<EventState, Ev, NewOutput>,
-        DynEventListener<EventState, Ev, NewOutput>: NewOutputTrait<EventState, Ev, Output>,
-    {
-        for event in new_event_manager.events.iter().cloned() {
-            self.events.push(event.new_state().new_output());
-        }
-        self
-    }
     pub(crate) fn new(events: Vec<DynEventListener<EventState, Ev, Output>>) -> Self {
         EventManager { events }
     }
-    pub fn add_listener<
-        NewState: 'static,
-        NewEv: Event<NewState>,
-        Listener: EventListener<NewState, NewEv>,
-    >(
-        &mut self,
-        listener: Listener,
-    ) where
-        <Listener::Action as ValidAction<NewState, NewEv::Input>>::Output: Into<Output> + 'static,
-        EventState: GetState<NewState> + Into<NewState>,
-        Ev: Into<NewEv>,
-        Ev::Input: Into<NewEv::Input>,
-        NewEv::Input: Into<Ev::Input>,
-        DynEventListener<
-            NewState,
-            NewEv,
-            <Listener::Action as ValidAction<NewState, NewEv::Input>>::Output,
-        >: NewStateTrait<
-                EventState,
-                Ev,
-                <Listener::Action as ValidAction<NewState, NewEv::Input>>::Output,
-            >,
-        DynEventListener<
-            EventState,
-            Ev,
-            <Listener::Action as ValidAction<NewState, NewEv::Input>>::Output,
-        >: NewOutputTrait<EventState, Ev, Output>,
+    pub fn add_listener<Listener: EventListener<EventState, Ev>>(&mut self, listener: Listener)
+    where
+        <Listener::Action as ValidAction<PriorityMut<EventState>, Ev::Input>>::Output: Into<Output>,
     {
-        let listener = DynEventListener::new(listener).new_state().new_output();
+        let listener = DynEventListener::new(listener);
         self.events.push(listener);
     }
+}
+impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
+    EventManager<EventState, Ev, Output>
+{
     pub(crate) fn collect_actions(
         &self,
-        state: &EventState,
-        event: &Ev,
+        state: &PriorityMut<EventState>,
+        event: Ev,
         event_input: Ev::Input,
     ) -> CollectedActions<EventState, Ev, Output> {
         let actions = self
             .events
             .iter()
             .filter_map(|listener| {
-                let filter = listener.filter.get_dyn_filter();
-                if let Ok(initial_filter_output) = (filter)(state, listener.clone_listener()) {
-                    let action = listener.action(event, initial_filter_output);
-                    if (action.action_filter)(state, event_input.clone()).is_ok() {
-                        return Some(action);
-                    }
+                if let Ok(action) = listener.get_action(state.priority(), &event)
+                    && action.filter().filter(&state, event_input.clone()).is_ok()
+                {
+                    Some(action)
+                } else {
+                    None
                 }
-                None
             })
             .collect();
         CollectedActions {
+            event,
             event_input,
             actions,
         }
     }
 }
-struct CollectedActions<State, Ev: Event<State>, Output> {
+struct CollectedActions<State, Ev: Event<PriorityMut<State>>, Output> {
+    event: Ev,
     event_input: Ev::Input,
-    actions: Vec<DynAction<State, Ev, Output>>,
+    actions: Vec<DynValidAction<PriorityMut<State>, Ev::Input, Output>>,
 }
-impl<EventState, Ev: Event<EventState>, Output> CollectedActions<EventState, Ev, Output> {
-    fn simultaneous_action_manager<State>(
+impl<EventState, Ev: Event<PriorityMut<EventState>>, Output>
+    CollectedActions<EventState, Ev, Output>
+{
+    fn simultaneous_action_manager(
         self,
-        state: State,
-    ) -> SimultaneousActionManager<State, Ev, Output>
-    where
-        State: GetEventManager<Ev, State = EventState>,
-        Ev: Event<State, Input = <Ev as Event<EventState>>::Input>,
-        EventAction<EventState, Ev, Output>: Into<<Ev as Event<EventState>>::Stackable>,
+        state: EventState,
+    ) -> SimultaneousActionManager<EventState, Ev, Output>
+//where
+        //EventAction<EventState, Ev, Output>: Into<Ev::Stackable>,
     {
         SimultaneousActionManager {
             state,
+            event: self.event,
             event_input: self.event_input,
             actions: self
                 .actions
@@ -178,64 +222,38 @@ impl<EventState, Ev: Event<EventState>, Output> CollectedActions<EventState, Ev,
         }
     }
 }
-pub struct SimultaneousActionManager<
-    State: GetEventManager<Ev>,
-    Ev: Event<State> + Event<State::State>,
-    Output,
-> where
-    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
-{
+pub struct SimultaneousActionManager<State, Ev: Event<PriorityMut<State>>, Output> {
     state: State,
-    event_input: <Ev as Event<State::State>>::Input,
-    actions: HashMap<SimultaneousActionID, DynAction<State::State, Ev, Output>>,
+    event: Ev,
+    event_input: Ev::Input,
+    actions: HashMap<SimultaneousActionID, DynValidAction<PriorityMut<State>, Ev::Input, Output>>,
 }
-impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output> std::fmt::Debug
+impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>>, Output> std::fmt::Debug
     for SimultaneousActionManager<State, Ev, Output>
 where
-    <Ev as Event<State::State>>::Input: std::fmt::Debug,
-    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
+    Ev::Input: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SimultaneousActionManager")
+            .field("state", &self.state)
             .field("event_input", &self.event_input)
             .finish_non_exhaustive()
     }
 }
-pub struct SingleAction<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
-{
+pub struct SingleAction<State, Ev: Event<PriorityMut<State>>, Output> {
     state: State,
-    event_input: <Ev as Event<State::State>>::Input,
-    action: DynAction<State::State, Ev, Output>,
+    event_action: EventAction<State, Ev, Output>,
 }
-impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
-    SingleAction<State, Ev, Output>
+impl<State, Ev: Event<PriorityMut<Priority<State>>>, Output>
+    SingleAction<Priority<State>, Ev, Output>
 where
-    <Ev as Event<State>>::Input: 'static,
-    <Ev as Event<State::State>>::Input: 'static,
+    Ev::Input: 'static,
 {
-    pub fn resolve(
-        self,
-    ) -> EventActionResolution<
-        State,
-        <Output as CombineState<
-            <State as TakeState<<State as GetEventManager<Ev>>::State>>::Remainder,
-        >>::Combined,
-    >
+    pub fn resolve(self) -> PriorityStack<State, EventAction<Priority<State>, Ev, Output>>
     where
-        State: TakeState<<State as GetEventManager<Ev>>::State>,
-        Output:
-            CombineState<<State as TakeState<<State as GetEventManager<Ev>>::State>>::Remainder>,
-        <State as TakeState<<State as GetEventManager<Ev>>::State>>::Remainder:
-            CombineState<<State as GetEventManager<Ev>>::State, Combined = State>,
+        EventAction<Priority<State>, Ev, Output>: IncitingAction<State, ()>,
     {
-        let (state, remainder) = self.state.take_state();
-        match self.action.with_given_valid_input(state, self.event_input) {
-            Ok(output) => EventActionResolution::Resolved(output.combine(remainder)),
-            Err(e) => EventActionResolution::Fizzled {
-                state: remainder.combine(e.state),
-                error: e.error,
-            },
-        }
+        self.state.stack(self.event_action)
     }
 }
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
@@ -247,10 +265,9 @@ impl<F> ValidSimultaneousActionID<F> {
         ValidSimultaneousActionID(id, std::marker::PhantomData::default())
     }
 }
-impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
-    SimultaneousActionManager<State, Ev, Output>
-where
-    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
+impl<State, Ev: Event<PriorityMut<State>>, Output> SimultaneousActionManager<State, Ev, Output>
+//where
+//EventAction<State, Ev, Output>: Into<Ev::Stackable>,
 {
     pub fn verify(&self, id: SimultaneousActionID) -> Option<ValidSimultaneousActionID<()>> {
         if self.actions.contains_key(&id) {
@@ -277,7 +294,19 @@ where
             .map(|(index, action)| ValidSimultaneousActionID::new(SimultaneousActionID(index)))
     }
 }
-impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
+impl<State: Clone, Ev: Event<PriorityMut<State>>, Output> Clone
+    for SimultaneousActionManager<State, Ev, Output>
+{
+    fn clone(&self) -> Self {
+        SimultaneousActionManager {
+            state: self.state.clone(),
+            event: self.event.clone(),
+            event_input: self.event_input.clone(),
+            actions: self.actions.clone(),
+        }
+    }
+}
+/*impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output>
     SimultaneousActionManager<State, Ev, Output>
 where
     <Ev as Event<State>>::Input: 'static,
@@ -293,7 +322,7 @@ where
         mut self,
         mut order: Vec<ValidSimultaneousActionID<()>>,
     ) -> Result<
-        PriorityStack<State, EventAction<State::State, Ev, Output>>,
+        PriorityStack<State, EventAction<State::State, Output>>,
         ResolveSimultaneousActionsError<State, Ev, Output>,
     > {
         order.dedup();
@@ -325,86 +354,148 @@ where
     where
         State: TakeState<State::State>,
         Output: CombineState<<State as TakeState<State::State>>::Remainder>,
+        DynAction<<State as GetEventManager<Ev>>::State, Ev, Output>: ValidAction<
+                State::State,
+                <Ev as Event<<State as GetEventManager<Ev>>::State>>::Input,
+                Filter = (),
+                Output = Result<Output, DynStateError<State::State>>,
+            >,
     {
         let (state, remainder) = self.state.take_state();
         let action = self.actions.remove(&action_id.0).unwrap();
-        if let Ok(output) = action.with_given_valid_input(state, self.event_input) {
+        if let Ok(output) = action.with_valid_input(state, self.event_input) {
             output.combine(remainder)
         } else {
             unreachable!()
         }
     }
-}
-pub struct EventAction<EventState, Ev: Event<EventState>, Output> {
-    event_input: Ev::Input,
-    action: DynAction<EventState, Ev, Output>,
-}
-impl<EventState, Ev: Event<EventState>, Output> std::fmt::Debug
-    for EventAction<EventState, Ev, Output>
+}*/
+impl<
+    State: GetStackEventManager<Ev, EventAction<Priority<State>, Ev, Output>> + 'static,
+    Ev: Event<PriorityMut<Priority<State>>>
+        + Event<
+            PriorityStack<State, EventAction<Priority<State>, Ev, Output>>,
+            Input = <Ev as Event<PriorityMut<Priority<State>>>>::Input,
+            Stackable = <EventAction<Priority<State>, Ev, Output> as IncitingActionInfo<State>>::Stackable,
+        > + Event<
+            PriorityMut<PriorityStack<State, EventAction<Priority<State>, Ev, Output>>>,
+            Input = <Ev as Event<PriorityMut<Priority<State>>>>::Input,
+            Stackable = <EventAction<Priority<State>, Ev, Output> as IncitingActionInfo<State>>::Stackable,
+        >,
+    Output: 'static,
+> SimultaneousActionManager<Priority<State>, Ev, Output>
+where
+    <Ev as Event<PriorityMut<Priority<State>>>>::Input: 'static,
+    EventAction<PriorityStack<State, EventAction<Priority<State>, Ev, Output>>, Ev, State::Output>:
+        Into<
+            <EventAction<Priority<State>, Ev, Output> as IncitingActionInfo<State>>::Stackable,
+        >,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EventAction").finish_non_exhaustive()
+    pub fn stack_inciting(
+        mut self,
+        inciting_action_id: ValidSimultaneousActionID<()>,
+    ) -> TriggeredStackEventResolution<State, Ev, EventAction<Priority<State>, Ev, Output>> {
+        let action = self.actions.remove(&inciting_action_id.0).unwrap();
+        let mut stack = self
+            .state
+            .stack(EventAction::new(self.event_input.clone(), action));
+        TriggeredEvent::<PriorityStack<_, _>, _>::new(stack, self.event, self.event_input).collect()
     }
 }
-impl<EventState, Ev: Event<EventState>, Output> EventAction<EventState, Ev, Output> {
-    fn new(event_input: Ev::Input, action: DynAction<EventState, Ev, Output>) -> Self {
+impl<
+    State,
+    Ev: Event<PriorityMut<PriorityStack<State, IncitingAction>>>,
+    IncitingAction: IncitingActionInfo<State> + 'static,
+    Output,
+> SimultaneousActionManager<PriorityStack<State, IncitingAction>, Ev, Output>
+where
+    Ev::Input: 'static,
+    EventAction<PriorityStack<State, IncitingAction>, Ev, Output>: Into<IncitingAction::Stackable>,
+{
+    /// Resolves in order.
+    /// First element is put on the stack last.
+    pub fn resolve(
+        mut self,
+        mut order: Vec<ValidSimultaneousActionID<()>>,
+    ) -> Result<
+        PriorityStack<State, IncitingAction>,
+        ResolveSimultaneousActionsError<PriorityStack<State, IncitingAction>, Ev, Output>,
+    > {
+        order.dedup();
+        if order.len() != self.actions.len()
+            || !self
+                .actions
+                .keys()
+                .copied()
+                .all(|v| order.contains(&ValidSimultaneousActionID::new(v)))
+        {
+            return Err(ResolveSimultaneousActionsError::NotAllActionsAreOrdered(
+                self,
+            ));
+        }
+        let inciting_action_id = order.pop().unwrap();
+        let action = self.actions.remove(&inciting_action_id.0).unwrap();
+        let mut stack = self
+            .state
+            .stack(EventAction::new(self.event_input.clone(), action));
+        for action_id in order.iter().rev() {
+            let action = self.actions.remove(&action_id.0).unwrap();
+            stack = stack.stack(EventAction::new(self.event_input.clone(), action));
+        }
+        Ok(stack)
+    }
+}
+pub struct EventAction<EventState, Ev: Event<PriorityMut<EventState>>, Output> {
+    event_input: Ev::Input,
+    action: DynValidAction<PriorityMut<EventState>, Ev::Input, Output>,
+}
+impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> std::fmt::Debug
+    for EventAction<EventState, Ev, Output>
+where
+    Ev::Input: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EventAction")
+            .field("event_input", &self.event_input)
+            .finish_non_exhaustive()
+    }
+}
+impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> Clone
+    for EventAction<EventState, Ev, Output>
+{
+    fn clone(&self) -> Self {
+        EventAction {
+            event_input: self.event_input.clone(),
+            action: self.action.clone(),
+        }
+    }
+}
+impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> EventAction<EventState, Ev, Output> {
+    fn new(
+        event_input: Ev::Input,
+        action: DynValidAction<PriorityMut<EventState>, Ev::Input, Output>,
+    ) -> Self {
         EventAction {
             event_input,
             action,
         }
     }
 }
-pub trait FromEventAction<EventState, Ev: Event<EventState>, Output> {
-    fn from(action: EventAction<EventState, Ev, Output>) -> Self;
-}
-impl<
-    EventState: 'static,
-    NewState: GetState<EventState> + Into<EventState>,
-    Ev: Event<EventState> + Event<NewState>,
-    Output: Into<NewOutput> + 'static,
-    NewOutput,
-> FromEventAction<EventState, Ev, Output> for EventAction<NewState, Ev, NewOutput>
-where
-    <Ev as Event<EventState>>::Input: Into<<Ev as Event<NewState>>::Input>,
-    <Ev as Event<NewState>>::Input: Into<<Ev as Event<EventState>>::Input>,
-{
-    fn from(action: EventAction<EventState, Ev, Output>) -> Self {
-        let event_input = action.event_input;
-        let initial_filter_output = action.action.initial_filter_output;
-        let action_filter = action.action.action_filter;
-        let action = action.action.action;
-        EventAction::new(
-            event_input.into(),
-            DynAction {
-                initial_filter_output,
-                action_filter: Box::new(move |state, input| {
-                    (action_filter)(state.state(), input.into())
-                }),
-                action: Box::new(move |state, value, valid| {
-                    (action)(state.into(), value, valid).into()
-                }),
-            },
-        )
-    }
-}
-impl<EventState, Ev: Event<EventState>, Output> IncitingAction<EventState, ()>
-    for EventAction<EventState, Ev, Output>
+impl<EventState, Ev: Event<PriorityMut<Priority<EventState>>>, Output>
+    IncitingAction<EventState, ()> for EventAction<Priority<EventState>, Ev, Output>
 where
     Ev::Input: 'static,
 {
     type Requirement = ();
     fn resolve(
         self,
-        priority: card_stack::priority::PriorityMut<Priority<EventState>>,
+        priority: PriorityMut<Priority<EventState>>,
         (): <<Self::Requirement as card_stack::requirements::ActionRequirement<
             Priority<EventState>,
             (),
         >>::Filter as StateFilter<Priority<EventState>, ()>>::ValidOutput,
     ) -> Self::Resolved {
-        match self
-            .action
-            .with_given_valid_input(priority.take_state(), self.event_input)
-        {
+        match self.action.with_valid_input(priority, self.event_input) {
             Ok(output) => EventActionResolution::Resolved(output),
             Err(e) => EventActionResolution::Fizzled {
                 state: e.state,
@@ -413,42 +504,47 @@ where
         }
     }
 }
-impl<EventState, Ev: Event<EventState>, Output> IncitingActionInfo<EventState>
-    for EventAction<EventState, Ev, Output>
+impl<EventState, Ev: Event<PriorityMut<Priority<EventState>>>, Output>
+    IncitingActionInfo<EventState> for EventAction<Priority<EventState>, Ev, Output>
 {
-    type Resolved = EventActionResolution<EventState, Output>;
+    type Resolved = EventActionResolution<PriorityMut<Priority<EventState>>, Output>;
     type Stackable = Ev::Stackable;
 }
 impl<
-    T: IncitingAction<EventState, Ev::Input>
-        + IncitingActionInfo<Output, Stackable = <T as IncitingActionInfo<EventState>>::Stackable>,
     EventState,
-    Ev: Event<EventState>,
+    Ev: Event<PriorityMut<PriorityStack<EventState, T>>>,
     Output,
-> StackAction<EventState, (), T> for EventAction<EventState, Ev, Output>
+    T: IncitingActionInfo<EventState>,
+> IncitingActionInfo<EventState> for EventAction<PriorityStack<EventState, T>, Ev, Output>
+{
+    type Resolved = EventActionResolution<PriorityMut<PriorityStack<EventState, T>>, Output>;
+    type Stackable = Ev::Stackable;
+}
+impl<
+    T: IncitingActionInfo<EventState>,
+    //+ IncitingActionInfo<Output, Stackable = <T as IncitingActionInfo<EventState>>::Stackable>,
+    EventState,
+    Ev: Event<PriorityMut<PriorityStack<EventState, T>>>,
+    Output,
+> StackAction<EventState, (), T> for EventAction<PriorityStack<EventState, T>, Ev, Output>
 where
     Ev::Input: 'static,
 {
     type Requirement = ();
-    type Resolved = EventActionResolution<PriorityStack<EventState, T>, PriorityStack<Output, T>>;
+    type Resolved = EventActionResolution<PriorityMut<PriorityStack<EventState, T>>, Output>;
     fn resolve(
         self,
-        priority: card_stack::priority::PriorityMut<
-            card_stack::priority::PriorityStack<EventState, T>,
-        >,
+        priority: PriorityMut<PriorityStack<EventState, T>>,
         (): <<Self::Requirement as card_stack::requirements::ActionRequirement<
-                    card_stack::priority::PriorityStack<EventState, T>,
-                    (),
-                >>::Filter as StateFilter<card_stack::priority::PriorityStack<EventState, T>, ()>>::ValidOutput,
+            PriorityStack<EventState, T>,
+            (),
+        >>::Filter as StateFilter<PriorityStack<EventState, T>, ()>>::ValidOutput,
     ) -> Self::Resolved {
-        let (state, stack) = priority.take_priority().take_contents();
-        match self.action.with_given_valid_input(state, self.event_input) {
-            Ok(output) => EventActionResolution::Resolved(PriorityStack::from_stack(
-                Priority::new(output),
-                stack.into_state(),
-            )),
+        //let (state, stack) = priority.take_priority().take_contents();
+        match self.action.with_valid_input(priority, self.event_input) {
+            Ok(output) => EventActionResolution::Resolved(output),
             Err(e) => EventActionResolution::Fizzled {
-                state: PriorityStack::from_stack(Priority::new(e.state), stack),
+                state: e.state,
                 error: e.error,
             },
         }
@@ -463,23 +559,14 @@ pub enum EventActionResolution<State, Output> {
     },
 }
 #[derive(thiserror::Error)]
-pub enum ResolveSimultaneousActionsError<
-    State: GetEventManager<Ev>,
-    Ev: Event<State> + Event<State::State>,
-    Output,
-> where
-    EventAction<State, Ev, Output>: Into<<Ev as Event<State>>::Stackable>,
-    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
-{
+pub enum ResolveSimultaneousActionsError<State, Ev: Event<PriorityMut<State>>, Output> {
     #[error("not all actions are ordered")]
     NotAllActionsAreOrdered(SimultaneousActionManager<State, Ev, Output>),
 }
-impl<State: GetEventManager<Ev>, Ev: Event<State> + Event<State::State>, Output> std::fmt::Debug
+impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>>, Output> std::fmt::Debug
     for ResolveSimultaneousActionsError<State, Ev, Output>
 where
-    EventAction<State, Ev, Output>: Into<<Ev as Event<State>>::Stackable>,
-    EventAction<State::State, Ev, Output>: Into<<Ev as Event<State::State>>::Stackable>,
-    <Ev as Event<<State as GetEventManager<Ev>>::State>>::Input: std::fmt::Debug,
+    Ev::Input: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -491,13 +578,13 @@ where
     }
 }
 
-pub struct TriggeredEvent<State, Ev: Event<State>> {
+pub struct TriggeredEvent<State, Ev: Event<PriorityMut<State>>> {
     state: State,
     event: Ev,
     input: Ev::Input,
 }
 
-impl<State: std::fmt::Debug, Ev: Event<State> + std::fmt::Debug> std::fmt::Debug
+impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>> + std::fmt::Debug> std::fmt::Debug
     for TriggeredEvent<State, Ev>
 where
     Ev::Input: std::fmt::Debug,
@@ -511,31 +598,24 @@ where
     }
 }
 
-impl<State, Ev: Event<State>> TriggeredEvent<State, Ev> {
+impl<State, Ev: Event<PriorityMut<State>>> TriggeredEvent<State, Ev> {
     pub fn state(&self) -> &State {
         &self.state
     }
     pub fn event(&self) -> &Ev {
         &self.event
     }
-    pub fn event_input(&self) -> &<Ev as Event<State>>::Input {
+    pub fn event_input(&self) -> &Ev::Input {
         &self.input
     }
 }
-impl<
-    State: GetState<State::State> + GetEventManager<Ev> + 'static,
-    Ev: Event<State>
-        + Event<
-            State::State,
-            Input = <Ev as Event<State>>::Input,
-            Stackable = <Ev as Event<State>>::Stackable,
-        >,
-> TriggeredEvent<State, Ev>
-where
-    EventAction<<State as GetEventManager<Ev>>::State, Ev, State::Output>:
-        Into<<Ev as Event<<State as GetEventManager<Ev>>::State>>::Stackable>,
+impl<State: GetEventManager<Ev> + 'static, Ev: Event<PriorityMut<Priority<State>>>>
+    TriggeredEvent<Priority<State>, Ev>
+//where
+//EventAction<Priority<State>, Ev, State::Output>:
+//Into<<Ev as Event<PriorityMut<Priority<State>>>>::Stackable>,
 {
-    pub fn new(state: State, event: Ev, input: <Ev as Event<State>>::Input) -> Self {
+    pub fn new(state: Priority<State>, event: Ev, input: Ev::Input) -> Self {
         TriggeredEvent {
             state,
             event,
@@ -543,570 +623,138 @@ where
         }
     }
     pub fn collect(self) -> TriggeredEventResolution<State, Ev> {
-        let mut simultaneous_action_manager = self
-            .state
-            .event_manager()
-            .collect_actions(self.state.state(), &self.event, self.input)
-            .simultaneous_action_manager(self.state);
+        let event_manager = self.state.state().event_manager();
+        // TODO: I don't like the fact that we are instantiating a priority mut!
+        let priority_mut = PriorityMut::<Priority<_>>::new(self.state);
+        let mut simultaneous_action_manager = event_manager
+            .collect_actions(&priority_mut, self.event, self.input)
+            .simultaneous_action_manager(priority_mut.take_priority());
         match simultaneous_action_manager.simultaneous_action_count() {
-            0 => TriggeredEventResolution::None(simultaneous_action_manager.state),
-            1 => TriggeredEventResolution::Action(SingleAction {
-                state: simultaneous_action_manager.state,
-                event_input: simultaneous_action_manager.event_input,
-                action: simultaneous_action_manager
+            0 => TriggeredEventResolution::None(simultaneous_action_manager.state.take_state()),
+            1 => {
+                let event_input = simultaneous_action_manager.event_input;
+                let event_action = simultaneous_action_manager
                     .actions
                     .into_iter()
                     .next()
                     .unwrap()
-                    .1,
-            }),
+                    .1;
+                TriggeredEventResolution::Action(
+                    simultaneous_action_manager
+                        .state
+                        .stack(EventAction::new(event_input, event_action)),
+                )
+            }
             _ => TriggeredEventResolution::SimultaneousActions(simultaneous_action_manager),
         }
     }
 }
 pub enum TriggeredEventResolution<
     State: GetEventManager<Ev>,
-    Ev: Event<State> + Event<State::State>,
-> where
-    EventAction<State::State, Ev, State::Output>: Into<<Ev as Event<State::State>>::Stackable>,
+    Ev: Event<PriorityMut<Priority<State>>>,
+>
+//where
+//EventAction<Priority<State>, Ev, State::Output>: Into<Ev::Stackable>,
 {
     None(State),
-    Action(SingleAction<State, Ev, State::Output>),
-    SimultaneousActions(SimultaneousActionManager<State, Ev, State::Output>),
-}
-pub(crate) struct DynEventListener<State, Ev: Event<State>, Output> {
-    listener: ListenerClone,
-    get_dyn_action: Box<dyn GetDynActionTrait<State, Ev, Output>>,
-    filter: Box<dyn GetDynStateFilterTrait<State, Box<dyn Any>>>,
-    //filter: for<'a> fn(&'a State, Ev::Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
-}
-trait NewStateTrait<NewState, NewEv: Event<NewState>, Output> {
-    fn new_state(self) -> DynEventListener<NewState, NewEv, Output>;
+    Action(PriorityStack<State, EventAction<Priority<State>, Ev, State::Output>>),
+    SimultaneousActions(SimultaneousActionManager<Priority<State>, Ev, State::Output>),
 }
 impl<
-    State: 'static,
-    NewState: GetState<State> + Into<State> + 'static,
-    Ev: Event<State>,
-    NewEv: Event<NewState> + Into<Ev>,
-    Output: 'static,
-> NewStateTrait<NewState, NewEv, Output> for DynEventListener<State, Ev, Output>
+    State: GetStackEventManager<Ev, IncitingAction> + 'static,
+    Ev: Event<PriorityStack<State, IncitingAction>>
+        + Event<
+            PriorityMut<PriorityStack<State, IncitingAction>>,
+            Input = <Ev as Event<PriorityStack<State, IncitingAction>>>::Input,
+            Stackable = <Ev as Event<PriorityStack<State, IncitingAction>>>::Stackable,
+        >,
+    IncitingAction: IncitingActionInfo<State> + 'static,
+> TriggeredEvent<PriorityStack<State, IncitingAction>, Ev>
 where
-    Ev::Input: Into<NewEv::Input>,
-    NewEv::Input: Into<Ev::Input>,
+    EventAction<PriorityStack<State, IncitingAction>, Ev, State::Output>:
+        Into<<Ev as Event<PriorityStack<State, IncitingAction>>>::Stackable>,
 {
-    fn new_state(self) -> DynEventListener<NewState, NewEv, Output> {
-        struct NewStateDynAction<State, Ev, Output>(Box<dyn GetDynActionTrait<State, Ev, Output>>);
-        impl<
-            State: 'static,
-            NewState: GetState<State> + Into<State> + 'static,
-            Ev: Event<State>,
-            NewEv: Event<NewState> + Into<Ev>,
-            Output: 'static,
-        > GetDynActionTrait<NewState, NewEv, Output> for NewStateDynAction<State, Ev, Output>
-        where
-            Ev::Input: Into<NewEv::Input>,
-            NewEv::Input: Into<Ev::Input>,
-        {
-            fn dyn_clone(&self) -> Box<dyn GetDynActionTrait<NewState, NewEv, Output>> {
-                Box::new(NewStateDynAction(self.0.dyn_clone()))
-            }
-            fn get_dyn_action(
-                self: Box<Self>,
-                event: NewEv,
-                initial_filter_output: Box<dyn Any>,
-            ) -> DynAction<NewState, NewEv, Output> {
-                let dyn_action = self.0.get_dyn_action(event.into(), initial_filter_output);
-                let initial_filter_output = dyn_action.initial_filter_output;
-                let action_filter = dyn_action.action_filter;
-                let action = dyn_action.action;
-                DynAction {
-                    initial_filter_output,
-                    action_filter: Box::new(move |state, value| {
-                        (action_filter)(state.state(), value.into())
-                    }),
-                    action: Box::new(move |state, value, valid| {
-                        (action)(state.into(), value, valid)
-                    }),
-                }
-            }
-        }
-        struct DynFilter<State, Input>(Box<dyn GetDynStateFilterTrait<State, Input>>);
-        impl<
-            State: 'static,
-            NewState: GetState<State> + 'static,
-            Input: 'static,
-            NewInput: Into<Input> + 'static,
-        > GetDynStateFilterTrait<NewState, NewInput> for DynFilter<State, Input>
-        {
-            fn dyn_clone(&self) -> Box<dyn GetDynStateFilterTrait<NewState, NewInput>> {
-                Box::new(DynFilter(self.0.dyn_clone()))
-            }
-            fn get_dyn_filter<'a>(
-                &'a self,
-            ) -> Box<
-                dyn for<'b> Fn(
-                        &'b NewState,
-                        NewInput,
-                    )
-                        -> Result<Box<dyn Any>, Box<dyn std::error::Error>>
-                    + 'a,
-            > {
-                Box::new(|state, value| (self.0.get_dyn_filter())(state.state(), value.into()))
-            }
-        }
-        DynEventListener {
-            listener: self.listener,
-            get_dyn_action: Box::new(NewStateDynAction(self.get_dyn_action)),
-            filter: Box::new(DynFilter(self.filter)),
-        }
-    }
-}
-trait NewOutputTrait<State, Ev: Event<State>, NewOutput> {
-    fn new_output(self) -> DynEventListener<State, Ev, NewOutput>;
-}
-impl<State: 'static, Ev: Event<State>, Output: 'static, NewOutput: 'static>
-    NewOutputTrait<State, Ev, NewOutput> for DynEventListener<State, Ev, Output>
-where
-    Output: Into<NewOutput>,
-{
-    fn new_output(self) -> DynEventListener<State, Ev, NewOutput> {
-        struct NewOutputAction<State, Ev, Output>(Box<dyn GetDynActionTrait<State, Ev, Output>>);
-        impl<
-            State: 'static,
-            NewEv: Event<State> + Into<Ev>,
-            Ev: Event<State>,
-            NewOutput,
-            Output: Into<NewOutput> + 'static,
-        > GetDynActionTrait<State, NewEv, NewOutput> for NewOutputAction<State, Ev, Output>
-        where
-            Ev::Input: Into<NewEv::Input>,
-            NewEv::Input: Into<Ev::Input>,
-        {
-            fn dyn_clone(&self) -> Box<dyn GetDynActionTrait<State, NewEv, NewOutput>> {
-                Box::new(NewOutputAction(self.0.dyn_clone()))
-            }
-            fn get_dyn_action(
-                self: Box<Self>,
-                event: NewEv,
-                initial_filter_output: Box<dyn Any>,
-            ) -> DynAction<State, NewEv, NewOutput> {
-                let inner_action = self.0.get_dyn_action(event.into(), initial_filter_output);
-                let initial_filter_output = inner_action.initial_filter_output;
-                let old_action = inner_action.action;
-                let action_filter = inner_action.action_filter;
-                DynAction {
-                    initial_filter_output,
-                    action_filter: Box::new(move |state, value| {
-                        (action_filter)(state, value.into())
-                    }),
-                    action: Box::new(move |state, value, valid| {
-                        (old_action)(state, value, valid).into()
-                    }),
-                }
-            }
-        }
-        struct DynStateFilter<State, Input>(Box<dyn GetDynStateFilterTrait<State, Input>>);
-        impl<State: 'static, Input: 'static, NewInput: Into<Input> + 'static>
-            GetDynStateFilterTrait<State, NewInput> for DynStateFilter<State, Input>
-        {
-            fn dyn_clone(&self) -> Box<dyn GetDynStateFilterTrait<State, NewInput>> {
-                Box::new(DynStateFilter(self.0.dyn_clone()))
-            }
-            fn get_dyn_filter<'a>(
-                &'a self,
-            ) -> Box<
-                dyn for<'b> Fn(
-                        &'b State,
-                        NewInput,
-                    )
-                        -> Result<Box<dyn Any>, Box<dyn std::error::Error>>
-                    + 'a,
-            > {
-                Box::new(|state, input| (self.0.get_dyn_filter())(state, input.into()))
-            }
-        }
-        DynEventListener {
-            listener: self.listener,
-            get_dyn_action: Box::new(NewOutputAction::<State, Ev, Output>(
-                self.get_dyn_action.dyn_clone(),
-            )),
-            filter: Box::new(DynStateFilter(self.filter)),
-        }
-    }
-}
-trait DynAnyClone: Any {
-    fn dyn_any_clone(&self) -> Box<dyn DynAnyClone>;
-}
-impl<T: Clone + 'static> DynAnyClone for T {
-    fn dyn_any_clone(&self) -> Box<dyn DynAnyClone> {
-        Box::new(self.clone())
-    }
-}
-trait DynListenerClone {
-    fn clone_listener(&self) -> Box<dyn Any>;
-}
-struct ListenerClone(Box<dyn DynAnyClone>);
-impl Clone for ListenerClone {
-    fn clone(&self) -> Self {
-        ListenerClone((*self.0).dyn_any_clone())
-    }
-}
-impl DynListenerClone for ListenerClone {
-    fn clone_listener(&self) -> Box<dyn Any> {
-        self.0.dyn_any_clone()
-    }
-}
-impl<State: 'static, Ev: Event<State>, Output: 'static> DynEventListener<State, Ev, Output> {
-    pub(crate) fn new<Listener: EventListener<State, Ev>>(listener: Listener) -> Self
-    where
-        <Listener::Action as ValidAction<State, Ev::Input>>::Output: Into<Output>,
-    {
-        DynEventListener {
-            listener: ListenerClone(Box::new(listener.clone())),
-            get_dyn_action: Box::new(GetDynAction { listener }),
-            filter: Box::new(DynStaticStateFilter::new(
-                move |state: &State,
-                      listener: Box<dyn Any>|
-                      -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
-                    match <Listener::Filter>::filter(state, *listener.downcast().unwrap()) {
-                        Ok(result) => Ok(Box::new(result)),
-                        Err(error) => Err(Box::new(error)),
-                    }
-                },
-            )),
-        }
-    }
-    pub(crate) fn clone_listener(&self) -> Box<dyn Any> {
-        self.listener.clone_listener()
-    }
-    /*pub(crate) fn new_output<NewEv: Event<State> + Into<Ev>, NewOutput>(
-        &self,
-    ) -> DynEventListener<State, NewEv, NewOutput>
-    where
-        NewEv::Input: Into<Ev::Input>,
-        Output: Into<NewOutput>,
-        Box<dyn GetDynStateFilterTrait<State, Ev::Input>>:
-            DynCastInto<State, Ev::Input, NewEv::Input>,
-    {
-        struct NewOutputAction<State, Ev, Output>(Box<dyn GetDynActionTrait<State, Ev, Output>>);
-        impl<
-            State: 'static,
-            NewEv: Event<State> + Into<Ev>,
-            Ev: Event<State>,
-            NewOutput,
-            Output: Into<NewOutput> + 'static,
-        > GetDynActionTrait<State, NewEv, NewOutput> for NewOutputAction<State, Ev, Output>
-        where
-            NewEv::Input: Into<Ev::Input>,
-        {
-            fn dyn_clone(&self) -> Box<dyn GetDynActionTrait<State, NewEv, NewOutput>> {
-                Box::new(NewOutputAction(self.0.dyn_clone()))
-            }
-            fn get_dyn_action(
-                self: Box<Self>,
-                event: NewEv,
-                action_input: Box<dyn Any>,
-            ) -> DynAction<State, NewOutput> {
-                let inner_action = self.0.get_dyn_action(event.into(), action_input);
-                let old_action = inner_action.action;
-                DynAction {
-                    action: Box::new(move |state, valid| (old_action)(state, valid).into()),
-                    action_input: inner_action.action_input,
-                    filter: inner_action.filter,
-                    /*filter: |_state: &State,
-                             value: Box<dyn Any>|
-                     -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
-                         Ok(value)
-                    },*/
-                }
-            }
-        }
-        DynEventListener {
-            get_dyn_action: Box::new(NewOutputAction::<State, Ev, Output>(
-                self.get_dyn_action.dyn_clone(),
-            )),
-            filter: self.filter.dyn_into(),
-            //filter: GetDynStateFilterTrait::<State, NewEv::Input>::dyn_clone(&self.filter),
-        }
-    }*/
-}
-impl<State: 'static, Ev: Event<State>, Output> Clone for DynEventListener<State, Ev, Output> {
-    fn clone(&self) -> Self {
-        DynEventListener {
-            listener: self.listener.clone(),
-            get_dyn_action: self.get_dyn_action.dyn_clone(),
-            filter: self.filter.dyn_clone(),
-        }
-    }
-}
-#[derive(Clone)]
-struct GetDynAction<Listener: Clone> {
-    listener: Listener,
-}
-trait GetDynActionTrait<State, Ev: Event<State>, Output> {
-    fn dyn_clone(&self) -> Box<dyn GetDynActionTrait<State, Ev, Output>>;
-    fn get_dyn_action(
-        self: Box<Self>,
+    pub fn new(
+        state: PriorityStack<State, IncitingAction>,
         event: Ev,
-        initial_filter_output: Box<dyn Any>,
-    ) -> DynAction<State, Ev, Output>;
-}
-impl<State, Ev: Event<State>, Listener: EventListener<State, Ev>, Output>
-    GetDynActionTrait<State, Ev, Output> for GetDynAction<Listener>
-where
-    <Listener::Filter as StateFilter<State, Listener>>::ValidOutput: 'static,
-    <Listener::Filter as StateFilter<State, Listener>>::Error: 'static,
-    <<Listener::Action as ValidAction<State, Ev::Input>>::Filter as StateFilter<
-        State,
-        Ev::Input,
-    >>::ValidOutput: 'static,
-    <<Listener::Action as ValidAction<State, Ev::Input>>::Filter as StateFilter<
-        State,
-        Ev::Input,
-    >>::Error: 'static,
-    <Listener::Action as ValidAction<State, Ev::Input>>::Output: Into<Output>,
-{
-    fn dyn_clone(&self) -> Box<dyn GetDynActionTrait<State, Ev, Output>> {
-        Box::new(GetDynAction {
-            listener: self.listener.clone(),
-        })
-    }
-    fn get_dyn_action(
-        self: Box<Self>,
-        event: Ev,
-        initial_filter_output: Box<dyn Any>,
-    ) -> DynAction<State, Ev, Output> {
-        DynAction {
-            initial_filter_output: Some(initial_filter_output),
-            action_filter: Box::new(
-                |state: &State,
-                 value: Ev::Input|
-                 -> Result<Box<dyn Any>, Box<dyn std::error::Error>> {
-                    match <<Listener::Action as ValidAction<State, Ev::Input>>::Filter>::filter(
-                        state, value,
-                    ) {
-                        Ok(result) => Ok(Box::new(result)),
-                        Err(error) => Err(Box::new(error)),
-                    }
-                },
-            ),
-            action: Box::new(move |state, value, valid| {
-                self.listener
-                    .action(&state, &event, *value.downcast().unwrap())
-                    .with_valid_input(state, *valid.downcast().unwrap())
-                    .into()
-            }),
-        }
-    }
-}
-/*impl<State: 'static, Ev: Event<State>, Output: 'static> EventListener<State, Ev>
-    for DynEventListener<State, Ev, Output>
-where
-    Ev::Input: 'static,
-{
-    type Filter = ();
-    type Action = DynAction<State, Output>;
-    fn action(&self, _state: &State, event: &Ev) -> Self::Action {
-        self.get_dyn_action
-            .dyn_clone()
-            .get_dyn_action(event.clone())
-    }
-}*/
-impl<EventState, Ev: Event<EventState>, Output> DynEventListener<EventState, Ev, Output> {
-    fn action(
-        &self,
-        event: &Ev,
-        initial_filter_output: Box<dyn Any>,
-    ) -> DynAction<EventState, Ev, Output> {
-        self.get_dyn_action
-            .dyn_clone()
-            .get_dyn_action(event.clone(), initial_filter_output)
-    }
-}
-struct DynAction<EventState, Ev: Event<EventState>, Output> {
-    pub(crate) initial_filter_output: Option<Box<dyn Any>>,
-    pub(crate) action_filter: Box<
-        dyn for<'a> Fn(
-            &'a EventState,
-            Ev::Input,
-        ) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
-    >,
-    pub(crate) action: Box<dyn Fn(EventState, Box<dyn Any>, Box<dyn Any>) -> Output>,
-}
-struct ToBoxAnyFilter;
-impl<State, Input: 'static> StateFilter<State, Input> for ToBoxAnyFilter {
-    type ValidOutput = Box<dyn Any>;
-    type Error = std::convert::Infallible;
-    fn filter(_state: &State, value: Input) -> Result<Self::ValidOutput, Self::Error> {
-        Ok(Box::new(value))
-    }
-}
-impl<EventState, Ev: Event<EventState>, Output> ValidAction<EventState, Ev::Input>
-    for DynAction<EventState, Ev, Output>
-where
-    Ev::Input: 'static,
-{
-    type Filter = ();
-    type Output = Result<Output, DynStateError<EventState>>;
-    fn with_valid_input(
-        mut self,
-        state: EventState,
-        action_input: <Self::Filter as StateFilter<EventState, Ev::Input>>::ValidOutput,
-    ) -> Self::Output {
-        match (self.action_filter)(&state, action_input) {
-            Ok(result) => Ok((self.action)(
-                state,
-                self.initial_filter_output.take().unwrap(),
-                result,
-            )),
-            Err(error) => Err(DynStateError { state, error }),
-        }
-    }
-}
-impl<EventState, Ev: Event<EventState>, Output> DynAction<EventState, Ev, Output>
-where
-    Ev::Input: 'static,
-{
-    pub(crate) fn with_given_valid_input(
-        mut self,
-        state: EventState,
-        action_input: Ev::Input,
-    ) -> Result<Output, DynStateError<EventState>> {
-        <DynAction<EventState, Ev, Output> as ValidAction<EventState, Ev::Input>>::with_valid_input(
-            self,
-            state,
-            action_input,
-        )
-    }
-}
-struct DynStateError<State> {
-    state: State,
-    error: Box<dyn std::error::Error>,
-}
-struct DynStaticStateFilter<State, Input> {
-    filter: for<'a> fn(&'a State, Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
-}
-impl<State, Input> DynStaticStateFilter<State, Input> {
-    fn new(
-        filter: for<'a> fn(&'a State, Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
+        input: <Ev as Event<PriorityStack<State, IncitingAction>>>::Input,
     ) -> Self {
-        DynStaticStateFilter { filter }
-    }
-}
-struct DynChainStateFilter<State, Input> {
-    filter: for<'a> fn(&'a State, Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
-}
-trait GetDynStateFilterTrait<State, Input> {
-    fn dyn_clone(&self) -> Box<dyn GetDynStateFilterTrait<State, Input>>;
-    fn get_dyn_filter<'a>(
-        &'a self,
-    ) -> Box<
-        dyn for<'b> Fn(&'b State, Input) -> Result<Box<dyn Any>, Box<dyn std::error::Error>> + 'a,
-    >;
-}
-impl<State: 'static, Input: 'static, NewInput: Into<Input> + 'static>
-    GetDynStateFilterTrait<State, NewInput> for DynStaticStateFilter<State, Input>
-{
-    fn dyn_clone(&self) -> Box<dyn GetDynStateFilterTrait<State, NewInput>> {
-        Box::new(DynStaticStateFilter {
-            filter: self.filter,
-        })
-    }
-    fn get_dyn_filter<'a>(
-        &'a self,
-    ) -> Box<
-        dyn for<'b> Fn(&'b State, NewInput) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>
-            + 'a,
-    > {
-        Box::new(|state, input| (self.filter)(state, input.into()))
-    }
-}
-/*trait DynCastInto<State, OldInput, NewInput: Into<OldInput>> {
-    fn dyn_into(self: Box<Self>) -> Box<dyn GetDynStateFilterTrait<State, NewInput>>;
-}
-impl<State, Input, T: GetDynStateFilterTrait<State, Input> + ?Sized, NewInput: Into<Input>>
-    DynCastInto<State, Input, NewInput> for T
-{
-    fn dyn_into(self: Box<Self>) -> Box<dyn GetDynStateFilterTrait<State, NewInput>> {
-        struct NewStateFilter<State, Input>(Box<dyn GetDynStateFilterTrait<State, Input>>);
-        impl<State: 'static, Input, NewInput: Into<Input>> GetDynStateFilterTrait<State, NewInput>
-            for NewStateFilter<State, Input>
-        {
-            fn dyn_clone(&self) -> Box<dyn GetDynStateFilterTrait<State, NewInput>> {
-                Box::new(NewStateFilter(self.0.dyn_clone()))
-            }
-            fn get_dyn_filter<'a>(
-                &'a self,
-            ) -> Box<
-                dyn for<'b> Fn(
-                        &'b State,
-                        NewInput,
-                    )
-                        -> Result<Box<dyn Any>, Box<dyn std::error::Error>>
-                    + 'a,
-            > {
-                let filter = self.0.get_dyn_filter();
-                Box::new(move |state, input| (filter)(state, input.into()))
-            }
+        TriggeredEvent {
+            state,
+            event,
+            input,
         }
-        Box::new(NewStateFilter::<State, NewInput>(self))
     }
-}*/
-/*pub struct EventConsumeBuilder<State, Ev: Event<State>, Output> {
-    listeners: Vec<DynEventListener<State, Ev, Output>>,
+    pub fn collect(self) -> TriggeredStackEventResolution<State, Ev, IncitingAction>
+    where
+        EventAction<PriorityStack<State, IncitingAction>, Ev, State::Output>:
+            Into<IncitingAction::Stackable>,
+    {
+        let event_manager = self.state.state().stack_event_manager();
+        // TODO: I don't like the fact that we are instantiating a priority mut!
+        let priority_mut = PriorityMut::<PriorityStack<_, _>>::new(self.state);
+        let mut simultaneous_action_manager = event_manager
+            .collect_actions(&priority_mut, self.event, self.input)
+            .simultaneous_action_manager(priority_mut.take_priority());
+        match simultaneous_action_manager.simultaneous_action_count() {
+            0 => TriggeredStackEventResolution::None(simultaneous_action_manager.state),
+            1 => {
+                let event_input = simultaneous_action_manager.event_input;
+                let event_action = simultaneous_action_manager
+                    .actions
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .1;
+                TriggeredStackEventResolution::Action(
+                    simultaneous_action_manager
+                        .state
+                        .stack(EventAction::new(event_input, event_action)),
+                )
+            }
+            _ => TriggeredStackEventResolution::SimultaneousActions(simultaneous_action_manager),
+        }
+    }
 }
-pub struct EventConsume<State, Ev: Event<State>, Listener: EventListener<State, Ev>> {
-    kind: EventConsumeType<
-        State,
-        <Listener::Filter as StateFilter<State, Ev::Input>>::Error,
-        <<Listener::Action as ValidAction<
-            State,
-            <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
-        >>::Filter as StateFilter<
-            State,
-            <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
-        >>::Error,
-        <Listener::Action as ValidAction<
-            State,
-            <Listener::Filter as StateFilter<State, Ev::Input>>::ValidOutput,
-        >>::Output,
-        SimultaneousActionManager<State, Ev, Listener>,
-    >,
-    _m: std::marker::PhantomData<(Ev, Listener)>,
-}
-pub enum EventConsumeType<State, E0, E1, R, ActionManager> {
-    Finished(State),
-    EventFizzle { state: State, error: E0 },
-    ActionFizzle { state: State, error: E1 },
-    Result(R),
-    SimultaneousActions(ActionManager),
-}*/
-pub trait GetEventManager<Ev: Event<Self::State>> {
-    type State;
-    type Output;
-    fn event_manager(&self) -> EventManager<Self::State, Ev, Self::Output>;
-}
-impl<
-    State: GetState<<State as GetEventManager<Ev>>::State> + GetEventManager<Ev>,
-    Ev: Event<<State as GetEventManager<Ev>>::State>,
+pub enum TriggeredStackEventResolution<
+    State: GetStackEventManager<Ev, IncitingAction>,
+    Ev: Event<PriorityMut<PriorityStack<State, IncitingAction>>>,
     IncitingAction: IncitingActionInfo<State>,
-> GetEventManager<Ev> for PriorityStack<State, IncitingAction>
-where
-    <State as GetEventManager<Ev>>::State:
-        GetEventManager<Ev, State = <State as GetEventManager<Ev>>::State>,
+> where
+    EventAction<PriorityStack<State, IncitingAction>, Ev, State::Output>: Into<Ev::Stackable>,
 {
-    type State = <State as GetEventManager<Ev>>::State;
-    type Output = <<State as GetEventManager<Ev>>::State as GetEventManager<Ev>>::Output;
-    fn event_manager(&self) -> EventManager<Self::State, Ev, Self::Output> {
-        self.state().event_manager()
-    }
+    /// No actions were added to the stack.
+    None(PriorityStack<State, IncitingAction>),
+    /// A single action was added to the stack.
+    Action(PriorityStack<State, IncitingAction>),
+    /// Multiple actions need to be added to the stack at once, handle such a case.
+    SimultaneousActions(
+        SimultaneousActionManager<PriorityStack<State, IncitingAction>, Ev, State::Output>,
+    ),
 }
 
-pub trait AddEventListener<State, Ev: Event<State>> {
+pub trait GetEventManager<Ev: Event<PriorityMut<Priority<Self>>>>: Sized {
+    type Output;
+    fn event_manager(&self) -> EventManager<Priority<Self>, Ev, Self::Output>;
+}
+
+pub trait GetStackEventManager<
+    Ev: Event<PriorityMut<PriorityStack<Self, IncitingAction>>>,
+    IncitingAction: IncitingActionInfo<Self>,
+>: Sized
+{
+    type Output;
+    fn stack_event_manager(
+        &self,
+    ) -> EventManager<PriorityStack<Self, IncitingAction>, Ev, Self::Output>;
+}
+
+pub trait AddEventListener<State, Ev: Event<PriorityMut<State>>> {
     type Output;
     fn add_listener<Listener: EventListener<State, Ev>>(&mut self, listener: Listener)
     where
-        <Listener::Action as ValidAction<State, Ev::Input>>::Output: Into<Self::Output>;
+        <Listener::Action as ValidAction<PriorityMut<State>, Ev::Input>>::Output:
+            Into<Self::Output>;
 }
 
 pub trait Event<State>: Clone + 'static {
@@ -1114,15 +762,34 @@ pub trait Event<State>: Clone + 'static {
     type Stackable;
     //fn event_id() -> EventID;
 }
+impl<State, T: Event<State>> Event<Priority<State>> for T {
+    type Input = T::Input;
+    type Stackable = T::Stackable;
+}
+impl<State, T: Event<State>> Event<PriorityMut<Priority<State>>> for T {
+    type Input = T::Input;
+    type Stackable = T::Stackable;
+}
+impl<
+    State,
+    IncitingAction: IncitingActionInfo<State>,
+    T: Event<PriorityStack<State, IncitingAction>>,
+> Event<PriorityMut<PriorityStack<State, IncitingAction>>> for T
+{
+    type Input = T::Input;
+    type Stackable = T::Stackable;
+}
 
-pub trait EventListenerConstructor<State, Ev: Event<State>>: EventListener<State, Ev> {
+pub trait EventListenerConstructor<State, Ev: Event<PriorityMut<State>>>:
+    EventListener<State, Ev>
+{
     type Input;
     fn new_listener(source_card_id: SourceCardID, input: Self::Input) -> Self;
 }
-pub trait EventListener<State, Ev: Event<State>>: Clone + 'static {
+pub trait EventListener<State, Ev: Event<PriorityMut<State>>>: Clone + 'static {
     /// Trigger event ONLY if this filter passes!
     type Filter: StateFilter<State, Self>;
-    type Action: ValidAction<State, Ev::Input>;
+    type Action: ValidAction<PriorityMut<State>, Ev::Input> + Clone;
     /// The action to execute when its event is triggered.
     fn action(
         &self,

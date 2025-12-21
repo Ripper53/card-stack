@@ -20,6 +20,19 @@ where
     }
 }
 
+impl<State, IncitingAction: crate::actions::IncitingActionInfo<State> + Clone> Clone
+    for Stack<State, IncitingAction>
+where
+    IncitingAction::Stackable: Clone,
+{
+    fn clone(&self) -> Self {
+        Stack {
+            inciting_action: self.inciting_action.clone(),
+            stack: self.stack.clone(),
+        }
+    }
+}
+
 impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
     Stack<State, IncitingAction>
 {
