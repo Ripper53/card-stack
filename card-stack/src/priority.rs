@@ -36,11 +36,11 @@ impl<State> Priority<State> {
         PriorityStack::new(self, inciting_action.into())
     }
 }
-/*impl<State: GetState<InnerState>, InnerState> GetState<InnerState> for Priority<State> {
+impl<State: GetState<InnerState>, InnerState> GetState<InnerState> for Priority<State> {
     fn state(&self) -> &InnerState {
         self.state.state()
     }
-}*/
+}
 
 #[derive(Debug)]
 pub struct PriorityMut<Priority> {
