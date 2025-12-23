@@ -22,12 +22,8 @@ pub type EventPriorityStack<State, Ev: Event<PriorityMut<State>>, Output> =
 pub(crate) struct DynEventListener<State, Ev: Event<PriorityMut<State>>, Output> {
     valid_action: Box<dyn AnyClone>,
     filter: for<'a> fn(&'a State, Box<dyn Any>) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
-    get_action: for<'a> fn(
-        Box<dyn Any>,
-        &'a State,
-        &'a Ev,
-        Box<dyn Any>,
-    ) -> DynValidAction<PriorityMut<State>, Ev::Input, Output>,
+    get_action:
+        for<'a> fn(Box<dyn Any>, &'a State, &'a Ev, Box<dyn Any>) -> EventAction<State, Ev, Output>,
 }
 impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<State, Ev, Output> {
     fn new<T: EventListener<State, Ev> + 'static>(valid_action: T) -> Self
@@ -73,15 +69,19 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
                         self.0.with_valid_input(state, valid).into()
                     }
                 }
-                DynValidAction::new(IntoIndirection(
-                    T::action(
-                        valid_action.downcast_ref().unwrap(),
-                        state,
-                        event,
-                        *valid.downcast().unwrap(),
-                    ),
-                    std::marker::PhantomData::default(),
-                ))
+                let (action, event_input) = T::action(
+                    valid_action.downcast_ref().unwrap(),
+                    state,
+                    event,
+                    *valid.downcast().unwrap(),
+                );
+                EventAction::new(
+                    event_input,
+                    DynValidAction::new(IntoIndirection(
+                        action,
+                        std::marker::PhantomData::default(),
+                    )),
+                )
             },
         }
     }
@@ -89,8 +89,7 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
         &self,
         state: &State,
         event: &Ev,
-    ) -> Result<DynValidAction<PriorityMut<State>, Ev::Input, Output>, Box<dyn std::error::Error>>
-    {
+    ) -> Result<EventAction<State, Ev, Output>, Box<dyn std::error::Error>> {
         match (self.filter)(state, self.valid_action.any_clone()) {
             Ok(valid) => Ok((self.get_action)(
                 self.valid_action.any_clone(),
@@ -172,32 +171,30 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
         &self,
         state: &PriorityMut<EventState>,
         event: Ev,
-        event_input: Ev::Input,
     ) -> CollectedActions<EventState, Ev, Output> {
         let actions = self
             .events
             .iter()
             .filter_map(|listener| {
-                if let Ok(action) = listener.get_action(state.priority(), &event)
-                    && action.filter().filter(&state, event_input.clone()).is_ok()
+                if let Ok(event_action) = listener.get_action(state.priority(), &event)
+                    && event_action
+                        .action
+                        .filter()
+                        .filter(&state, event_action.event_input.clone())
+                        .is_ok()
                 {
-                    Some(action)
+                    Some(event_action)
                 } else {
                     None
                 }
             })
             .collect();
-        CollectedActions {
-            event,
-            event_input,
-            actions,
-        }
+        CollectedActions { event, actions }
     }
 }
 struct CollectedActions<State, Ev: Event<PriorityMut<State>>, Output> {
     event: Ev,
-    event_input: Ev::Input,
-    actions: Vec<DynValidAction<PriorityMut<State>, Ev::Input, Output>>,
+    actions: Vec<EventAction<State, Ev, Output>>,
 }
 impl<EventState, Ev: Event<PriorityMut<EventState>>, Output>
     CollectedActions<EventState, Ev, Output>
@@ -212,7 +209,6 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output>
         SimultaneousActionManager {
             state,
             event: self.event,
-            event_input: self.event_input,
             actions: self
                 .actions
                 .into_iter()
@@ -225,18 +221,14 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output>
 pub struct SimultaneousActionManager<State, Ev: Event<PriorityMut<State>>, Output> {
     state: State,
     event: Ev,
-    event_input: Ev::Input,
-    actions: HashMap<SimultaneousActionID, DynValidAction<PriorityMut<State>, Ev::Input, Output>>,
+    actions: HashMap<SimultaneousActionID, EventAction<State, Ev, Output>>,
 }
 impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>>, Output> std::fmt::Debug
     for SimultaneousActionManager<State, Ev, Output>
-where
-    Ev::Input: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SimultaneousActionManager")
             .field("state", &self.state)
-            .field("event_input", &self.event_input)
             .finish_non_exhaustive()
     }
 }
@@ -301,7 +293,6 @@ impl<State: Clone, Ev: Event<PriorityMut<State>>, Output> Clone
         SimultaneousActionManager {
             state: self.state.clone(),
             event: self.event.clone(),
-            event_input: self.event_input.clone(),
             actions: self.actions.clone(),
         }
     }
@@ -398,8 +389,8 @@ where
         let action = self.actions.remove(&inciting_action_id.0).unwrap();
         let mut stack = self
             .state
-            .stack(EventAction::new(self.event_input.clone(), action));
-        TriggeredEvent::<PriorityStack<_, _>, _>::new(stack, self.event, self.event_input).collect()
+            .stack(action);
+        TriggeredEvent::<PriorityStack<_, _>, _>::new(stack, self.event).collect()
     }
 }
 impl<
@@ -435,12 +426,10 @@ where
         }
         let inciting_action_id = order.pop().unwrap();
         let action = self.actions.remove(&inciting_action_id.0).unwrap();
-        let mut stack = self
-            .state
-            .stack(EventAction::new(self.event_input.clone(), action));
+        let mut stack = self.state.stack(action);
         for action_id in order.iter().rev() {
             let action = self.actions.remove(&action_id.0).unwrap();
-            stack = stack.stack(EventAction::new(self.event_input.clone(), action));
+            stack = stack.stack(action);
         }
         Ok(stack)
     }
@@ -581,19 +570,15 @@ where
 pub struct TriggeredEvent<State, Ev: Event<PriorityMut<State>>> {
     state: State,
     event: Ev,
-    input: Ev::Input,
 }
 
 impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>> + std::fmt::Debug> std::fmt::Debug
     for TriggeredEvent<State, Ev>
-where
-    Ev::Input: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TriggeredEvent")
             .field("state", &self.state)
             .field("event", &self.event)
-            .field("input", &self.input)
             .finish()
     }
 }
@@ -605,9 +590,6 @@ impl<State, Ev: Event<PriorityMut<State>>> TriggeredEvent<State, Ev> {
     pub fn event(&self) -> &Ev {
         &self.event
     }
-    pub fn event_input(&self) -> &Ev::Input {
-        &self.input
-    }
 }
 impl<State: GetEventManager<Ev> + 'static, Ev: Event<PriorityMut<Priority<State>>>>
     TriggeredEvent<Priority<State>, Ev>
@@ -615,24 +597,19 @@ impl<State: GetEventManager<Ev> + 'static, Ev: Event<PriorityMut<Priority<State>
 //EventAction<Priority<State>, Ev, State::Output>:
 //Into<<Ev as Event<PriorityMut<Priority<State>>>>::Stackable>,
 {
-    pub fn new(state: Priority<State>, event: Ev, input: Ev::Input) -> Self {
-        TriggeredEvent {
-            state,
-            event,
-            input,
-        }
+    pub fn new(state: Priority<State>, event: Ev) -> Self {
+        TriggeredEvent { state, event }
     }
     pub fn collect(self) -> TriggeredEventResolution<State, Ev> {
         let event_manager = self.state.state().event_manager();
         // TODO: I don't like the fact that we are instantiating a priority mut!
         let priority_mut = PriorityMut::<Priority<_>>::new(self.state);
         let mut simultaneous_action_manager = event_manager
-            .collect_actions(&priority_mut, self.event, self.input)
+            .collect_actions(&priority_mut, self.event)
             .simultaneous_action_manager(priority_mut.take_priority());
         match simultaneous_action_manager.simultaneous_action_count() {
             0 => TriggeredEventResolution::None(simultaneous_action_manager.state.take_state()),
             1 => {
-                let event_input = simultaneous_action_manager.event_input;
                 let event_action = simultaneous_action_manager
                     .actions
                     .into_iter()
@@ -640,9 +617,7 @@ impl<State: GetEventManager<Ev> + 'static, Ev: Event<PriorityMut<Priority<State>
                     .unwrap()
                     .1;
                 TriggeredEventResolution::Action(
-                    simultaneous_action_manager
-                        .state
-                        .stack(EventAction::new(event_input, event_action)),
+                    simultaneous_action_manager.state.stack(event_action),
                 )
             }
             _ => TriggeredEventResolution::SimultaneousActions(simultaneous_action_manager),
@@ -674,16 +649,8 @@ where
     EventAction<PriorityStack<State, IncitingAction>, Ev, State::Output>:
         Into<<Ev as Event<PriorityStack<State, IncitingAction>>>::Stackable>,
 {
-    pub fn new(
-        state: PriorityStack<State, IncitingAction>,
-        event: Ev,
-        input: <Ev as Event<PriorityStack<State, IncitingAction>>>::Input,
-    ) -> Self {
-        TriggeredEvent {
-            state,
-            event,
-            input,
-        }
+    pub fn new(state: PriorityStack<State, IncitingAction>, event: Ev) -> Self {
+        TriggeredEvent { state, event }
     }
     pub fn collect(self) -> TriggeredStackEventResolution<State, Ev, IncitingAction>
     where
@@ -694,12 +661,11 @@ where
         // TODO: I don't like the fact that we are instantiating a priority mut!
         let priority_mut = PriorityMut::<PriorityStack<_, _>>::new(self.state);
         let mut simultaneous_action_manager = event_manager
-            .collect_actions(&priority_mut, self.event, self.input)
+            .collect_actions(&priority_mut, self.event)
             .simultaneous_action_manager(priority_mut.take_priority());
         match simultaneous_action_manager.simultaneous_action_count() {
             0 => TriggeredStackEventResolution::None(simultaneous_action_manager.state),
             1 => {
-                let event_input = simultaneous_action_manager.event_input;
                 let event_action = simultaneous_action_manager
                     .actions
                     .into_iter()
@@ -707,9 +673,7 @@ where
                     .unwrap()
                     .1;
                 TriggeredStackEventResolution::Action(
-                    simultaneous_action_manager
-                        .state
-                        .stack(EventAction::new(event_input, event_action)),
+                    simultaneous_action_manager.state.stack(event_action),
                 )
             }
             _ => TriggeredStackEventResolution::SimultaneousActions(simultaneous_action_manager),
@@ -796,7 +760,7 @@ pub trait EventListener<State, Ev: Event<PriorityMut<State>>>: Clone + 'static {
         state: &State,
         event: &Ev,
         value: <Self::Filter as StateFilter<State, Self>>::ValidOutput,
-    ) -> Self::Action;
+    ) -> (Self::Action, Ev::Input);
 }
 
 #[cfg(test)]
