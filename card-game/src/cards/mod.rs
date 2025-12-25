@@ -70,6 +70,7 @@ impl std::fmt::Display for CardID {
 pub struct CardBuilder<'a, EventManager> {
     card_actions: &'a mut CardActions,
     event_manager: &'a mut EventManager,
+    card_event_tracker: &'a mut CardEventTracker<EventManager>,
     next_id: &'a mut usize,
 }
 
@@ -77,11 +78,13 @@ impl<'a, EventManager> CardBuilder<'a, EventManager> {
     pub(crate) fn new(
         card_actions: &'a mut CardActions,
         event_manager: &'a mut EventManager,
+        card_event_tracker: &'a mut CardEventTracker<EventManager>,
         next_id: &'a mut usize,
     ) -> Self {
         CardBuilder {
             card_actions,
             event_manager,
+            card_event_tracker,
             next_id,
         }
     }
@@ -91,6 +94,7 @@ impl<'a, EventManager> CardBuilder<'a, EventManager> {
         CardKindBuilder {
             card_actions: self.card_actions,
             event_manager: self.event_manager,
+            card_event_tracker: self.card_event_tracker,
             card: Card::new(id, kind),
         }
     }
@@ -99,6 +103,7 @@ impl<'a, EventManager> CardBuilder<'a, EventManager> {
 pub struct CardKindBuilder<'a, EventManager, Kind> {
     card_actions: &'a mut CardActions,
     event_manager: &'a mut EventManager,
+    card_event_tracker: &'a mut CardEventTracker<EventManager>,
     card: Card<Kind>,
 }
 
@@ -149,30 +154,16 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
             Listener::ActionInput,
         >>::Output: Into<EventManager::Output>,
     {
-        self.event_manager.add_listener(Listener::new_listener(
-            SourceCardID(self.card.id()),
-            listener_input,
-        ));
+        let event_listener = Listener::new_listener(SourceCardID(self.card.id()), listener_input);
+        self.card_event_tracker
+            .track_event(self.card.id(), event_listener.clone());
+        self.event_manager.add_listener(event_listener);
         self
     }
-    /*pub fn with_event<
-        State,
-        Ev: Event<State>,
-        Listener: EventListener<State, Ev> + EventListenerConstructor<State, Ev>,
-    >(
-        self,
-        input: Listener::Input,
-    ) -> Self
-    where
-        EventManager: GetEventManagerMut<State, Ev, Listener>,
-    {
-        self.event_manager
-            .event_manager_mut()
-            .add_listener(Listener::new_listener(SourceCardID(self.card.id()), input));
-        self
-    }*/
     pub fn copy_events(self, card_id: CardID) -> Self {
-        todo!()
+        self.card_event_tracker
+            .copy_events(self.event_manager, self.card.id(), card_id);
+        self
     }
     pub fn finish(self) -> Card<Kind> {
         self.card

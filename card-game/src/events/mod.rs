@@ -83,12 +83,17 @@ impl<State, Ev: Event<PriorityMut<State>>, Output> Clone for DynEventListener<St
         }
     }
 }
-trait AnyClone: Any {
+pub(crate) trait AnyClone: Any {
     fn any_clone(&self) -> Box<dyn AnyClone>;
 }
 impl<T: Clone + 'static> AnyClone for T {
     fn any_clone(&self) -> Box<dyn AnyClone> {
         Box::new(self.clone())
+    }
+}
+impl Clone for Box<dyn AnyClone> {
+    fn clone(&self) -> Self {
+        self.any_clone()
     }
 }
 
