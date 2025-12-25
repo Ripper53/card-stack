@@ -10,8 +10,8 @@ use card_stack::{
     priority::{GetState, IncitingResolver, Priority, PriorityMut, PriorityStack},
 };
 use state_validation::{
-    StateFilter, ValidAction,
-    dynamic::{DynStateFilter, DynValidAction},
+    Condition, StateFilter, ValidAction,
+    dynamic::{DynStateFilter, DynValidAction, DynValidActionExecutionError},
 };
 
 pub struct EventManager<State: 'static, Ev: Event<PriorityMut<State>>, Output> {
@@ -29,16 +29,17 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
     fn new<T: EventListener<State, Ev> + 'static>(valid_action: T) -> Self
     where
         T::Action: 'static,
+        T::ActionInput: 'static,
         <T::Filter as StateFilter<State, T>>::ValidOutput: 'static,
         <T::Filter as StateFilter<State, T>>::Error: 'static,
-        <T::Action as ValidAction<PriorityMut<State>, Ev::Input>>::Output: Into<Output>,
-        <<T::Action as ValidAction<PriorityMut<State>, Ev::Input>>::Filter as StateFilter<
+        <T::Action as ValidAction<PriorityMut<State>, T::ActionInput>>::Output: Into<Output>,
+        <<T::Action as ValidAction<PriorityMut<State>, T::ActionInput>>::Filter as StateFilter<
             PriorityMut<State>,
-            Ev::Input,
+            T::ActionInput,
         >>::ValidOutput: 'static,
-        <<T::Action as ValidAction<PriorityMut<State>, Ev::Input>>::Filter as StateFilter<
+        <<T::Action as ValidAction<PriorityMut<State>, T::ActionInput>>::Filter as StateFilter<
             PriorityMut<State>,
-            Ev::Input,
+            T::ActionInput,
         >>::Error: 'static,
     {
         DynEventListener {
@@ -48,39 +49,11 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
                 Err(e) => Err(Box::new(e)),
             },
             get_action: |valid_action, state, event, valid| {
-                struct IntoIndirection<T, Output>(T, std::marker::PhantomData<Output>);
-                impl<T: Clone, Output> Clone for IntoIndirection<T, Output> {
-                    fn clone(&self) -> Self {
-                        IntoIndirection(self.0.clone(), std::marker::PhantomData::default())
-                    }
-                }
-                impl<State, Input, T: ValidAction<State, Input>, Output> ValidAction<State, Input>
-                    for IntoIndirection<T, Output>
-                where
-                    T::Output: Into<Output>,
-                {
-                    type Filter = T::Filter;
-                    type Output = Output;
-                    fn with_valid_input(
-                        self,
-                        state: State,
-                        valid: <Self::Filter as StateFilter<State, Input>>::ValidOutput,
-                    ) -> Self::Output {
-                        self.0.with_valid_input(state, valid).into()
-                    }
-                }
-                let (action, event_input) = T::action(
-                    valid_action.downcast_ref().unwrap(),
+                EventAction::new::<T>(
                     state,
+                    valid_action.downcast_ref().unwrap(),
                     event,
                     *valid.downcast().unwrap(),
-                );
-                EventAction::new(
-                    event_input,
-                    DynValidAction::new(IntoIndirection(
-                        action,
-                        std::marker::PhantomData::default(),
-                    )),
                 )
             },
         }
@@ -158,7 +131,8 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
     }
     pub fn add_listener<Listener: EventListener<EventState, Ev>>(&mut self, listener: Listener)
     where
-        <Listener::Action as ValidAction<PriorityMut<EventState>, Ev::Input>>::Output: Into<Output>,
+        <Listener::Action as ValidAction<PriorityMut<EventState>, Listener::ActionInput>>::Output:
+            Into<Output>,
     {
         let listener = DynEventListener::new(listener);
         self.events.push(listener);
@@ -180,7 +154,7 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
                     && event_action
                         .action
                         .filter()
-                        .filter(&state, event_action.event_input.clone())
+                        .filter(&state, event_action.event_input.any_clone())
                         .is_ok()
                 {
                     Some(event_action)
@@ -238,8 +212,6 @@ pub struct SingleAction<State, Ev: Event<PriorityMut<State>>, Output> {
 }
 impl<State, Ev: Event<PriorityMut<Priority<State>>>, Output>
     SingleAction<Priority<State>, Ev, Output>
-where
-    Ev::Input: 'static,
 {
     pub fn resolve(self) -> PriorityStack<State, EventAction<Priority<State>, Ev, Output>>
     where
@@ -366,17 +338,14 @@ impl<
     Ev: Event<PriorityMut<Priority<State>>>
         + Event<
             PriorityStack<State, EventAction<Priority<State>, Ev, Output>>,
-            Input = <Ev as Event<PriorityMut<Priority<State>>>>::Input,
             Stackable = <EventAction<Priority<State>, Ev, Output> as IncitingActionInfo<State>>::Stackable,
         > + Event<
             PriorityMut<PriorityStack<State, EventAction<Priority<State>, Ev, Output>>>,
-            Input = <Ev as Event<PriorityMut<Priority<State>>>>::Input,
             Stackable = <EventAction<Priority<State>, Ev, Output> as IncitingActionInfo<State>>::Stackable,
         >,
     Output: 'static,
 > SimultaneousActionManager<Priority<State>, Ev, Output>
 where
-    <Ev as Event<PriorityMut<Priority<State>>>>::Input: 'static,
     EventAction<PriorityStack<State, EventAction<Priority<State>, Ev, Output>>, Ev, State::Output>:
         Into<
             <EventAction<Priority<State>, Ev, Output> as IncitingActionInfo<State>>::Stackable,
@@ -400,7 +369,6 @@ impl<
     Output,
 > SimultaneousActionManager<PriorityStack<State, IncitingAction>, Ev, Output>
 where
-    Ev::Input: 'static,
     EventAction<PriorityStack<State, IncitingAction>, Ev, Output>: Into<IncitingAction::Stackable>,
 {
     /// Resolves in order.
@@ -435,18 +403,15 @@ where
     }
 }
 pub struct EventAction<EventState, Ev: Event<PriorityMut<EventState>>, Output> {
-    event_input: Ev::Input,
-    action: DynValidAction<PriorityMut<EventState>, Ev::Input, Output>,
+    event_input: Box<dyn AnyClone>,
+    action: DynValidAction<PriorityMut<EventState>, Box<dyn Any>, Output>,
+    _m: std::marker::PhantomData<Ev>,
 }
 impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> std::fmt::Debug
     for EventAction<EventState, Ev, Output>
-where
-    Ev::Input: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("EventAction")
-            .field("event_input", &self.event_input)
-            .finish_non_exhaustive()
+        f.debug_struct("EventAction").finish_non_exhaustive()
     }
 }
 impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> Clone
@@ -454,26 +419,81 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> Clone
 {
     fn clone(&self) -> Self {
         EventAction {
-            event_input: self.event_input.clone(),
+            event_input: self.event_input.any_clone(),
             action: self.action.clone(),
+            _m: std::marker::PhantomData::default(),
         }
     }
 }
-impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> EventAction<EventState, Ev, Output> {
-    fn new(
-        event_input: Ev::Input,
-        action: DynValidAction<PriorityMut<EventState>, Ev::Input, Output>,
-    ) -> Self {
+impl<EventState, Ev: Event<PriorityMut<EventState>>, Output: 'static>
+    EventAction<EventState, Ev, Output>
+{
+    fn new<T: EventListener<EventState, Ev>>(
+        state: &EventState,
+        event_listener: &T,
+        event: &Ev,
+        valid: <T::Filter as StateFilter<EventState, T>>::ValidOutput,
+    ) -> Self
+    where
+        T::Action: 'static,
+        T::ActionInput: 'static,
+        <T::Filter as StateFilter<EventState, T>>::ValidOutput: 'static,
+        <T::Filter as StateFilter<EventState, T>>::Error: 'static,
+        <T::Action as ValidAction<PriorityMut<EventState>, T::ActionInput>>::Output: Into<Output>,
+        <<T::Action as ValidAction<PriorityMut<EventState>, T::ActionInput>>::Filter as StateFilter<
+            PriorityMut<EventState>,
+            T::ActionInput,
+        >>::ValidOutput: 'static,
+        <<T::Action as ValidAction<PriorityMut<EventState>, T::ActionInput>>::Filter as StateFilter<
+            PriorityMut<EventState>,
+            T::ActionInput,
+        >>::Error: 'static,
+    {
+        struct IntoIndirection<T, Input, Output>(T, std::marker::PhantomData<(Input, Output)>);
+        impl<T: Clone, Input, Output> Clone for IntoIndirection<T, Input, Output> {
+            fn clone(&self) -> Self {
+                IntoIndirection(self.0.clone(), std::marker::PhantomData::default())
+            }
+        }
+        struct AnyCastFilter<T>(std::marker::PhantomData<T>);
+        impl<State, T: 'static> StateFilter<State, Box<dyn Any>> for AnyCastFilter<T> {
+            type ValidOutput = T;
+            type Error = std::convert::Infallible;
+            fn filter(_: &State, value: Box<dyn Any>) -> Result<Self::ValidOutput, Self::Error> {
+                Ok(*value.downcast().unwrap())
+            }
+        }
+        impl<State, Input: 'static, T: ValidAction<State, Input>, Output>
+            ValidAction<State, Box<dyn Any>> for IntoIndirection<T, Input, Output>
+        where
+            T::Output: Into<Output>,
+        {
+            type Filter = (
+                Condition<Box<dyn Any>, AnyCastFilter<Input>>,
+                Condition<Input, T::Filter>,
+            );
+            type Output = Output;
+            fn with_valid_input(
+                self,
+                state: State,
+                valid: <Self::Filter as StateFilter<State, Box<dyn Any>>>::ValidOutput,
+            ) -> Self::Output {
+                self.0.with_valid_input(state, valid).into()
+            }
+        }
+        let (action, event_input) = T::action(event_listener, state, event, valid);
         EventAction {
-            event_input,
-            action,
+            event_input: Box::new(event_input),
+            action: DynValidAction::new(IntoIndirection(
+                action,
+                std::marker::PhantomData::default(),
+            )),
+            _m: std::marker::PhantomData::default(),
         }
     }
 }
 impl<EventState, Ev: Event<PriorityMut<Priority<EventState>>>, Output>
     IncitingAction<EventState, ()> for EventAction<Priority<EventState>, Ev, Output>
-where
-    Ev::Input: 'static,
 {
     type Requirement = ();
     fn resolve(
@@ -516,8 +536,6 @@ impl<
     Ev: Event<PriorityMut<PriorityStack<EventState, T>>>,
     Output,
 > StackAction<EventState, (), T> for EventAction<PriorityStack<EventState, T>, Ev, Output>
-where
-    Ev::Input: 'static,
 {
     type Requirement = ();
     type Resolved = EventActionResolution<PriorityMut<PriorityStack<EventState, T>>, Output>;
@@ -554,8 +572,6 @@ pub enum ResolveSimultaneousActionsError<State, Ev: Event<PriorityMut<State>>, O
 }
 impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>>, Output> std::fmt::Debug
     for ResolveSimultaneousActionsError<State, Ev, Output>
-where
-    Ev::Input: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -640,7 +656,6 @@ impl<
     Ev: Event<PriorityStack<State, IncitingAction>>
         + Event<
             PriorityMut<PriorityStack<State, IncitingAction>>,
-            Input = <Ev as Event<PriorityStack<State, IncitingAction>>>::Input,
             Stackable = <Ev as Event<PriorityStack<State, IncitingAction>>>::Stackable,
         >,
     IncitingAction: IncitingActionInfo<State> + 'static,
@@ -717,21 +732,18 @@ pub trait AddEventListener<State, Ev: Event<PriorityMut<State>>> {
     type Output;
     fn add_listener<Listener: EventListener<State, Ev>>(&mut self, listener: Listener)
     where
-        <Listener::Action as ValidAction<PriorityMut<State>, Ev::Input>>::Output:
+        <Listener::Action as ValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
             Into<Self::Output>;
 }
 
 pub trait Event<State>: Clone + 'static {
-    type Input: Clone;
     type Stackable;
     //fn event_id() -> EventID;
 }
 impl<State, T: Event<State>> Event<Priority<State>> for T {
-    type Input = T::Input;
     type Stackable = T::Stackable;
 }
 impl<State, T: Event<State>> Event<PriorityMut<Priority<State>>> for T {
-    type Input = T::Input;
     type Stackable = T::Stackable;
 }
 impl<
@@ -740,7 +752,6 @@ impl<
     T: Event<PriorityStack<State, IncitingAction>>,
 > Event<PriorityMut<PriorityStack<State, IncitingAction>>> for T
 {
-    type Input = T::Input;
     type Stackable = T::Stackable;
 }
 
@@ -753,14 +764,15 @@ pub trait EventListenerConstructor<State, Ev: Event<PriorityMut<State>>>:
 pub trait EventListener<State, Ev: Event<PriorityMut<State>>>: Clone + 'static {
     /// Trigger event ONLY if this filter passes!
     type Filter: StateFilter<State, Self>;
-    type Action: ValidAction<PriorityMut<State>, Ev::Input> + Clone;
-    /// The action to execute when its event is triggered.
+    type Action: ValidAction<PriorityMut<State>, Self::ActionInput> + Clone;
+    type ActionInput: Clone;
+    /// The action to execute when its event is triggered, along with its input.
     fn action(
         &self,
         state: &State,
         event: &Ev,
         value: <Self::Filter as StateFilter<State, Self>>::ValidOutput,
-    ) -> (Self::Action, Ev::Input);
+    ) -> (Self::Action, Self::ActionInput);
 }
 
 #[cfg(test)]

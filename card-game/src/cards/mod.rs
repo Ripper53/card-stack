@@ -108,6 +108,9 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
             .insert_action(Action::action_id(), self.card.id());
         self
     }
+    pub fn copy_actions(self, card_id: CardID) -> Self {
+        todo!()
+    }
     pub fn with_event<
         State: 'static,
         Ev: Event<PriorityMut<State>>,
@@ -127,23 +130,23 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
         >>::Error: 'static,
         <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
             PriorityMut<State>,
-            Ev::Input,
+            Listener::ActionInput,
         >>::Filter as StateFilter<
             PriorityMut<State>,
-            Ev::Input,
+            Listener::ActionInput,
         >>::ValidOutput: 'static,
         <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
             PriorityMut<State>,
-            Ev::Input,
+            Listener::ActionInput,
         >>::Filter as StateFilter<
             PriorityMut<State>,
-            Ev::Input,
+            Listener::ActionInput,
         >>::Error: 'static,
         EventManager: AddEventListener<State, Ev>,
         EventManager::Output: 'static,
         <Listener::Action as ValidAction<
             PriorityMut< State>,
-            Ev::Input,
+            Listener::ActionInput,
         >>::Output: Into<EventManager::Output>,
     {
         self.event_manager.add_listener(Listener::new_listener(
@@ -168,6 +171,9 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
             .add_listener(Listener::new_listener(SourceCardID(self.card.id()), input));
         self
     }*/
+    pub fn copy_events(self, card_id: CardID) -> Self {
+        todo!()
+    }
     pub fn finish(self) -> Card<Kind> {
         self.card
     }
