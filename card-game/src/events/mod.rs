@@ -91,8 +91,8 @@ impl<T: Clone + 'static> AnyClone for T {
         Box::new(self.clone())
     }
 }
-impl Clone for Box<dyn AnyClone> {
-    fn clone(&self) -> Self {
+impl dyn AnyClone {
+    pub(crate) fn any_clone_duplication(&self) -> Box<dyn AnyClone> {
         self.any_clone()
     }
 }
@@ -146,7 +146,7 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
 impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
     EventManager<EventState, Ev, Output>
 {
-    pub(crate) fn collect_actions(
+    fn collect_actions(
         &self,
         state: &PriorityMut<EventState>,
         event: Ev,
@@ -625,7 +625,7 @@ impl<State: GetEventManager<Ev> + 'static, Ev: Event<PriorityMut<Priority<State>
         let event_manager = self.state.state().event_manager();
         // TODO: I don't like the fact that we are instantiating a priority mut!
         let priority_mut = PriorityMut::<Priority<_>>::new(self.state);
-        let mut simultaneous_action_manager = event_manager
+        let simultaneous_action_manager = event_manager
             .collect_actions(&priority_mut, self.event)
             .simultaneous_action_manager(priority_mut.take_priority());
         match simultaneous_action_manager.simultaneous_action_count() {

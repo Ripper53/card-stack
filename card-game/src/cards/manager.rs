@@ -8,8 +8,11 @@ use state_validation::ValidAction;
 
 use crate::{
     cards::{CardBuilder, CardID},
-    events::{AddEventListener, AnyClone, DynEventListener, Event, EventListener},
-    identifications::ActionID,
+    events::{
+        AddEventListener, AnyClone, DynEventListener, Event, EventListener,
+        EventListenerConstructor,
+    },
+    identifications::{ActionID, SourceCardID},
 };
 
 #[derive(Debug, Clone)]
@@ -86,7 +89,7 @@ pub(crate) struct CardEventTracker<EventManager> {
         CardID,
         Vec<(
             Box<dyn AnyClone>,
-            for<'a> fn(&'a mut EventManager, Box<dyn Any>),
+            for<'a> fn(&'a mut EventManager, CardID, Box<dyn Any>),
         )>,
     >,
 }
@@ -101,7 +104,7 @@ impl<EventManager> Clone for CardEventTracker<EventManager> {
         for (card_id, event) in self.events.iter().map(|(card_id, events)| {
             let events = events
                 .iter()
-                .map(|(input, add_fn)| (input.any_clone(), *add_fn))
+                .map(|(input, add_fn)| (input.any_clone_duplication(), *add_fn))
                 .collect::<Vec<_>>();
             (*card_id, events)
         }) {
@@ -112,22 +115,31 @@ impl<EventManager> Clone for CardEventTracker<EventManager> {
 }
 
 impl<EventManager> CardEventTracker<EventManager> {
-    pub fn track_event<State, Ev: Event<PriorityMut<State>>, Listener: EventListener<State, Ev>>(
+    pub fn track_event<
+        State,
+        Ev: Event<PriorityMut<State>>,
+        Listener: EventListenerConstructor<State, Ev>,
+    >(
         &mut self,
         card_id: CardID,
-        listener: Listener,
+        listener_input: Listener::Input,
     ) where
         EventManager: AddEventListener<State, Ev>,
+        Listener::Input: Clone + 'static,
         <Listener::Action as ValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
             Into<EventManager::Output>,
     {
         let value: (
             Box<dyn AnyClone>,
-            for<'a> fn(&'a mut EventManager, Box<dyn Any>),
+            for<'a> fn(&'a mut EventManager, CardID, Box<dyn Any>),
         ) = (
-            Box::new(listener),
-            |event_manager: &mut EventManager, listener: Box<dyn Any>| {
-                event_manager.add_listener(*listener.downcast::<Listener>().unwrap())
+            Box::new(listener_input),
+            |event_manager: &mut EventManager, card_id: CardID, listener_input: Box<dyn Any>| {
+                let listener = Listener::new_listener(
+                    SourceCardID(card_id),
+                    *listener_input.downcast::<Listener::Input>().unwrap(),
+                );
+                event_manager.add_listener(listener)
             },
         );
         match self.events.entry(card_id) {
@@ -144,8 +156,12 @@ impl<EventManager> CardEventTracker<EventManager> {
         to_copy_card_id: CardID,
     ) {
         if let Some(events) = self.events.get(&to_copy_card_id) {
-            for (listener, add_event) in events {
-                add_event(event_manager, listener.any_clone());
+            for (listener_input, add_event) in events {
+                add_event(
+                    event_manager,
+                    card_id,
+                    listener_input.any_clone_duplication(),
+                );
             }
         }
     }

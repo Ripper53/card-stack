@@ -119,12 +119,13 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
     pub fn with_event<
         State: 'static,
         Ev: Event<PriorityMut<State>>,
-        Listener: EventListener<State, Ev> + EventListenerConstructor<State, Ev>,
+        Listener: EventListenerConstructor<State, Ev>,
     >(
         self,
         listener_input: Listener::Input,
     ) -> Self
     where
+        Listener::Input: Clone,
         <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
             State,
             Listener,
@@ -154,9 +155,10 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
             Listener::ActionInput,
         >>::Output: Into<EventManager::Output>,
     {
-        let event_listener = Listener::new_listener(SourceCardID(self.card.id()), listener_input);
+        let card_id = self.card.id();
+        let event_listener = Listener::new_listener(SourceCardID(card_id), listener_input.clone());
         self.card_event_tracker
-            .track_event(self.card.id(), event_listener.clone());
+            .track_event::<_, _, Listener>(card_id, listener_input);
         self.event_manager.add_listener(event_listener);
         self
     }
