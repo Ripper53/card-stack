@@ -10,17 +10,18 @@ use card_stack::{
     priority::{GetState, IncitingResolver, Priority, PriorityMut, PriorityStack},
 };
 use state_validation::{
-    Condition, StateFilter, ValidAction,
+    Condition, StateFilter, StateFilterConversion, ValidAction,
     dynamic::{DynStateFilter, DynValidAction, DynValidActionExecutionError},
 };
 
 pub struct EventManager<State: 'static, Ev: Event<PriorityMut<State>>, Output> {
     events: Vec<DynEventListener<State, Ev, Output>>,
 }
-pub type EventPriorityStack<State, Ev: Event<PriorityMut<State>>, Output> =
-    PriorityStack<State, EventAction<Priority<State>, Ev, Output>>;
+pub type EventPriorityStack<State, Ev: Event<PriorityMut<State>>, IncitingOutput> =
+    PriorityStack<State, EventAction<Priority<State>, Ev, IncitingOutput>>;
 pub(crate) struct DynEventListener<State, Ev: Event<PriorityMut<State>>, Output> {
     valid_action: Box<dyn AnyClone>,
+    filter_input: for<'a> fn(&'a dyn Any, &'a Ev) -> Box<dyn Any>,
     filter: for<'a> fn(&'a State, Box<dyn Any>) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
     get_action:
         for<'a> fn(Box<dyn Any>, &'a State, &'a Ev, Box<dyn Any>) -> EventAction<State, Ev, Output>,
@@ -28,10 +29,11 @@ pub(crate) struct DynEventListener<State, Ev: Event<PriorityMut<State>>, Output>
 impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<State, Ev, Output> {
     fn new<T: EventListener<State, Ev> + 'static>(valid_action: T) -> Self
     where
+        T::FilterInput: 'static,
         T::Action: 'static,
         T::ActionInput: 'static,
-        <T::Filter as StateFilter<State, T>>::ValidOutput: 'static,
-        <T::Filter as StateFilter<State, T>>::Error: 'static,
+        <T::Filter as StateFilter<State, T::FilterInput>>::ValidOutput: 'static,
+        <T::Filter as StateFilter<State, T::FilterInput>>::Error: 'static,
         <T::Action as ValidAction<PriorityMut<State>, T::ActionInput>>::Output: Into<Output>,
         <<T::Action as ValidAction<PriorityMut<State>, T::ActionInput>>::Filter as StateFilter<
             PriorityMut<State>,
@@ -44,6 +46,14 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
     {
         DynEventListener {
             valid_action: Box::new(valid_action),
+            filter_input: |valid_action, event| {
+                Box::new(
+                    valid_action
+                        .downcast_ref::<T>()
+                        .unwrap()
+                        .filter_input(event),
+                )
+            },
             filter: |state, input| match <T::Filter>::filter(state, *input.downcast().unwrap()) {
                 Ok(v) => Ok(Box::new(v)),
                 Err(e) => Err(Box::new(e)),
@@ -63,9 +73,10 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
         state: &State,
         event: &Ev,
     ) -> Result<EventAction<State, Ev, Output>, Box<dyn std::error::Error>> {
-        match (self.filter)(state, self.valid_action.any_clone()) {
+        let filter_input = (self.filter_input)(&*self.valid_action, event);
+        match (self.filter)(state, filter_input) {
             Ok(valid) => Ok((self.get_action)(
-                self.valid_action.any_clone(),
+                (*self.valid_action).any_clone(),
                 state,
                 event,
                 valid,
@@ -77,7 +88,8 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
 impl<State, Ev: Event<PriorityMut<State>>, Output> Clone for DynEventListener<State, Ev, Output> {
     fn clone(&self) -> Self {
         DynEventListener {
-            valid_action: self.valid_action.any_clone(),
+            valid_action: (*self.valid_action).any_clone(),
+            filter_input: self.filter_input,
             filter: self.filter,
             get_action: self.get_action,
         }
@@ -159,7 +171,7 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
                     && event_action
                         .action
                         .filter()
-                        .filter(&state, event_action.event_input.any_clone())
+                        .filter(&state, (*event_action.event_input).any_clone())
                         .is_ok()
                 {
                     Some(event_action)
@@ -424,7 +436,7 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> Clone
 {
     fn clone(&self) -> Self {
         EventAction {
-            event_input: self.event_input.any_clone(),
+            event_input: (*self.event_input).any_clone(),
             action: self.action.clone(),
             _m: std::marker::PhantomData::default(),
         }
@@ -437,13 +449,13 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output: 'static>
         state: &EventState,
         event_listener: &T,
         event: &Ev,
-        valid: <T::Filter as StateFilter<EventState, T>>::ValidOutput,
+        valid: <T::Filter as StateFilter<EventState, T::FilterInput>>::ValidOutput,
     ) -> Self
     where
         T::Action: 'static,
         T::ActionInput: 'static,
-        <T::Filter as StateFilter<EventState, T>>::ValidOutput: 'static,
-        <T::Filter as StateFilter<EventState, T>>::Error: 'static,
+        <T::Filter as StateFilter<EventState, T::FilterInput>>::ValidOutput: 'static,
+        <T::Filter as StateFilter<EventState, T::FilterInput>>::Error: 'static,
         <T::Action as ValidAction<PriorityMut<EventState>, T::ActionInput>>::Output: Into<Output>,
         <<T::Action as ValidAction<PriorityMut<EventState>, T::ActionInput>>::Filter as StateFilter<
             PriorityMut<EventState>,
@@ -588,6 +600,7 @@ impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>>, Output> std::fmt::De
     }
 }
 
+#[derive(Clone)]
 pub struct TriggeredEvent<State, Ev: Event<PriorityMut<State>>> {
     state: State,
     event: Ev,
@@ -768,7 +781,10 @@ pub trait EventListenerConstructor<State, Ev: Event<PriorityMut<State>>>:
 }
 pub trait EventListener<State, Ev: Event<PriorityMut<State>>>: Clone + 'static {
     /// Trigger event ONLY if this filter passes!
-    type Filter: StateFilter<State, Self>;
+    type Filter: StateFilter<State, Self::FilterInput>;
+    type FilterInput;
+    fn filter_input(&self, event: &Ev) -> Self::FilterInput;
+
     type Action: ValidAction<PriorityMut<State>, Self::ActionInput> + Clone;
     type ActionInput: Clone;
     /// The action to execute when its event is triggered, along with its input.
@@ -776,7 +792,7 @@ pub trait EventListener<State, Ev: Event<PriorityMut<State>>>: Clone + 'static {
         &self,
         state: &State,
         event: &Ev,
-        value: <Self::Filter as StateFilter<State, Self>>::ValidOutput,
+        value: <Self::Filter as StateFilter<State, Self::FilterInput>>::ValidOutput,
     ) -> (Self::Action, Self::ActionInput);
 }
 

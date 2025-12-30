@@ -136,7 +136,7 @@ pub trait ArrayZone: Zone {
 pub struct ZoneFullError(CardID);
 
 impl ZoneFullError {
-    pub(crate) fn new(card_id: CardID) -> Self {
+    pub fn new(card_id: CardID) -> Self {
         ZoneFullError(card_id)
     }
     pub fn card_id(self) -> CardID {

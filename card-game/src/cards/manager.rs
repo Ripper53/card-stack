@@ -29,6 +29,7 @@ impl<EventManager> CardManager<EventManager> {
             next_card_id_index: 0,
             card_actions: CardActions {
                 card_actions: HashMap::new(),
+                card_actions_tracker: HashMap::new(),
             },
             event_manager,
             event_tracker: CardEventTracker {
@@ -60,6 +61,7 @@ impl<EventManager> GetState<CardActions> for CardManager<EventManager> {
 #[derive(Debug, Clone)]
 pub struct CardActions {
     card_actions: HashMap<ActionID, HashSet<CardID>>,
+    card_actions_tracker: HashMap<CardID, Vec<ActionID>>,
 }
 
 impl CardActions {
@@ -74,11 +76,29 @@ impl CardActions {
         match self.card_actions.entry(action_id) {
             Entry::Occupied(o) => {
                 let _ = o.into_mut().insert(card_id);
+                self.card_actions_tracker
+                    .get_mut(&card_id)
+                    .unwrap()
+                    .push(action_id);
             }
             Entry::Vacant(v) => {
                 let mut set = HashSet::with_capacity(1);
                 let _ = set.insert(card_id);
                 let _ = v.insert(set);
+                self.card_actions_tracker
+                    .insert(card_id, vec![action_id])
+                    .unwrap();
+            }
+        }
+    }
+    pub fn copy_actions(&mut self, card_id: CardID, to_copy_card_id: CardID) {
+        if let Some(actions) = self.card_actions_tracker.get(&to_copy_card_id) {
+            for action_id in actions.iter().copied() {
+                let _ = self
+                    .card_actions
+                    .get_mut(&action_id)
+                    .unwrap()
+                    .insert(card_id);
             }
         }
     }
@@ -160,7 +180,7 @@ impl<EventManager> CardEventTracker<EventManager> {
                 add_event(
                     event_manager,
                     card_id,
-                    listener_input.any_clone_duplication(),
+                    (**listener_input).any_clone_duplication(),
                 );
             }
         }

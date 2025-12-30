@@ -114,7 +114,8 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
         self
     }
     pub fn copy_actions(self, card_id: CardID) -> Self {
-        todo!()
+        self.card_actions.copy_actions(self.card.id(), card_id);
+        self
     }
     pub fn with_event<
         State: 'static,
@@ -128,32 +129,24 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
         Listener::Input: Clone,
         <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
             State,
-            Listener,
+            Listener::FilterInput,
         >>::ValidOutput: 'static,
         <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
             State,
-            Listener,
+            Listener::FilterInput,
         >>::Error: 'static,
         <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
             PriorityMut<State>,
             Listener::ActionInput,
-        >>::Filter as StateFilter<
-            PriorityMut<State>,
-            Listener::ActionInput,
-        >>::ValidOutput: 'static,
+        >>::Filter as StateFilter<PriorityMut<State>, Listener::ActionInput>>::ValidOutput: 'static,
         <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
             PriorityMut<State>,
             Listener::ActionInput,
-        >>::Filter as StateFilter<
-            PriorityMut<State>,
-            Listener::ActionInput,
-        >>::Error: 'static,
+        >>::Filter as StateFilter<PriorityMut<State>, Listener::ActionInput>>::Error: 'static,
         EventManager: AddEventListener<State, Ev>,
         EventManager::Output: 'static,
-        <Listener::Action as ValidAction<
-            PriorityMut< State>,
-            Listener::ActionInput,
-        >>::Output: Into<EventManager::Output>,
+        <Listener::Action as ValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
+            Into<EventManager::Output>,
     {
         let card_id = self.card.id();
         let event_listener = Listener::new_listener(SourceCardID(card_id), listener_input.clone());
