@@ -4,13 +4,13 @@ use std::{
 };
 
 use card_stack::priority::{GetState, PriorityMut};
-use state_validation::ValidAction;
+use state_validation::{StateFilter, ValidAction};
 
 use crate::{
     cards::{CardBuilder, CardID},
     events::{
         AddEventListener, AnyClone, DynEventListener, Event, EventListener,
-        EventListenerConstructor,
+        EventListenerConstructor, EventValidAction,
     },
     identifications::{ActionID, SourceCardID},
 };
@@ -145,8 +145,7 @@ impl<EventManager> CardEventTracker<EventManager> {
         listener_input: Listener::Input,
     ) where
         EventManager: AddEventListener<State, Ev>,
-        Listener::Input: Clone + 'static,
-        <Listener::Action as ValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
+        <Listener::Action as EventValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
             Into<EventManager::Output>,
     {
         let value: (

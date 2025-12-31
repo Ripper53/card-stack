@@ -1,5 +1,6 @@
 use crate::events::{
     AddEventListener, DynEventListener, Event, EventListener, EventListenerConstructor,
+    EventValidAction,
 };
 use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
 use card_stack::priority::PriorityMut;
@@ -126,26 +127,8 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
         listener_input: Listener::Input,
     ) -> Self
     where
-        Listener::Input: Clone,
-        <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
-            State,
-            Listener::FilterInput,
-        >>::ValidOutput: 'static,
-        <<Listener as EventListener<State, Ev>>::Filter as StateFilter<
-            State,
-            Listener::FilterInput,
-        >>::Error: 'static,
-        <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
-            PriorityMut<State>,
-            Listener::ActionInput,
-        >>::Filter as StateFilter<PriorityMut<State>, Listener::ActionInput>>::ValidOutput: 'static,
-        <<<Listener as EventListener<State, Ev>>::Action as ValidAction<
-            PriorityMut<State>,
-            Listener::ActionInput,
-        >>::Filter as StateFilter<PriorityMut<State>, Listener::ActionInput>>::Error: 'static,
         EventManager: AddEventListener<State, Ev>,
-        EventManager::Output: 'static,
-        <Listener::Action as ValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
+        <Listener::Action as EventValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
             Into<EventManager::Output>,
     {
         let card_id = self.card.id();

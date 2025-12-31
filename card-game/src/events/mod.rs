@@ -29,20 +29,7 @@ pub(crate) struct DynEventListener<State, Ev: Event<PriorityMut<State>>, Output>
 impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<State, Ev, Output> {
     fn new<T: EventListener<State, Ev> + 'static>(valid_action: T) -> Self
     where
-        T::FilterInput: 'static,
-        T::Action: 'static,
-        T::ActionInput: 'static,
-        <T::Filter as StateFilter<State, T::FilterInput>>::ValidOutput: 'static,
-        <T::Filter as StateFilter<State, T::FilterInput>>::Error: 'static,
-        <T::Action as ValidAction<PriorityMut<State>, T::ActionInput>>::Output: Into<Output>,
-        <<T::Action as ValidAction<PriorityMut<State>, T::ActionInput>>::Filter as StateFilter<
-            PriorityMut<State>,
-            T::ActionInput,
-        >>::ValidOutput: 'static,
-        <<T::Action as ValidAction<PriorityMut<State>, T::ActionInput>>::Filter as StateFilter<
-            PriorityMut<State>,
-            T::ActionInput,
-        >>::Error: 'static,
+        <T::Action as EventValidAction<PriorityMut<State>, T::ActionInput>>::Output: Into<Output>,
     {
         DynEventListener {
             valid_action: Box::new(valid_action),
@@ -148,7 +135,7 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
     }
     pub fn add_listener<Listener: EventListener<EventState, Ev>>(&mut self, listener: Listener)
     where
-        <Listener::Action as ValidAction<PriorityMut<EventState>, Listener::ActionInput>>::Output:
+        <Listener::Action as EventValidAction<PriorityMut<EventState>, Listener::ActionInput>>::Output:
             Into<Output>,
     {
         let listener = DynEventListener::new(listener);
@@ -449,22 +436,11 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output: 'static>
         state: &EventState,
         event_listener: &T,
         event: &Ev,
-        valid: <T::Filter as StateFilter<EventState, T::FilterInput>>::ValidOutput,
+        valid: <T::Filter as EventStateFilter<EventState, T::FilterInput>>::ValidOutput,
     ) -> Self
     where
-        T::Action: 'static,
-        T::ActionInput: 'static,
-        <T::Filter as StateFilter<EventState, T::FilterInput>>::ValidOutput: 'static,
-        <T::Filter as StateFilter<EventState, T::FilterInput>>::Error: 'static,
-        <T::Action as ValidAction<PriorityMut<EventState>, T::ActionInput>>::Output: Into<Output>,
-        <<T::Action as ValidAction<PriorityMut<EventState>, T::ActionInput>>::Filter as StateFilter<
-            PriorityMut<EventState>,
-            T::ActionInput,
-        >>::ValidOutput: 'static,
-        <<T::Action as ValidAction<PriorityMut<EventState>, T::ActionInput>>::Filter as StateFilter<
-            PriorityMut<EventState>,
-            T::ActionInput,
-        >>::Error: 'static,
+        <T::Action as EventValidAction<PriorityMut<EventState>, T::ActionInput>>::Output:
+            Into<Output>,
     {
         struct IntoIndirection<T, Input, Output>(T, std::marker::PhantomData<(Input, Output)>);
         impl<T: Clone, Input, Output> Clone for IntoIndirection<T, Input, Output> {
@@ -480,14 +456,24 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output: 'static>
                 Ok(*value.downcast().unwrap())
             }
         }
-        impl<State, Input: 'static, T: ValidAction<State, Input>, Output>
+        struct IntoStateFilter<T>(std::marker::PhantomData<T>);
+        impl<State, Input, T: EventStateFilter<State, Input>> StateFilter<State, Input>
+            for IntoStateFilter<T>
+        {
+            type ValidOutput = T::ValidOutput;
+            type Error = T::Error;
+            fn filter(state: &State, input: Input) -> Result<Self::ValidOutput, Self::Error> {
+                T::filter(state, input)
+            }
+        }
+        impl<State, Input: 'static, T: EventValidAction<State, Input>, Output>
             ValidAction<State, Box<dyn Any>> for IntoIndirection<T, Input, Output>
         where
             T::Output: Into<Output>,
         {
             type Filter = (
                 Condition<Box<dyn Any>, AnyCastFilter<Input>>,
-                Condition<Input, T::Filter>,
+                Condition<Input, IntoStateFilter<T::Filter>>,
             );
             type Output = Output;
             fn with_valid_input(
@@ -521,7 +507,7 @@ impl<EventState, Ev: Event<PriorityMut<Priority<EventState>>>, Output>
             (),
         >>::Filter as StateFilter<Priority<EventState>, ()>>::ValidOutput,
     ) -> Self::Resolved {
-        match self.action.with_valid_input(priority, self.event_input) {
+        match ValidAction::with_valid_input(self.action, priority, self.event_input) {
             Ok(output) => EventActionResolution::Resolved(output),
             Err(e) => EventActionResolution::Fizzled {
                 state: e.state,
@@ -565,7 +551,7 @@ impl<
         >>::Filter as StateFilter<PriorityStack<EventState, T>, ()>>::ValidOutput,
     ) -> Self::Resolved {
         //let (state, stack) = priority.take_priority().take_contents();
-        match self.action.with_valid_input(priority, self.event_input) {
+        match ValidAction::with_valid_input(self.action, priority, self.event_input) {
             Ok(output) => EventActionResolution::Resolved(output),
             Err(e) => EventActionResolution::Fizzled {
                 state: e.state,
@@ -747,10 +733,10 @@ pub trait GetStackEventManager<
 }
 
 pub trait AddEventListener<State, Ev: Event<PriorityMut<State>>> {
-    type Output;
+    type Output: 'static;
     fn add_listener<Listener: EventListener<State, Ev>>(&mut self, listener: Listener)
     where
-        <Listener::Action as ValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
+        <Listener::Action as EventValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
             Into<Self::Output>;
 }
 
@@ -776,23 +762,68 @@ impl<
 pub trait EventListenerConstructor<State, Ev: Event<PriorityMut<State>>>:
     EventListener<State, Ev>
 {
-    type Input;
+    type Input: Clone + 'static;
     fn new_listener(source_card_id: SourceCardID, input: Self::Input) -> Self;
+}
+pub trait EventStateFilter<State, Input> {
+    type ValidOutput: 'static;
+    type Error: std::error::Error + 'static;
+    fn filter(state: &State, input: Input) -> Result<Self::ValidOutput, Self::Error>;
+}
+impl<State, Input, T: StateFilter<State, Input>> EventStateFilter<State, Input> for T
+where
+    T::ValidOutput: 'static,
+    T::Error: 'static,
+{
+    type ValidOutput = T::ValidOutput;
+    type Error = T::Error;
+    fn filter(state: &State, input: Input) -> Result<Self::ValidOutput, Self::Error> {
+        <T as StateFilter<State, Input>>::filter(state, input)
+    }
+}
+pub trait EventValidAction<State, Input>: Clone + 'static {
+    type Filter: EventStateFilter<State, Input>;
+    type Output;
+    fn with_valid_input(
+        self,
+        state: State,
+        valid: <Self::Filter as EventStateFilter<State, Input>>::ValidOutput,
+    ) -> Self::Output;
+}
+impl<State, Input, T: ValidAction<State, Input> + Clone + 'static> EventValidAction<State, Input>
+    for T
+where
+    T::Filter: EventStateFilter<
+            State,
+            Input,
+            ValidOutput = <T::Filter as StateFilter<State, Input>>::ValidOutput,
+            Error = <T::Filter as StateFilter<State, Input>>::Error,
+        >,
+{
+    type Filter = T::Filter;
+    type Output = T::Output;
+    fn with_valid_input(
+        self,
+        state: State,
+        valid: <Self::Filter as EventStateFilter<State, Input>>::ValidOutput,
+    ) -> Self::Output {
+        <T as ValidAction<State, Input>>::with_valid_input(self, state, valid)
+    }
 }
 pub trait EventListener<State, Ev: Event<PriorityMut<State>>>: Clone + 'static {
     /// Trigger event ONLY if this filter passes!
-    type Filter: StateFilter<State, Self::FilterInput>;
-    type FilterInput;
+    type Filter: EventStateFilter<State, Self::FilterInput>;
+    type FilterInput: 'static;
     fn filter_input(&self, event: &Ev) -> Self::FilterInput;
 
-    type Action: ValidAction<PriorityMut<State>, Self::ActionInput> + Clone;
-    type ActionInput: Clone;
+    type Action: EventValidAction<PriorityMut<State>, Self::ActionInput>;
+    type ActionInput: Clone + 'static;
     /// The action to execute when its event is triggered, along with its input.
     fn action(
         &self,
         state: &State,
         event: &Ev,
-        value: <Self::Filter as StateFilter<State, Self::FilterInput>>::ValidOutput,
+        value: <Self::Filter as EventStateFilter<State, Self::FilterInput>>::ValidOutput,
     ) -> (Self::Action, Self::ActionInput);
 }
 
