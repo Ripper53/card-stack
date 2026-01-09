@@ -92,8 +92,8 @@ impl<P> PlayerManager<P> {
     pub fn valid_player<F>(&self, valid_player_id: &ValidPlayerID<F>) -> &P {
         self.get_player(valid_player_id.id()).unwrap()
     }
-    pub fn valid_player_mut<F>(&mut self, valid_player_id: ValidPlayerID<F>) -> &mut P {
-        self.players.get_mut(&valid_player_id.id()).unwrap()
+    pub fn valid_player_mut<F>(&mut self, valid_player_id: MutID<ValidPlayerID<F>>) -> &mut P {
+        self.players.get_mut(&valid_player_id.id().id()).unwrap()
     }
 }
 
