@@ -42,6 +42,20 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
             stack: Vec::new(),
         }
     }
+    #[cfg(feature = "internals")]
+    pub fn from_stack(
+        inciting_action: IncitingAction,
+        stack: Vec<IncitingAction::Stackable>,
+    ) -> Self {
+        Stack {
+            inciting_action,
+            stack,
+        }
+    }
+    #[cfg(feature = "internals")]
+    pub fn take_contents(self) -> (IncitingAction, Vec<IncitingAction::Stackable>) {
+        (self.inciting_action, self.stack)
+    }
     pub fn inciting_action(&self) -> &IncitingAction {
         &self.inciting_action
     }
@@ -59,16 +73,26 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
     }
 }
 
-impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
-    Stack<State, IncitingAction>
+impl<OldState, OldIncitingAction: crate::actions::IncitingActionInfo<OldState>>
+    Stack<OldState, OldIncitingAction>
 {
-    pub fn into_state<NewState>(self) -> Stack<NewState, IncitingAction>
+    pub fn into_state<NewState, NewIncitingAction: crate::actions::IncitingActionInfo<NewState>>(
+        self,
+    ) -> Stack<NewState, NewIncitingAction>
     where
-        IncitingAction: crate::actions::IncitingActionInfo<NewState, Stackable = <IncitingAction as crate::actions::IncitingActionInfo<State>>::Stackable>,
+        OldIncitingAction: Into<NewIncitingAction>,
+        <OldIncitingAction as crate::actions::IncitingActionInfo<OldState>>::Stackable:
+            Into<<NewIncitingAction as crate::actions::IncitingActionInfo<NewState>>::Stackable>,
     {
+        let inciting_action = self.inciting_action.into();
+        let stack = self
+            .stack
+            .into_iter()
+            .map(|stackable| stackable.into())
+            .collect();
         Stack {
-            stack: self.stack,
-            inciting_action: self.inciting_action,
+            stack,
+            inciting_action,
         }
     }
 }
