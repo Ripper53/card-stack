@@ -34,6 +34,14 @@ impl<ID> MutID<ID> {
         MutID(self.0.into())
     }
 }
+pub trait IterMutID<ID> {
+    fn iter_mut_id(self) -> impl Iterator<Item = MutID<ID>>;
+}
+impl<ID> IterMutID<ID> for MutID<Vec<ID>> {
+    fn iter_mut_id(self) -> impl Iterator<Item = MutID<ID>> {
+        self.0.into_iter().map(|id| MutID::new(id))
+    }
+}
 impl<T: CastTo<CastedT>, CastedT> CastTo<CastedT> for MutID<T> {
     fn cast_ref(&self) -> &CastedT {
         self.0.cast_ref()
@@ -66,7 +74,13 @@ impl<ID> StateFilterInputConversion<ID> for MutID<ID> {
         (self.0, MutIDRemainder(std::marker::PhantomData::default()))
     }
 }*/
-impl<T: StateFilterInputConversion<ID>, ID> StateFilterInputCombination<T> for MutIDRemainder<ID>
+impl<NewID, OldID> StateFilterInputCombination<NewID> for MutIDRemainder<OldID> {
+    type Combined = MutID<NewID>;
+    fn combine(self, new_id: NewID) -> Self::Combined {
+        MutID::new(new_id)
+    }
+}
+/*impl<T: StateFilterInputConversion<ID>, ID> StateFilterInputCombination<T> for MutIDRemainder<ID>
 where
     T::Remainder: StateFilterInputCombination<MutID<ID>>,
 {
@@ -75,7 +89,7 @@ where
         let (id, remainder) = value.split_take();
         remainder.combine(MutID::new(id))
     }
-}
+}*/
 
 pub trait UncheckedReplaceFilter {
     type Output<F>;
