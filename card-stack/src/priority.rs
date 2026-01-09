@@ -35,6 +35,12 @@ impl<State> Priority<State> {
     ) -> PriorityStack<State, IncitingAction> {
         PriorityStack::new(self, inciting_action.into())
     }
+    pub fn into_state<NewState>(self) -> Priority<NewState>
+    where
+        State: Into<NewState>,
+    {
+        Priority::new(self.state.into())
+    }
 }
 impl<State: GetState<InnerState>, InnerState> GetState<InnerState> for Priority<State> {
     fn state(&self) -> &InnerState {
@@ -50,10 +56,8 @@ impl<Priority> PriorityMut<Priority> {
     pub fn priority(&self) -> &Priority {
         &self.priority
     }
-}
-impl<State> PriorityMut<Priority<State>> {
-    pub fn state(&self) -> &State {
-        self.priority.state()
+    pub fn take_priority(self) -> Priority {
+        self.priority
     }
 }
 impl<State> PriorityMut<Priority<State>> {
@@ -68,8 +72,8 @@ impl<State> PriorityMut<Priority<State>> {
     pub fn take_state(self) -> State {
         self.priority.state
     }
-    pub fn take_priority(self) -> Priority<State> {
-        self.priority
+    pub fn state(&self) -> &State {
+        self.priority.state()
     }
     pub fn state_mut(&mut self) -> &mut State {
         &mut self.priority.state
@@ -81,6 +85,12 @@ impl<State> PriorityMut<Priority<State>> {
         PriorityMut::<PriorityStack<State, IncitingAction>>::new(
             self.priority.stack(inciting_action),
         )
+    }
+    pub fn into_state<NewState>(self) -> PriorityMut<Priority<NewState>>
+    where
+        State: Into<NewState>,
+    {
+        PriorityMut::<Priority<_>>::new(self.priority.into_state())
     }
 }
 impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
@@ -94,15 +104,23 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
     pub fn new(priority: PriorityStack<State, IncitingAction>) -> Self {
         PriorityMut { priority }
     }
-    pub fn take_priority(self) -> PriorityStack<State, IncitingAction> {
-        self.priority
-    }
     pub fn state_mut(&mut self) -> &mut State {
         &mut self.priority.priority.state
     }
     pub fn stack(mut self, stack_action: impl Into<IncitingAction::Stackable>) -> Self {
         self.priority = self.priority.stack(stack_action.into());
         self
+    }
+    pub fn into_state<NewState, NewIncitingAction: crate::actions::IncitingActionInfo<NewState>>(
+        self,
+    ) -> PriorityMut<PriorityStack<NewState, NewIncitingAction>>
+    where
+        State: Into<NewState>,
+        IncitingAction: Into<NewIncitingAction>,
+        <IncitingAction as crate::actions::IncitingActionInfo<State>>::Stackable:
+            Into<<NewIncitingAction as crate::actions::IncitingActionInfo<NewState>>::Stackable>,
+    {
+        PriorityMut::<PriorityStack<_, _>>::new(self.priority.into_state())
     }
 }
 impl<State: GetState<InnerState>, InnerState> GetState<InnerState>
@@ -126,6 +144,24 @@ where
         PriorityStack {
             priority: self.priority.clone(),
             stack: self.stack.clone(),
+        }
+    }
+}
+impl<OldState, OldIncitingAction: crate::actions::IncitingActionInfo<OldState>>
+    PriorityStack<OldState, OldIncitingAction>
+{
+    pub fn into_state<NewState, NewIncitingAction: crate::actions::IncitingActionInfo<NewState>>(
+        self,
+    ) -> PriorityStack<NewState, NewIncitingAction>
+    where
+        OldState: Into<NewState>,
+        OldIncitingAction: Into<NewIncitingAction>,
+        <OldIncitingAction as crate::actions::IncitingActionInfo<OldState>>::Stackable:
+            Into<<NewIncitingAction as crate::actions::IncitingActionInfo<NewState>>::Stackable>,
+    {
+        PriorityStack {
+            priority: self.priority.into_state(),
+            stack: self.stack.into_state(),
         }
     }
 }
