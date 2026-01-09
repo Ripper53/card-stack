@@ -611,15 +611,33 @@ impl<State, Ev: Event<PriorityMut<State>>> TriggeredEvent<State, Ev> {
         &self.event
     }
 }
+pub trait NewTriggeredEvent<State, Ev: Event<PriorityMut<State>>> {
+    fn new(state: State, event: Ev) -> Self;
+}
+impl<State, Ev: Event<PriorityMut<Priority<State>>>> NewTriggeredEvent<Priority<State>, Ev>
+    for TriggeredEvent<Priority<State>, Ev>
+{
+    fn new(state: Priority<State>, event: Ev) -> Self {
+        TriggeredEvent { state, event }
+    }
+}
+impl<
+    State,
+    Ev: Event<PriorityMut<PriorityStack<State, IncitingAction>>>,
+    IncitingAction: IncitingActionInfo<State>,
+> NewTriggeredEvent<PriorityStack<State, IncitingAction>, Ev>
+    for TriggeredEvent<PriorityStack<State, IncitingAction>, Ev>
+{
+    fn new(state: PriorityStack<State, IncitingAction>, event: Ev) -> Self {
+        TriggeredEvent { state, event }
+    }
+}
 impl<State: GetEventManager<Ev> + 'static, Ev: Event<PriorityMut<Priority<State>>>>
     TriggeredEvent<Priority<State>, Ev>
 //where
 //EventAction<Priority<State>, Ev, State::Output>:
 //Into<<Ev as Event<PriorityMut<Priority<State>>>>::Stackable>,
 {
-    pub fn new(state: Priority<State>, event: Ev) -> Self {
-        TriggeredEvent { state, event }
-    }
     pub fn collect(self) -> TriggeredEventResolution<State, Ev> {
         let event_manager = self.state.state().event_manager();
         // TODO: I don't like the fact that we are instantiating a priority mut!
@@ -668,9 +686,6 @@ where
     EventAction<PriorityStack<State, IncitingAction>, Ev, State::Output>:
         Into<<Ev as Event<PriorityStack<State, IncitingAction>>>::Stackable>,
 {
-    pub fn new(state: PriorityStack<State, IncitingAction>, event: Ev) -> Self {
-        TriggeredEvent { state, event }
-    }
     pub fn collect(self) -> TriggeredStackEventResolution<State, Ev, IncitingAction>
     where
         EventAction<PriorityStack<State, IncitingAction>, Ev, State::Output>:
