@@ -109,8 +109,8 @@
 //! let validator = Validator::<_, _, CardIn<HandZone>>::try_new(main, NewTypeFilterInput((player_id, card_id))).expect("failed validation");
 //! ```
 
-//#[cfg(feature = "derive")]
-//pub use card_game_derive::*;
+#[cfg(feature = "derive")]
+pub use card_game_derive::*;
 pub use card_stack as stack;
 //pub use state_validation as validation;
 pub use variadics_please;
@@ -123,7 +123,6 @@ pub mod commands;
 mod context;
 pub mod events;
 pub mod identifications;
-pub mod steps;
 pub mod zones;
 pub use context::*;
 

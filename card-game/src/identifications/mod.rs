@@ -42,6 +42,20 @@ impl<ID> IterMutID<ID> for MutID<Vec<ID>> {
         self.0.into_iter().map(|id| MutID::new(id))
     }
 }
+macro_rules! mut_id_for_tuple {
+    ($($index_name: tt => $id: ident),*) => {
+        impl<$($id),*> MutID<($($id),*)> {
+            pub fn split_take(self) -> ($(MutID<$id>),*) {
+                ($(
+                    MutID::new(self.0.$index_name)
+                ),*)
+            }
+        }
+    };
+}
+mut_id_for_tuple!(0 => T0, 1 => T1);
+mut_id_for_tuple!(0 => T0, 1 => T1, 2 => T2);
+mut_id_for_tuple!(0 => T0, 1 => T1, 2 => T2, 3 => T3);
 impl<T: CastTo<CastedT>, CastedT> CastTo<CastedT> for MutID<T> {
     fn cast_ref(&self) -> &CastedT {
         self.0.cast_ref()
