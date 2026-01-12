@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use heck::ToSnakeCase;
+use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro::TokenStream;
 use syn::{
     DeriveInput, Field, Fields, Ident, Type, TypePath,
@@ -15,13 +15,16 @@ struct EventManagerArgs {
 }
 
 struct StateMapping {
-    states: Vec<syn::Type>,
+    states: Vec<(syn::Type, syn::Expr)>,
     placeholder: syn::Ident,
 }
 
 struct EventMapping {
-    event: syn::Ident,
+    event: syn::Type,
+    stackable: syn::Type,
     resolution: syn::Type,
+    stackable_enum_types: Vec<syn::Type>,
+    resolution_enum_types: Vec<syn::Type>,
 }
 
 impl Parse for EventManagerArgs {
@@ -66,12 +69,55 @@ impl Parse for StateMapping {
         let content;
         syn::parenthesized!(content in input);
 
-        let states = content
-            .parse_terminated(syn::Type::parse, syn::Token![,])?
+        let closures = content
+            .parse_terminated(syn::Expr::parse, syn::Token![,])?
             .into_iter()
-            .collect();
-        let _ = input.parse::<syn::Token![=>]>()?;
-        let placeholder = input.parse::<syn::Ident>()?;
+            .collect::<Vec<_>>();
+
+        input.parse::<syn::Token![as]>()?;
+        let placeholder = input.parse::<Ident>()?;
+
+        let mut states = Vec::new();
+
+        for expr in closures {
+            let closure = match expr {
+                syn::Expr::Closure(closure) => closure,
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        expr,
+                        "expected a closure like `|state: Type| ...`",
+                    ));
+                }
+            };
+
+            if closure.inputs.len() != 1 {
+                return Err(syn::Error::new_spanned(
+                    &closure.inputs,
+                    "closure must have exactly one parameter",
+                ));
+            }
+
+            // Extract the type: |x: ShopStep|
+            let state_ty = match closure.inputs.first().unwrap() {
+                syn::Pat::Type(syn::PatType { ty, .. }) => match ty.as_ref() {
+                    Type::Reference(syn::TypeReference { elem, .. }) => (**elem).clone(),
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            ty,
+                            "expected a reference type like `&StateType`",
+                        ));
+                    }
+                },
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        &closure.inputs,
+                        "closure parameter must be typed: `|state: Type|`",
+                    ));
+                }
+            };
+
+            states.push((state_ty, syn::Expr::Closure(closure)));
+        }
 
         Ok(StateMapping {
             states,
@@ -82,10 +128,43 @@ impl Parse for StateMapping {
 
 impl Parse for EventMapping {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let event = input.parse::<syn::Ident>()?;
+        let event = input.parse::<syn::Type>()?;
+        let _ = input.parse::<syn::Token![^]>()?;
+
+        let stackable = input.parse::<syn::Type>()?;
+
+        let stackable_enum_types = if input.peek(syn::token::Brace) {
+            let content;
+            syn::braced!(content in input);
+            content
+                .parse_terminated(syn::Type::parse, syn::Token![,])?
+                .into_iter()
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+
         let _ = input.parse::<syn::Token![=>]>()?;
         let resolution = input.parse::<syn::Type>()?;
-        Ok(EventMapping { event, resolution })
+
+        let resolution_enum_types = if input.peek(syn::token::Brace) {
+            let content;
+            syn::braced!(content in input);
+            content
+                .parse_terminated(syn::Type::parse, syn::Token![,])?
+                .into_iter()
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+
+        Ok(EventMapping {
+            event,
+            stackable,
+            resolution,
+            stackable_enum_types,
+            resolution_enum_types,
+        })
     }
 }
 
@@ -95,25 +174,39 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as syn::ItemStruct);
     let struct_name = &ast.ident;
     let mut impls = Vec::new();
+    let mut stackable_event_names = Vec::new();
+    let mut stackable_events = Vec::new();
+    let mut stackable_event_resolutions = Vec::new();
     if let Fields::Named(ref mut fields) = ast.fields {
-        for state in args.states.states {
+        for (state, get_event_manager) in args.states.states {
+            let original_state = &state;
             for event in args.events.iter() {
                 {
-                    let state_str = quote::quote!(#state).to_string().to_snake_case();
+                    let state_str = quote::quote!(#state).to_string();
                     let state = syn::parse_quote!(card_game::stack::priority::Priority<#state>);
                     let event_resolution =
                         substitute_type(&event.resolution, &args.states.placeholder, &state);
+                    let stackable =
+                        substitute_type(&event.stackable, &args.states.placeholder, &state);
                     let event = &event.event;
+                    let event_name = quote::quote!(#event).to_string();
                     let field_name = quote::format_ident!(
                         "{}_during_{}",
-                        event.to_string().to_snake_case(),
-                        state_str,
+                        event_name.to_snake_case(),
+                        state_str.to_snake_case(),
                     );
+                    stackable_event_names.push(quote::format_ident!(
+                        "{}During{}",
+                        event_name.to_upper_camel_case(),
+                        state_str.to_upper_camel_case(),
+                    ));
+                    stackable_events.push(event);
+                    stackable_event_resolutions.push(quote::quote!(#event_resolution<#state>));
                     let return_ty: syn::Type = syn::parse_quote!(
                         card_game::events::EventManager<
                             #state,
                             #event,
-                            #event_resolution
+                            #event_resolution<#state>,
                         >
                     );
                     let new_field = Field {
@@ -131,8 +224,21 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 &self.#field_name
                             }
                         }
+                        impl card_game::events::Event<#original_state> for #event {
+                            type Stackable = #stackable<#state>;
+                        }
+                        impl card_game::events::GetEventManager<#event> for #original_state {
+                            type Output = #event_resolution<#state>;
+                            fn event_manager(
+                                &self,
+                            ) -> card_game::events::EventManager<card_game::stack::priority::Priority<Self>, #event, Self::Output> {
+                                (#get_event_manager)(self)
+                                    .#field_name()
+                                    .clone()
+                            }
+                        }
                         impl card_game::events::AddEventListener<#state, #event> for #struct_name {
-                            type Output = #event_resolution;
+                            type Output = #event_resolution<#state>;
                             fn add_listener<
                                 Listener: card_game::events::EventListener<#state, #event>,
                             >(
@@ -145,66 +251,205 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 >>::Output: Into<Self::Output>,
                             {
                                 self.#field_name.add_listener(listener)
+                            }
+                        }
+                        impl ::core::convert::From<#state> for #event_resolution<#state> {
+                            fn from(value: #state) -> Self {
+                                Self::State(value)
                             }
                         }
                     });
                 }
                 {
                     let state_str = quote::quote!(#state).to_string().to_snake_case();
-                    let state = syn::parse_quote!(card_game::stack::priority::Priority<#state>);
-                    let ev = &event.event;
-                    let event_resolution =
-                        substitute_type(&event.resolution, &args.states.placeholder, &state);
-                    let state = syn::parse_quote!(card_game::events::EventPriorityStack<#state, #ev, #event_resolution>);
-                    let event_resolution =
-                        substitute_type(&event.resolution, &args.states.placeholder, &state);
-                    let event = &event.event;
-                    let field_name = quote::format_ident!(
-                        "{}_stack_during_{}",
-                        event.to_string().to_snake_case(),
-                        state_str,
+                    let priority_state =
+                        syn::parse_quote!(card_game::stack::priority::Priority<#state>);
+                    let original_event = &event.event;
+                    let original_event_name =
+                        quote::quote!(#original_event).to_string().to_snake_case();
+                    let original_priority_event_resolution = substitute_type(
+                        &event.resolution,
+                        &args.states.placeholder,
+                        &priority_state,
                     );
-                    let return_ty: syn::Type = syn::parse_quote!(
-                        card_game::events::EventManager<
-                            #state,
-                            #event,
-                            #event_resolution
-                        >
-                    );
-                    let new_field = Field {
-                        attrs: Vec::new(),
-                        mutability: syn::FieldMutability::None,
-                        vis: syn::Visibility::Inherited,
-                        ident: Some(field_name.clone()),
-                        colon_token: Some(<syn::Token![:]>::default()),
-                        ty: return_ty.clone(),
-                    };
-                    fields.named.push(new_field);
-                    impls.push(quote::quote! {
-                        impl #struct_name {
-                            pub fn #field_name(&self) -> &#return_ty {
-                                &self.#field_name
+                    let state = syn::parse_quote!(card_game::events::EventPriorityStack<#state, #original_event, #original_priority_event_resolution<#priority_state>>);
+                    for ev in args.events.iter() {
+                        let event_name = {
+                            let event = &ev.event;
+                            quote::quote!(#event).to_string().to_snake_case()
+                        };
+                        let event_resolution = &ev.resolution;
+                        let field_name = if *event_resolution == event.resolution {
+                            quote::format_ident!("{}_stack_during_{}", event_name, state_str)
+                        } else {
+                            quote::format_ident!(
+                                "{}_stack_during_{}_{}",
+                                event_name,
+                                state_str,
+                                original_event_name,
+                            )
+                        };
+                        let event = &ev.event;
+                        let event_resolution = substitute_type(
+                            event_resolution,
+                            &args.states.placeholder,
+                            &priority_state,
+                        );
+                        let event_resolution = substitute_type(
+                            &ev.resolution,
+                            &args.states.placeholder,
+                            &syn::parse_quote!(card_game::events::EventAction<
+                                #priority_state,
+                                #event,
+                                #event_resolution,
+                            >),
+                        );
+                        let stack_event_resolution =
+                            substitute_type(&ev.resolution, &args.states.placeholder, &state);
+                        let stackable =
+                            substitute_type(&ev.stackable, &args.states.placeholder, &state);
+                        let return_ty: syn::Type = syn::parse_quote!(
+                            card_game::events::EventManager<
+                                #state,
+                                #event,
+                                #stack_event_resolution<#state>,
+                            >
+                        );
+                        let new_field = Field {
+                            attrs: Vec::new(),
+                            mutability: syn::FieldMutability::None,
+                            vis: syn::Visibility::Inherited,
+                            ident: Some(field_name.clone()),
+                            colon_token: Some(<syn::Token![:]>::default()),
+                            ty: return_ty.clone(),
+                        };
+                        fields.named.push(new_field);
+                        impls.push(quote::quote! {
+                            impl #struct_name {
+                                pub fn #field_name(&self) -> &#return_ty {
+                                    &self.#field_name
+                                }
                             }
-                        }
-                        impl card_game::events::AddEventListener<#state, #event> for #struct_name {
-                            type Output = #event_resolution;
-                            fn add_listener<
-                                Listener: card_game::events::EventListener<#state, #event>,
-                            >(
-                                &mut self,
-                                listener: Listener,
-                            ) where
-                                <Listener::Action as card_game::events::EventValidAction<
-                                    card_game::stack::priority::PriorityMut<#state>,
-                                    Listener::ActionInput,
-                                >>::Output: Into<Self::Output>,
-                            {
-                                self.#field_name.add_listener(listener)
+                            impl card_game::events::Event<
+                                card_game::events::EventPriorityStack<#original_state, #original_event, #original_priority_event_resolution<#priority_state>>
+                            > for #event {
+                                type Stackable = #stackable<#state>;
                             }
-                        }
-                    });
+                            impl card_game::events::GetStackEventManager<
+                                #event,
+                                card_game::events::EventAction<card_game::stack::priority::Priority<#original_state>, #original_event, #original_priority_event_resolution<#priority_state>>,
+                            > for #original_state {
+                                type Output = #stack_event_resolution<#state>;
+                                fn stack_event_manager(
+                                    &self,
+                                ) -> card_game::events::EventManager<#state, #event, Self::Output> {
+                                    (#get_event_manager)(self)
+                                        .#field_name()
+                                        .clone()
+                                }
+                            }
+                            impl card_game::events::AddEventListener<#state, #event> for #struct_name {
+                                type Output = #stack_event_resolution<#state>;
+                                fn add_listener<
+                                    Listener: card_game::events::EventListener<#state, #event>,
+                                >(
+                                    &mut self,
+                                    listener: Listener,
+                                ) where
+                                    <Listener::Action as card_game::events::EventValidAction<
+                                        card_game::stack::priority::PriorityMut<#state>,
+                                        Listener::ActionInput,
+                                    >>::Output: Into<Self::Output>,
+                                {
+                                    self.#field_name.add_listener(listener)
+                                }
+                            }
+                            /*impl ::core::convert::From<#state> for #stackable<#state> {
+                                fn from(value: #state) -> Self {
+                                    Self::State(value)
+                                }
+                            }*/
+                            /*impl ::core::convert::From<#priority_state> for #stack_event_resolution<#priority_state> {
+                                fn from(value: #priority_state) -> Self {
+                                    Self::State(value)
+                                }
+                            }*/
+                        });
+                    }
                 }
             }
+        }
+        for event in args.events.iter() {
+            let stackable = &event.stackable;
+            let stackable_enum_types = &event.stackable_enum_types;
+            let stackable_enum_variants = stackable_enum_types
+                .iter()
+                .map(|ty| {
+                    let enum_ty = quote::format_ident!(
+                        "{}",
+                        quote::quote!(#ty).to_string().to_upper_camel_case()
+                    );
+                    quote::quote!(#enum_ty(#ty))
+                })
+                .collect::<Vec<_>>();
+            let resolution = &event.resolution;
+            let resolution_enum_types = &event.resolution_enum_types;
+            let resolution_enum_variants = resolution_enum_types
+                .iter()
+                .map(|ty| {
+                    let enum_ty = quote::format_ident!(
+                        "{}",
+                        quote::quote!(#ty).to_string().to_upper_camel_case()
+                    );
+                    quote::quote!(#enum_ty(#ty))
+                })
+                .collect::<Vec<_>>();
+            let event_constraints = quote::quote! {
+                #(
+                    #stackable_events: card_game::events::Event<card_game::stack::priority::PriorityMut<State>>,
+                )*
+            };
+            impls.push(quote::quote! {
+                #[derive(Debug, Clone)]
+                pub enum #stackable<State>
+                    where #event_constraints
+                {
+                    #(
+                        #stackable_event_names(card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions>),
+                    )*
+                    #(#stackable_enum_variants),*
+                }
+                #(
+                    impl<State> ::core::convert::From<card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions>> for #stackable<State>
+                        where #event_constraints
+                    {
+                        fn from(value: card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions>) -> Self {
+                            Self::#stackable_event_names(value)
+                        }
+                    }
+                )*
+                #(
+                    impl<State> ::core::convert::From<#stackable_enum_types> for #stackable<State>
+                        where #event_constraints
+                    {
+                        fn from(value: #stackable_enum_types) -> Self {
+                            Self::#stackable_enum_types(value)
+                        }
+                    }
+                )*
+                #[derive(Debug, Clone)]
+                pub enum #resolution<State> {
+                    State(State),
+                    #(#resolution_enum_variants),*
+                }
+                #(
+                    impl<State> ::core::convert::From<#resolution_enum_types> for #resolution<State> {
+                        fn from(value: #resolution_enum_types) -> Self {
+                            Self::#resolution_enum_types(value)
+                        }
+                    }
+                )*
+            });
         }
         quote::quote! {
             #ast
@@ -212,7 +457,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
         }
         .into()
     } else {
-        panic!("`event_mananger` can only be used with named structs");
+        panic!("`event_manager` can only be used with named structs");
     }
 }
 
