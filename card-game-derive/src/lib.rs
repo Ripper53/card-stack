@@ -175,7 +175,6 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let mut impls = Vec::new();
     let mut stackable_event_names = Vec::new();
-    let mut stackable_events = Vec::new();
     let mut stackable_event_resolutions = Vec::new();
     if let Fields::Named(ref mut fields) = ast.fields {
         for (state, get_event_manager) in args.states.states {
@@ -196,12 +195,11 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         state_str.to_snake_case(),
                     );
                     stackable_event_names.push(quote::format_ident!(
-                        "{}During{}",
+                        "{}Event",
                         event_name.to_upper_camel_case(),
-                        state_str.to_upper_camel_case(),
                     ));
-                    stackable_events.push(event);
-                    stackable_event_resolutions.push(quote::quote!(#event_resolution<#state>));
+                    //stackable_events.push(event);
+                    stackable_event_resolutions.push(quote::quote!(#event_resolution));
                     let return_ty: syn::Type = syn::parse_quote!(
                         card_game::events::EventManager<
                             #state,
@@ -369,16 +367,21 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                     Self::State(value)
                                 }
                             }*/
-                            /*impl ::core::convert::From<#priority_state> for #stack_event_resolution<#priority_state> {
-                                fn from(value: #priority_state) -> Self {
+                            impl ::core::convert::From<#state> for #stack_event_resolution<#state> {
+                                fn from(value: #state) -> Self {
                                     Self::State(value)
                                 }
-                            }*/
+                            }
                         });
                     }
                 }
             }
         }
+        let stackable_events = args
+            .events
+            .iter()
+            .map(|args| &args.event)
+            .collect::<Vec<_>>();
         for event in args.events.iter() {
             let stackable = &event.stackable;
             let stackable_enum_types = &event.stackable_enum_types;
@@ -415,15 +418,15 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     where #event_constraints
                 {
                     #(
-                        #stackable_event_names(card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions>),
+                        #stackable_event_names(card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions<State>>),
                     )*
                     #(#stackable_enum_variants),*
                 }
                 #(
-                    impl<State> ::core::convert::From<card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions>> for #stackable<State>
+                    impl<State> ::core::convert::From<card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions<State>>> for #stackable<State>
                         where #event_constraints
                     {
-                        fn from(value: card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions>) -> Self {
+                        fn from(value: card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions<State>>) -> Self {
                             Self::#stackable_event_names(value)
                         }
                     }
