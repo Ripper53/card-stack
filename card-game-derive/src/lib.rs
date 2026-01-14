@@ -232,8 +232,6 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as syn::ItemStruct);
     let struct_name = &ast.ident;
     let mut impls = Vec::new();
-    let mut stackable_event_names = Vec::new();
-    let mut stackable_event_resolutions = Vec::new();
     if let Fields::Named(ref mut fields) = ast.fields {
         for (state, get_event_manager) in args.states.states {
             let get_event_manager = closure_to_item_fn(
@@ -258,11 +256,6 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         event_name.to_snake_case(),
                         state_str.to_snake_case(),
                     );
-                    stackable_event_names.push(quote::format_ident!(
-                        "{}Event",
-                        event_name.to_upper_camel_case(),
-                    ));
-                    stackable_event_resolutions.push(quote::quote!(#event_resolution));
                     let return_ty: syn::Type = syn::parse_quote!(
                         card_game::events::EventManager<
                             #state,
@@ -444,11 +437,6 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             }
         }
-        let stackable_events = args
-            .events
-            .iter()
-            .map(|args| &args.event)
-            .collect::<Vec<_>>();
         for event in args.events.iter() {
             let stackable = &event.stackable;
             let stackable_enum_types = &event.stackable_enum_types;
@@ -474,9 +462,47 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     quote::quote!(#enum_ty(#ty))
                 })
                 .collect::<Vec<_>>();
+            let (
+                events,
+                (
+                    event_resolutions,
+                    (
+                        stackable_event_names,
+                        (
+                            resolution_triggered_event_variant_names,
+                            resolution_triggered_event_variant_types,
+                        ),
+                    ),
+                ),
+            ): (Vec<_>, (Vec<_>, (Vec<_>, (Vec<_>, Vec<_>)))) = args
+                .events
+                .iter()
+                .map(|args| {
+                    let event = &args.event;
+                    let event_name = quote::quote!(#event).to_string();
+                    let stackable_event_name =
+                        quote::format_ident!("{}Event", event_name.to_upper_camel_case(),);
+                    (
+                        event,
+                        (
+                            &args.resolution,
+                            (
+                                stackable_event_name,
+                                (
+                                    quote::format_ident!(
+                                        "Triggered{}Event",
+                                        quote::quote!(#event).to_string().to_upper_camel_case()
+                                    ),
+                                    quote::quote!(card_game::events::TriggeredEvent<State, #event>),
+                                ),
+                            ),
+                        ),
+                    )
+                })
+                .unzip();
             let event_constraints = quote::quote! {
                 #(
-                    #stackable_events: card_game::events::Event<card_game::stack::priority::PriorityMut<State>>,
+                    #events: card_game::events::Event<card_game::stack::priority::PriorityMut<State>>,
                 )*
             };
             impls.push(quote::quote! {
@@ -485,15 +511,15 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     where #event_constraints
                 {
                     #(
-                        #stackable_event_names(card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions<State>>),
+                        #stackable_event_names(card_game::events::EventAction<State, #events, #event_resolutions<State>>),
                     )*
                     #(#stackable_enum_variants),*
                 }
                 #(
-                    impl<State> ::core::convert::From<card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions<State>>> for #stackable<State>
+                    impl<State> ::core::convert::From<card_game::events::EventAction<State, #events, #event_resolutions<State>>> for #stackable<State>
                         where #event_constraints
                     {
-                        fn from(value: card_game::events::EventAction<State, #stackable_events, #stackable_event_resolutions<State>>) -> Self {
+                        fn from(value: card_game::events::EventAction<State, #events, #event_resolutions<State>>) -> Self {
                             Self::#stackable_event_names(value)
                         }
                     }
@@ -508,12 +534,26 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 )*
                 #[derive(Debug, Clone)]
-                pub enum #resolution<State> {
+                pub enum #resolution<State>
+                    where #event_constraints
+                {
                     State(State),
+                    #(#resolution_triggered_event_variant_names(#resolution_triggered_event_variant_types),)*
                     #(#resolution_enum_variants),*
                 }
                 #(
-                    impl<State> ::core::convert::From<#resolution_enum_types> for #resolution<State> {
+                    impl<State> ::core::convert::From<#resolution_triggered_event_variant_types> for #resolution<State>
+                        where #event_constraints
+                    {
+                        fn from(value: #resolution_triggered_event_variant_types) -> Self {
+                            Self::#resolution_triggered_event_variant_names(value)
+                        }
+                    }
+                )*
+                #(
+                    impl<State> ::core::convert::From<#resolution_enum_types> for #resolution<State>
+                        where #event_constraints
+                    {
                         fn from(value: #resolution_enum_types) -> Self {
                             Self::#resolution_enum_types(value)
                         }
