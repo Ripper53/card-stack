@@ -6,6 +6,7 @@ use syn::{
     DeriveInput, Field, Fields, Ident, Type, TypePath,
     parse::{Parse, Parser},
     parse_macro_input,
+    spanned::Spanned,
     visit_mut::VisitMut,
 };
 
@@ -15,7 +16,7 @@ struct EventManagerArgs {
 }
 
 struct StateMapping {
-    states: Vec<(syn::Type, syn::Expr)>,
+    states: Vec<(syn::Type, syn::ExprClosure)>,
     placeholder: syn::Ident,
 }
 
@@ -116,7 +117,7 @@ impl Parse for StateMapping {
                 }
             };
 
-            states.push((state_ty, syn::Expr::Closure(closure)));
+            states.push((state_ty, closure));
         }
 
         Ok(StateMapping {
@@ -124,6 +125,63 @@ impl Parse for StateMapping {
             placeholder,
         })
     }
+}
+
+fn closure_to_item_fn(
+    closure: syn::ExprClosure,
+    fn_name: &str,
+    event_manager_name: Type,
+) -> syn::Result<syn::ItemFn> {
+    // Reject capturing closures
+    if closure.capture.is_some() {
+        return Err(syn::Error::new(
+            closure.span(),
+            "cannot convert capturing closure into function",
+        ));
+    }
+
+    // Convert closure inputs into fn inputs
+    let inputs = closure
+        .inputs
+        .into_iter()
+        .map(|pat| match pat {
+            syn::Pat::Type(pat_ty) => Ok(syn::FnArg::Typed(pat_ty)),
+            _ => Err(syn::Error::new_spanned(
+                pat,
+                "closure parameters must be typed",
+            )),
+        })
+        .collect::<syn::Result<_>>()?;
+
+    let sig = syn::Signature {
+        constness: closure.constness,
+        asyncness: closure.asyncness,
+        unsafety: None,
+        abi: None,
+        fn_token: Default::default(),
+        ident: Ident::new(fn_name, proc_macro2::Span::call_site()),
+        generics: Default::default(),
+        paren_token: Default::default(),
+        inputs,
+        variadic: None,
+        output: syn::ReturnType::Type(
+            syn::token::RArrow::default(),
+            Box::new(syn::parse_quote!(&#event_manager_name)),
+        ),
+    };
+
+    Ok(syn::ItemFn {
+        attrs: Vec::new(),
+        vis: syn::Visibility::Inherited,
+        sig,
+        block: Box::new(match *closure.body {
+            syn::Expr::Block(block) => block.block,
+            expr => syn::Block {
+                brace_token: syn::token::Brace::default(),
+                stmts: vec![syn::Stmt::Expr(expr, None)],
+            },
+        }),
+    })
 }
 
 impl Parse for EventMapping {
@@ -178,6 +236,12 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut stackable_event_resolutions = Vec::new();
     if let Fields::Named(ref mut fields) = ast.fields {
         for (state, get_event_manager) in args.states.states {
+            let get_event_manager = closure_to_item_fn(
+                get_event_manager,
+                "get_event_manager",
+                syn::parse_quote!(#struct_name),
+            )
+            .expect("failed to make function from closure");
             let original_state = &state;
             for event in args.events.iter() {
                 {
@@ -198,7 +262,6 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         "{}Event",
                         event_name.to_upper_camel_case(),
                     ));
-                    //stackable_events.push(event);
                     stackable_event_resolutions.push(quote::quote!(#event_resolution));
                     let return_ty: syn::Type = syn::parse_quote!(
                         card_game::events::EventManager<
@@ -230,7 +293,9 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             fn event_manager(
                                 &self,
                             ) -> card_game::events::EventManager<card_game::stack::priority::Priority<Self>, #event, Self::Output> {
-                                (#get_event_manager)(self)
+                                #get_event_manager
+                                let event_manager = get_event_manager(self);
+                                event_manager
                                     .#field_name()
                                     .clone()
                             }
@@ -341,7 +406,9 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 fn stack_event_manager(
                                     &self,
                                 ) -> card_game::events::EventManager<#state, #event, Self::Output> {
-                                    (#get_event_manager)(self)
+                                    #get_event_manager
+                                    let event_manager = get_event_manager(self);
+                                    event_manager
                                         .#field_name()
                                         .clone()
                                 }
