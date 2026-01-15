@@ -279,7 +279,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             }
                         }
                         impl card_game::events::Event<#original_state> for #event {
-                            type Stackable = #stackable<#state>;
+                            type Stackable = #stackable<#original_state, card_game::events::EventAction<#state, Self, #event_resolution<#state>>>;
                         }
                         impl card_game::events::GetEventManager<#event> for #original_state {
                             type Output = #event_resolution<#state>;
@@ -389,7 +389,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             impl card_game::events::Event<
                                 card_game::events::EventPriorityStack<#original_state, #original_event, #original_priority_event_resolution<#priority_state>>
                             > for #event {
-                                type Stackable = #stackable<#state>;
+                                type Stackable = #stackable<#original_state, card_game::events::EventAction<#priority_state, #original_event, #original_priority_event_resolution<#priority_state>>>;
                             }
                             impl card_game::events::GetStackEventManager<
                                 #event,
@@ -500,33 +500,61 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     )
                 })
                 .unzip();
-            let event_constraints = quote::quote! {
+            let stackable_event_constraints = quote::quote! {
+                #(
+                    #events: card_game::events::Event<card_game::stack::priority::PriorityMut<
+                        card_game::stack::priority::PriorityStack<State, IncitingAction>,
+                    >>,
+                )*
+            };
+            let resolution_event_constraints = quote::quote! {
                 #(
                     #events: card_game::events::Event<card_game::stack::priority::PriorityMut<State>>,
                 )*
             };
             impls.push(quote::quote! {
                 #[derive(Debug, Clone)]
-                pub enum #stackable<State>
-                    where #event_constraints
+                pub enum #stackable<State, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>>
+                    where #stackable_event_constraints
                 {
                     #(
-                        #stackable_event_names(card_game::events::EventAction<State, #events, #event_resolutions<State>>),
+                        #stackable_event_names(card_game::events::EventAction<
+                            card_game::stack::priority::PriorityStack<State, IncitingAction>,
+                            #events,
+                            #event_resolutions<
+                                card_game::stack::priority::PriorityStack<State, IncitingAction>,
+                            >,
+                        >),
                     )*
                     #(#stackable_enum_variants),*
                 }
                 #(
-                    impl<State> ::core::convert::From<card_game::events::EventAction<State, #events, #event_resolutions<State>>> for #stackable<State>
-                        where #event_constraints
+                    impl<
+                        State,
+                        IncitingAction: card_game::stack::actions::IncitingActionInfo<State>,
+                    > ::core::convert::From<card_game::events::EventAction<
+                        card_game::stack::priority::PriorityStack<State, IncitingAction>,
+                        #events,
+                        #event_resolutions<
+                            card_game::stack::priority::PriorityStack<State, IncitingAction>,
+                        >,
+                    >> for #stackable<State, IncitingAction>
+                        where #stackable_event_constraints
                     {
-                        fn from(value: card_game::events::EventAction<State, #events, #event_resolutions<State>>) -> Self {
+                        fn from(value: card_game::events::EventAction<
+                            card_game::stack::priority::PriorityStack<State, IncitingAction>,
+                            #events,
+                            #event_resolutions<
+                                card_game::stack::priority::PriorityStack<State, IncitingAction>,
+                            >,
+                        >) -> Self {
                             Self::#stackable_event_names(value)
                         }
                     }
                 )*
                 #(
-                    impl<State> ::core::convert::From<#stackable_enum_types> for #stackable<State>
-                        where #event_constraints
+                    impl<State, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>> ::core::convert::From<#stackable_enum_types> for #stackable<State, IncitingAction>
+                        where #stackable_event_constraints
                     {
                         fn from(value: #stackable_enum_types) -> Self {
                             Self::#stackable_enum_types(value)
@@ -535,7 +563,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 )*
                 #[derive(Debug, Clone)]
                 pub enum #resolution<State>
-                    where #event_constraints
+                    where #resolution_event_constraints
                 {
                     State(State),
                     #(#resolution_triggered_event_variant_names(#resolution_triggered_event_variant_types),)*
@@ -543,7 +571,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
                 #(
                     impl<State> ::core::convert::From<#resolution_triggered_event_variant_types> for #resolution<State>
-                        where #event_constraints
+                        where #resolution_event_constraints
                     {
                         fn from(value: #resolution_triggered_event_variant_types) -> Self {
                             Self::#resolution_triggered_event_variant_names(value)
@@ -552,7 +580,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 )*
                 #(
                     impl<State> ::core::convert::From<#resolution_enum_types> for #resolution<State>
-                        where #event_constraints
+                        where #resolution_event_constraints
                     {
                         fn from(value: #resolution_enum_types) -> Self {
                             Self::#resolution_enum_types(value)
