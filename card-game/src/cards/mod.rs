@@ -9,7 +9,9 @@ use state_validation::{
     StateFilter, StateFilterInputCombination, StateFilterInputConversion, ValidAction,
 };
 
+mod events;
 mod manager;
+pub use events::*;
 pub use manager::*;
 
 #[derive(Debug, Clone)]
@@ -133,9 +135,9 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
     {
         let card_id = self.card.id();
         let event_listener = Listener::new_listener(SourceCardID(card_id), listener_input.clone());
+        let index = self.event_manager.add_listener(event_listener);
         self.card_event_tracker
-            .track_event::<_, _, Listener>(card_id, listener_input);
-        self.event_manager.add_listener(event_listener);
+            .track_event::<_, _, Listener>(card_id, index, listener_input);
         self
     }
     pub fn copy_events(self, card_id: CardID) -> Self {

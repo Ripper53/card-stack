@@ -4,7 +4,7 @@ use std::{
     hash::Hash,
 };
 
-use crate::{create_valid_identification, identifications::SourceCardID};
+use crate::{cards::EventManagerIndex, create_valid_identification, identifications::SourceCardID};
 use card_stack::{
     actions::{ActionSource, IncitingAction, IncitingActionInfo, StackAction},
     priority::{GetState, IncitingResolver, Priority, PriorityMut, PriorityStack},
@@ -16,6 +16,11 @@ use state_validation::{
 
 pub struct EventManager<State: 'static, Ev: Event<PriorityMut<State>>, Output> {
     events: Vec<DynEventListener<State, Ev, Output>>,
+}
+impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> EventManager<State, Ev, Output> {
+    pub fn events(&self) -> &[DynEventListener<State, Ev, Output>] {
+        self.events.as_slice()
+    }
 }
 pub type EventPriorityStack<State, Ev: Event<PriorityMut<State>>, IncitingOutput> =
     PriorityStack<State, EventAction<Priority<State>, Ev, IncitingOutput>>;
@@ -55,7 +60,7 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
             },
         }
     }
-    fn get_action(
+    pub(crate) fn get_action(
         &self,
         state: &State,
         event: &Ev,
@@ -133,13 +138,15 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
     pub(crate) fn new(events: Vec<DynEventListener<EventState, Ev, Output>>) -> Self {
         EventManager { events }
     }
-    pub fn add_listener<Listener: EventListener<EventState, Ev>>(&mut self, listener: Listener)
+    pub fn add_listener<Listener: EventListener<EventState, Ev>>(&mut self, listener: Listener) -> EventManagerIndex
     where
         <Listener::Action as EventValidAction<PriorityMut<EventState>, Listener::ActionInput>>::Output:
             Into<Output>,
     {
+        let index = self.events.len();
         let listener = DynEventListener::new(listener);
         self.events.push(listener);
+        EventManagerIndex::new(index)
     }
 }
 impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
@@ -170,14 +177,17 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
         CollectedActions { event, actions }
     }
 }
-struct CollectedActions<State, Ev: Event<PriorityMut<State>>, Output> {
+pub(crate) struct CollectedActions<State, Ev: Event<PriorityMut<State>>, Output> {
     event: Ev,
     actions: Vec<EventAction<State, Ev, Output>>,
 }
 impl<EventState, Ev: Event<PriorityMut<EventState>>, Output>
     CollectedActions<EventState, Ev, Output>
 {
-    fn simultaneous_action_manager(
+    pub(crate) fn new(ev: Ev, actions: Vec<EventAction<EventState, Ev, Output>>) -> Self {
+        CollectedActions { event: ev, actions }
+    }
+    pub(crate) fn simultaneous_action_manager(
         self,
         state: EventState,
     ) -> SimultaneousActionManager<EventState, Ev, Output>
@@ -749,7 +759,10 @@ pub trait GetStackEventManager<
 
 pub trait AddEventListener<State, Ev: Event<PriorityMut<State>>> {
     type Output: 'static;
-    fn add_listener<Listener: EventListener<State, Ev>>(&mut self, listener: Listener)
+    fn add_listener<Listener: EventListener<State, Ev>>(
+        &mut self,
+        listener: Listener,
+    ) -> EventManagerIndex
     where
         <Listener::Action as EventValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
             Into<Self::Output>;

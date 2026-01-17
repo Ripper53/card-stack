@@ -24,8 +24,8 @@ struct EventMapping {
     event: syn::Type,
     stackable: syn::Type,
     resolution: syn::Type,
-    stackable_enum_types: Vec<syn::Type>,
-    resolution_enum_types: Vec<syn::Type>,
+    stackable_enum_types: Vec<IdentAndType>,
+    resolution_enum_types: Vec<IdentAndType>,
 }
 
 impl Parse for EventManagerArgs {
@@ -195,7 +195,7 @@ impl Parse for EventMapping {
             let content;
             syn::braced!(content in input);
             content
-                .parse_terminated(syn::Type::parse, syn::Token![,])?
+                .parse_terminated(IdentAndType::parse, syn::Token![,])?
                 .into_iter()
                 .collect::<Vec<_>>()
         } else {
@@ -209,7 +209,7 @@ impl Parse for EventMapping {
             let content;
             syn::braced!(content in input);
             content
-                .parse_terminated(syn::Type::parse, syn::Token![,])?
+                .parse_terminated(IdentAndType::parse, syn::Token![,])?
                 .into_iter()
                 .collect::<Vec<_>>()
         } else {
@@ -223,6 +223,29 @@ impl Parse for EventMapping {
             stackable_enum_types,
             resolution_enum_types,
         })
+    }
+}
+
+struct IdentAndType {
+    ident: Option<Ident>,
+    ty: Type,
+}
+impl Parse for IdentAndType {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        if input.peek2(syn::Token![:]) {
+            let ident = input.parse()?;
+            let _ = input.parse::<syn::Token![:]>()?;
+            let ty = input.parse()?;
+            Ok(IdentAndType {
+                ident: Some(ident),
+                ty,
+            })
+        } else {
+            Ok(IdentAndType {
+                ident: None,
+                ty: input.parse()?,
+            })
+        }
     }
 }
 
@@ -300,7 +323,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             >(
                                 &mut self,
                                 listener: Listener,
-                            ) where
+                            ) -> card_game::cards::EventManagerIndex where
                                 <Listener::Action as card_game::events::EventValidAction<
                                     card_game::stack::priority::PriorityMut<#state>,
                                     Listener::ActionInput,
@@ -309,7 +332,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 self.#field_name.add_listener(listener)
                             }
                         }
-                        impl ::core::convert::From<#state> for #event_resolution<#state> {
+                        impl ::std::convert::From<#state> for #event_resolution<#state> {
                             fn from(value: #state) -> Self {
                                 Self::State(value)
                             }
@@ -413,7 +436,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 >(
                                     &mut self,
                                     listener: Listener,
-                                ) where
+                                ) -> card_game::cards::EventManagerIndex where
                                     <Listener::Action as card_game::events::EventValidAction<
                                         card_game::stack::priority::PriorityMut<#state>,
                                         Listener::ActionInput,
@@ -422,12 +445,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                     self.#field_name.add_listener(listener)
                                 }
                             }
-                            /*impl ::core::convert::From<#state> for #stackable<#state> {
-                                fn from(value: #state) -> Self {
-                                    Self::State(value)
-                                }
-                            }*/
-                            impl ::core::convert::From<#state> for #stack_event_resolution<#state> {
+                            impl ::std::convert::From<#state> for #stack_event_resolution<#state> {
                                 fn from(value: #state) -> Self {
                                     Self::State(value)
                                 }
@@ -439,25 +457,75 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
         }
         for event in args.events.iter() {
             let stackable = &event.stackable;
-            let stackable_enum_types = &event.stackable_enum_types;
-            let stackable_enum_variants = stackable_enum_types
+            let stackable_enum_types = event
+                .stackable_enum_types
+                .iter()
+                .map(|ty| substitute_type(&ty.ty, &args.states.placeholder, &syn::parse_quote!(card_game::stack::priority::PriorityStack<State, IncitingAction>)))
+                .collect::<Vec<_>>();
+            let stackable_enum_variant_names = event
+                .stackable_enum_types
                 .iter()
                 .map(|ty| {
-                    let enum_ty = quote::format_ident!(
-                        "{}",
-                        quote::quote!(#ty).to_string().to_upper_camel_case()
-                    );
-                    quote::quote!(#enum_ty(#ty))
+                    if let Some(ref ident) = ty.ident {
+                        ident
+                    } else {
+                        type_to_ident(&ty.ty)
+                    }
+                })
+                .collect::<Vec<_>>();
+            let stackable_enum_variant_names_str = stackable_enum_variant_names
+                .iter()
+                .map(|ident| ident.to_string())
+                .collect::<Vec<_>>();
+            let stackable_enum_variants = event.stackable_enum_types
+                .iter()
+                .map(|ty| {
+                    let ident = if let Some(ref ident) = ty.ident {
+                        ident
+                    } else {
+                        type_to_ident(&ty.ty)
+                    };
+                    let ty = substitute_type(
+                        &ty.ty,
+                        &args.states.placeholder,
+                        &syn::parse_quote!(card_game::stack::priority::PriorityStack<State, IncitingAction>));
+                    quote::quote!(#ident(#ty))
                 })
                 .collect::<Vec<_>>();
             let resolution = &event.resolution;
-            let resolution_enum_types = &event.resolution_enum_types;
-            let resolution_enum_variants = resolution_enum_types
+            let resolution_enum_types = event
+                .resolution_enum_types
                 .iter()
                 .map(|ty| {
-                    let enum_ty = quote::format_ident!(
-                        "{}",
-                        quote::quote!(#ty).to_string().to_upper_camel_case()
+                    substitute_type(&ty.ty, &args.states.placeholder, &syn::parse_quote!(State))
+                })
+                .collect::<Vec<_>>();
+            let resolution_enum_variant_names = event
+                .resolution_enum_types
+                .iter()
+                .map(|ty| {
+                    let ident = if let Some(ref ident) = ty.ident {
+                        ident.to_string()
+                    } else {
+                        type_to_ident(&ty.ty).to_string()
+                    };
+                    quote::format_ident!("{}", ident.to_upper_camel_case())
+                })
+                .collect::<Vec<_>>();
+            let resolution_enum_variants = event
+                .resolution_enum_types
+                .iter()
+                .map(|ty| {
+                    let ident = if let Some(ref ident) = ty.ident {
+                        ident.to_string()
+                    } else {
+                        type_to_ident(&ty.ty).to_string()
+                    };
+                    let enum_ty = quote::format_ident!("{}", ident.to_upper_camel_case());
+                    let ty = substitute_type(
+                        &ty.ty,
+                        &args.states.placeholder,
+                        &syn::parse_quote!(State),
                     );
                     quote::quote!(#enum_ty(#ty))
                 })
@@ -469,32 +537,37 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     (
                         stackable_event_names,
                         (
-                            resolution_triggered_event_variant_names,
-                            resolution_triggered_event_variant_types,
+                            stackable_event_names_str,
+                            (
+                                resolution_triggered_event_variant_names,
+                                resolution_triggered_event_variant_types,
+                            ),
                         ),
                     ),
                 ),
-            ): (Vec<_>, (Vec<_>, (Vec<_>, (Vec<_>, Vec<_>)))) = args
+            ): (Vec<_>, (Vec<_>, (Vec<_>, (Vec<_>, (Vec<_>, Vec<_>))))) = args
                 .events
                 .iter()
                 .map(|args| {
                     let event = &args.event;
                     let event_name = quote::quote!(#event).to_string();
-                    let stackable_event_name =
-                        quote::format_ident!("{}Event", event_name.to_upper_camel_case(),);
+                    let stackable_event_name_str =
+                        format!("{}Event", event_name.to_upper_camel_case());
+                    let stackable_event_name = quote::format_ident!("{stackable_event_name_str}");
                     (
                         event,
                         (
                             &args.resolution,
                             (
                                 stackable_event_name,
+                                (stackable_event_name_str,
                                 (
                                     quote::format_ident!(
                                         "Triggered{}Event",
                                         quote::quote!(#event).to_string().to_upper_camel_case()
                                     ),
                                     quote::quote!(card_game::events::TriggeredEvent<State, #event>),
-                                ),
+                                )),
                             ),
                         ),
                     )
@@ -513,7 +586,6 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 )*
             };
             impls.push(quote::quote! {
-                #[derive(Debug, Clone)]
                 pub enum #stackable<State, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>>
                     where #stackable_event_constraints
                 {
@@ -528,11 +600,45 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     )*
                     #(#stackable_enum_variants),*
                 }
+                impl<State, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>> ::std::fmt::Debug for #stackable<State, IncitingAction>
+                    where IncitingAction::Stackable: ::std::fmt::Debug, #stackable_event_constraints
+                        #(
+                            #stackable_enum_types: ::std::fmt::Debug,
+                        )*
+                {
+                    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::result::Result<(), ::std::fmt::Error> {
+                        match self {
+                            #(
+                                Self::#stackable_event_names(value) => f.debug_tuple(#stackable_event_names_str).field(value).finish(),
+                            )*
+                            #(
+                                Self::#stackable_enum_variant_names(value) => f.debug_tuple(#stackable_enum_variant_names_str).field(value).finish(),
+                            )*
+                        }
+                    }
+                }
+                impl<State, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>> ::std::clone::Clone for #stackable<State, IncitingAction>
+                    where IncitingAction::Stackable: ::std::clone::Clone, #stackable_event_constraints
+                        #(
+                            #stackable_enum_types: ::std::clone::Clone,
+                        )*
+                {
+                    fn clone(&self) -> Self {
+                        match self {
+                            #(
+                                Self::#stackable_event_names(value) => Self::#stackable_event_names(value.clone()),
+                            )*
+                            #(
+                                Self::#stackable_enum_variant_names(value) => Self::#stackable_enum_variant_names(value.clone()),
+                            )*
+                        }
+                    }
+                }
                 #(
                     impl<
                         State,
                         IncitingAction: card_game::stack::actions::IncitingActionInfo<State>,
-                    > ::core::convert::From<card_game::events::EventAction<
+                    > ::std::convert::From<card_game::events::EventAction<
                         card_game::stack::priority::PriorityStack<State, IncitingAction>,
                         #events,
                         #event_resolutions<
@@ -553,11 +659,11 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 )*
                 #(
-                    impl<State, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>> ::core::convert::From<#stackable_enum_types> for #stackable<State, IncitingAction>
+                    impl<State, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>> ::std::convert::From<#stackable_enum_types> for #stackable<State, IncitingAction>
                         where #stackable_event_constraints
                     {
                         fn from(value: #stackable_enum_types) -> Self {
-                            Self::#stackable_enum_types(value)
+                            Self::#stackable_enum_variant_names(value)
                         }
                     }
                 )*
@@ -570,7 +676,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     #(#resolution_enum_variants),*
                 }
                 #(
-                    impl<State> ::core::convert::From<#resolution_triggered_event_variant_types> for #resolution<State>
+                    impl<State> ::std::convert::From<#resolution_triggered_event_variant_types> for #resolution<State>
                         where #resolution_event_constraints
                     {
                         fn from(value: #resolution_triggered_event_variant_types) -> Self {
@@ -579,11 +685,11 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 )*
                 #(
-                    impl<State> ::core::convert::From<#resolution_enum_types> for #resolution<State>
+                    impl<State> ::std::convert::From<#resolution_enum_types> for #resolution<State>
                         where #resolution_event_constraints
                     {
                         fn from(value: #resolution_enum_types) -> Self {
-                            Self::#resolution_enum_types(value)
+                            Self::#resolution_enum_variant_names(value)
                         }
                     }
                 )*
@@ -622,5 +728,17 @@ impl<'a> syn::visit_mut::VisitMut for TypeSubstituter<'a> {
                 syn::visit_mut::visit_type_mut(self, node);
             }
         }
+    }
+}
+
+fn type_to_ident(ty: &Type) -> &Ident {
+    match ty {
+        Type::Path(type_path) => type_path
+            .path
+            .segments
+            .last()
+            .map(|seg| &seg.ident)
+            .unwrap(),
+        _ => unimplemented!(),
     }
 }
