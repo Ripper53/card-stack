@@ -740,6 +740,29 @@ pub enum TriggeredStackEventResolution<
         SimultaneousActionManager<PriorityStack<State, IncitingAction>, Ev, State::Output>,
     ),
 }
+impl<
+    State: GetStackEventManager<Ev, IncitingAction> + Clone,
+    Ev: Event<PriorityMut<PriorityStack<State, IncitingAction>>>,
+    IncitingAction: IncitingActionInfo<State> + Clone,
+> Clone for TriggeredStackEventResolution<State, Ev, IncitingAction>
+where
+    EventAction<PriorityStack<State, IncitingAction>, Ev, State::Output>: Into<Ev::Stackable>,
+    IncitingAction::Stackable: Clone,
+{
+    fn clone(&self) -> Self {
+        match self {
+            TriggeredStackEventResolution::None(stack) => {
+                TriggeredStackEventResolution::None(stack.clone())
+            }
+            TriggeredStackEventResolution::Action(action) => {
+                TriggeredStackEventResolution::Action(action.clone())
+            }
+            TriggeredStackEventResolution::SimultaneousActions(action_manager) => {
+                TriggeredStackEventResolution::SimultaneousActions(action_manager.clone())
+            }
+        }
+    }
+}
 
 pub trait GetEventManager<Ev: Event<PriorityMut<Priority<Self>>>>: Sized {
     type Output;

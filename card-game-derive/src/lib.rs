@@ -466,16 +466,17 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 .stackable_enum_types
                 .iter()
                 .map(|ty| {
-                    if let Some(ref ident) = ty.ident {
+                    let ident = if let Some(ref ident) = ty.ident {
                         ident
                     } else {
                         type_to_ident(&ty.ty)
-                    }
+                    };
+                    quote::format_ident!("{}", ident.to_string().to_upper_camel_case())
                 })
                 .collect::<Vec<_>>();
             let stackable_enum_variant_names_str = stackable_enum_variant_names
                 .iter()
-                .map(|ident| ident.to_string())
+                .map(|ident| ident.to_string().to_upper_camel_case())
                 .collect::<Vec<_>>();
             let stackable_enum_variants = event.stackable_enum_types
                 .iter()
@@ -485,6 +486,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     } else {
                         type_to_ident(&ty.ty)
                     };
+                    let ident = quote::format_ident!("{}", ident.to_string().to_upper_camel_case());
                     let ty = substitute_type(
                         &ty.ty,
                         &args.states.placeholder,
@@ -618,7 +620,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
                 impl<State, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>> ::std::clone::Clone for #stackable<State, IncitingAction>
-                    where IncitingAction::Stackable: ::std::clone::Clone, #stackable_event_constraints
+                    where #stackable_event_constraints
                         #(
                             #stackable_enum_types: ::std::clone::Clone,
                         )*
