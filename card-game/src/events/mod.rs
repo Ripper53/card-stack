@@ -1,10 +1,14 @@
 use std::{
     any::Any,
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     hash::Hash,
 };
 
-use crate::{cards::EventManagerIndex, create_valid_identification, identifications::SourceCardID};
+use crate::{
+    cards::{EventManagerID, EventManagerIndex},
+    create_valid_identification,
+    identifications::SourceCardID,
+};
 use card_stack::{
     actions::{ActionSource, IncitingAction, IncitingActionInfo, StackAction},
     priority::{GetState, IncitingResolver, Priority, PriorityMut, PriorityStack},
@@ -14,11 +18,17 @@ use state_validation::{
     dynamic::{DynStateFilter, DynValidAction, DynValidActionExecutionError},
 };
 
+mod event_action_id;
+pub use event_action_id::*;
+
 pub struct EventManager<State: 'static, Ev: Event<PriorityMut<State>>, Output> {
-    events: Vec<DynEventListener<State, Ev, Output>>,
+    events: Vec<(EventActionID, DynEventListener<State, Ev, Output>)>,
 }
 impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> EventManager<State, Ev, Output> {
-    pub fn events(&self) -> &[DynEventListener<State, Ev, Output>] {
+    pub fn contains_index(&self, index: EventManagerIndex) -> bool {
+        index.index() < self.events.len()
+    }
+    pub fn events(&self) -> &[(EventActionID, DynEventListener<State, Ev, Output>)] {
         self.events.as_slice()
     }
 }
@@ -135,17 +145,19 @@ impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> EventManager<State, 
 impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
     EventManager<EventState, Ev, Output>
 {
-    pub(crate) fn new(events: Vec<DynEventListener<EventState, Ev, Output>>) -> Self {
+    pub(crate) fn new(
+        events: Vec<(EventActionID, DynEventListener<EventState, Ev, Output>)>,
+    ) -> Self {
         EventManager { events }
     }
-    pub fn add_listener<Listener: EventListener<EventState, Ev>>(&mut self, listener: Listener) -> EventManagerIndex
+    pub fn add_listener<Listener: EventListener<EventState, Ev>>(&mut self, event_action_id: EventActionID, listener: Listener) -> EventManagerIndex
     where
         <Listener::Action as EventValidAction<PriorityMut<EventState>, Listener::ActionInput>>::Output:
             Into<Output>,
     {
         let index = self.events.len();
         let listener = DynEventListener::new(listener);
-        self.events.push(listener);
+        self.events.push((event_action_id, listener));
         EventManagerIndex::new(index)
     }
 }
@@ -154,13 +166,15 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
 {
     fn collect_actions(
         &self,
+        event_manager_id: EventManagerID,
         state: &PriorityMut<EventState>,
         event: Ev,
     ) -> CollectedActions<EventState, Ev, Output> {
-        let actions = self
+        let (indexes, actions) = self
             .events
             .iter()
-            .filter_map(|listener| {
+            .enumerate()
+            .filter_map(|(i, (event_action_id, listener))| {
                 if let Ok(event_action) = listener.get_action(state.priority(), &event)
                     && event_action
                         .action
@@ -168,24 +182,42 @@ impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
                         .filter(&state, (*event_action.event_input).any_clone())
                         .is_ok()
                 {
-                    Some(event_action)
+                    Some((
+                        (event_manager_id, EventManagerIndex::new(i)),
+                        (*event_action_id, event_action),
+                    ))
                 } else {
                     None
                 }
             })
-            .collect();
-        CollectedActions { event, actions }
+            .collect::<Vec<_>>()
+            .into_iter()
+            .unzip();
+        CollectedActions {
+            event,
+            indexes,
+            actions,
+        }
     }
 }
 pub(crate) struct CollectedActions<State, Ev: Event<PriorityMut<State>>, Output> {
     event: Ev,
-    actions: Vec<EventAction<State, Ev, Output>>,
+    indexes: HashSet<(EventManagerID, EventManagerIndex)>,
+    actions: Vec<(EventActionID, EventAction<State, Ev, Output>)>,
 }
 impl<EventState, Ev: Event<PriorityMut<EventState>>, Output>
     CollectedActions<EventState, Ev, Output>
 {
-    pub(crate) fn new(ev: Ev, actions: Vec<EventAction<EventState, Ev, Output>>) -> Self {
-        CollectedActions { event: ev, actions }
+    pub(crate) fn new(
+        ev: Ev,
+        indexes: HashSet<(EventManagerID, EventManagerIndex)>,
+        actions: Vec<(EventActionID, EventAction<EventState, Ev, Output>)>,
+    ) -> Self {
+        CollectedActions {
+            event: ev,
+            indexes,
+            actions,
+        }
     }
     pub(crate) fn simultaneous_action_manager(
         self,
@@ -197,6 +229,7 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output>
         SimultaneousActionManager {
             state,
             event: self.event,
+            indexes: self.indexes,
             actions: self
                 .actions
                 .into_iter()
@@ -209,7 +242,8 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output>
 pub struct SimultaneousActionManager<State, Ev: Event<PriorityMut<State>>, Output> {
     state: State,
     event: Ev,
-    actions: HashMap<SimultaneousActionID, EventAction<State, Ev, Output>>,
+    pub(crate) indexes: HashSet<(EventManagerID, EventManagerIndex)>,
+    actions: HashMap<SimultaneousActionID, (EventActionID, EventAction<State, Ev, Output>)>,
 }
 impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>>, Output> std::fmt::Debug
     for SimultaneousActionManager<State, Ev, Output>
@@ -247,6 +281,12 @@ impl<State, Ev: Event<PriorityMut<State>>, Output> SimultaneousActionManager<Sta
 //where
 //EventAction<State, Ev, Output>: Into<Ev::Stackable>,
 {
+    pub fn state(&self) -> &State {
+        &self.state
+    }
+    pub fn actions(&self) -> impl Iterator<Item = &EventAction<State, Ev, Output>> {
+        self.actions.iter().map(|(id, (_, action))| action)
+    }
     pub fn verify(&self, id: SimultaneousActionID) -> Option<ValidSimultaneousActionID<()>> {
         if self.actions.contains_key(&id) {
             Some(ValidSimultaneousActionID::new(id))
@@ -269,7 +309,7 @@ impl<State, Ev: Event<PriorityMut<State>>, Output> SimultaneousActionManager<Sta
         self.actions
             .iter()
             .enumerate()
-            .map(|(index, action)| ValidSimultaneousActionID::new(SimultaneousActionID(index)))
+            .map(|(index, _action)| ValidSimultaneousActionID::new(SimultaneousActionID(index)))
     }
 }
 impl<State: Clone, Ev: Event<PriorityMut<State>>, Output> Clone
@@ -279,6 +319,7 @@ impl<State: Clone, Ev: Event<PriorityMut<State>>, Output> Clone
         SimultaneousActionManager {
             state: self.state.clone(),
             event: self.event.clone(),
+            indexes: self.indexes.clone(),
             actions: self.actions.clone(),
         }
     }
@@ -369,11 +410,11 @@ where
         mut self,
         inciting_action_id: ValidSimultaneousActionID<()>,
     ) -> TriggeredStackEventResolution<State, Ev, EventAction<Priority<State>, Ev, Output>> {
-        let action = self.actions.remove(&inciting_action_id.0).unwrap();
-        let mut stack = self
+        let (event_action_id, action) = self.actions.remove(&inciting_action_id.0).unwrap();
+        let stack = self
             .state
             .stack(action);
-        TriggeredEvent::<PriorityStack<_, _>, _>::new(stack, self.event).collect()
+        TriggeredEvent::<PriorityStack<_, _>, _>::new(stack, self.event).collect_with_exclusion(event_action_id)
     }
 }
 impl<
@@ -407,10 +448,10 @@ where
             ));
         }
         let inciting_action_id = order.pop().unwrap();
-        let action = self.actions.remove(&inciting_action_id.0).unwrap();
+        let (_event_action_id, action) = self.actions.remove(&inciting_action_id.0).unwrap();
         let mut stack = self.state.stack(action);
         for action_id in order.iter().rev() {
-            let action = self.actions.remove(&action_id.0).unwrap();
+            let (_event_action_id, action) = self.actions.remove(&action_id.0).unwrap();
             stack = stack.stack(action);
         }
         Ok(stack)
@@ -649,16 +690,17 @@ impl<State: GetEventManager<Ev> + 'static, Ev: Event<PriorityMut<Priority<State>
 //Into<<Ev as Event<PriorityMut<Priority<State>>>>::Stackable>,
 {
     pub fn collect(self) -> TriggeredEventResolution<State, Ev> {
+        let event_manager_id = self.state.state().event_manager_id();
         let event_manager = self.state.state().event_manager();
         // TODO: I don't like the fact that we are instantiating a priority mut!
         let priority_mut = PriorityMut::<Priority<_>>::new(self.state);
         let simultaneous_action_manager = event_manager
-            .collect_actions(&priority_mut, self.event)
+            .collect_actions(event_manager_id, &priority_mut, self.event)
             .simultaneous_action_manager(priority_mut.take_priority());
         match simultaneous_action_manager.simultaneous_action_count() {
             0 => TriggeredEventResolution::None(simultaneous_action_manager.state.take_state()),
             1 => {
-                let event_action = simultaneous_action_manager
+                let (_event_action_id, event_action) = simultaneous_action_manager
                     .actions
                     .into_iter()
                     .next()
@@ -701,16 +743,62 @@ where
         EventAction<PriorityStack<State, IncitingAction>, Ev, State::Output>:
             Into<IncitingAction::Stackable>,
     {
+        let event_manager_id = self.state.state().event_manager_id();
         let event_manager = self.state.state().stack_event_manager();
         // TODO: I don't like the fact that we are instantiating a priority mut!
         let priority_mut = PriorityMut::<PriorityStack<_, _>>::new(self.state);
         let mut simultaneous_action_manager = event_manager
-            .collect_actions(&priority_mut, self.event)
+            .collect_actions(event_manager_id, &priority_mut, self.event)
             .simultaneous_action_manager(priority_mut.take_priority());
         match simultaneous_action_manager.simultaneous_action_count() {
             0 => TriggeredStackEventResolution::None(simultaneous_action_manager.state),
             1 => {
-                let event_action = simultaneous_action_manager
+                let (_event_action_id, event_action) = simultaneous_action_manager
+                    .actions
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .1;
+                TriggeredStackEventResolution::Action(
+                    simultaneous_action_manager.state.stack(event_action),
+                )
+            }
+            _ => TriggeredStackEventResolution::SimultaneousActions(simultaneous_action_manager),
+        }
+    }
+    pub fn collect_with_exclusion(
+        self,
+        event_action_id: EventActionID,
+    ) -> TriggeredStackEventResolution<State, Ev, IncitingAction>
+    where
+        EventAction<PriorityStack<State, IncitingAction>, Ev, State::Output>:
+            Into<IncitingAction::Stackable>,
+    {
+        let event_manager_id = self.state.state().event_manager_id();
+        let event_manager = self.state.state().stack_event_manager();
+        // TODO: I don't like the fact that we are instantiating a priority mut!
+        let priority_mut = PriorityMut::<PriorityStack<_, _>>::new(self.state);
+        let mut simultaneous_action_manager = event_manager
+            .collect_actions(event_manager_id, &priority_mut, self.event)
+            .simultaneous_action_manager(priority_mut.take_priority());
+        let to_remove_ids = simultaneous_action_manager
+            .actions
+            .iter()
+            .filter_map(|(sim_id, (id, event_action))| {
+                if event_action_id == *id {
+                    Some(*sim_id)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        for id in to_remove_ids {
+            let _ = simultaneous_action_manager.actions.remove(&id);
+        }
+        match simultaneous_action_manager.simultaneous_action_count() {
+            0 => TriggeredStackEventResolution::None(simultaneous_action_manager.state),
+            1 => {
+                let (_event_action_id, event_action) = simultaneous_action_manager
                     .actions
                     .into_iter()
                     .next()
@@ -766,6 +854,7 @@ where
 
 pub trait GetEventManager<Ev: Event<PriorityMut<Priority<Self>>>>: Sized {
     type Output;
+    fn event_manager_id(&self) -> EventManagerID;
     fn event_manager(&self) -> EventManager<Priority<Self>, Ev, Self::Output>;
 }
 
@@ -775,6 +864,7 @@ pub trait GetStackEventManager<
 >: Sized
 {
     type Output;
+    fn event_manager_id(&self) -> EventManagerID;
     fn stack_event_manager(
         &self,
     ) -> EventManager<PriorityStack<Self, IncitingAction>, Ev, Self::Output>;
@@ -784,8 +874,9 @@ pub trait AddEventListener<State, Ev: Event<PriorityMut<State>>> {
     type Output: 'static;
     fn add_listener<Listener: EventListener<State, Ev>>(
         &mut self,
+        event_action_id: EventActionID,
         listener: Listener,
-    ) -> EventManagerIndex
+    ) -> (EventManagerID, EventManagerIndex)
     where
         <Listener::Action as EventValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
             Into<Self::Output>;

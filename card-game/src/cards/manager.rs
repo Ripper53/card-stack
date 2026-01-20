@@ -9,8 +9,8 @@ use state_validation::{StateFilter, ValidAction};
 use crate::{
     cards::{CardBuilder, CardID},
     events::{
-        AddEventListener, AnyClone, DynEventListener, Event, EventListener,
-        EventListenerConstructor, EventValidAction,
+        AddEventListener, AnyClone, DynEventListener, Event, EventActionID, EventActionIDBuilder,
+        EventListener, EventListenerConstructor, EventValidAction, SimultaneousActionManager,
     },
     identifications::{ActionID, SourceCardID},
 };
@@ -18,6 +18,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct CardManager<EventManager> {
     next_card_id_index: usize,
+    event_action_id_builder: EventActionIDBuilder,
     card_actions: CardActions,
     event_manager: EventManager,
     event_tracker: CardEventTracker<EventManager>,
@@ -27,6 +28,7 @@ impl<EventManager> CardManager<EventManager> {
     pub(crate) fn new(event_manager: EventManager) -> Self {
         CardManager {
             next_card_id_index: 0,
+            event_action_id_builder: EventActionIDBuilder::default(),
             card_actions: CardActions {
                 card_actions: HashMap::new(),
                 card_actions_tracker: HashMap::new(),
@@ -49,6 +51,7 @@ impl<EventManager> CardManager<EventManager> {
     pub fn builder(&mut self) -> CardBuilder<'_, EventManager> {
         CardBuilder::new(
             &mut self.card_actions,
+            &mut self.event_action_id_builder,
             &mut self.event_manager,
             &mut self.event_tracker,
             &mut self.next_card_id_index,
@@ -107,13 +110,23 @@ impl CardActions {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub struct EventManagerID(usize);
+impl EventManagerID {
+    pub fn new(index: usize) -> Self {
+        EventManagerID(index)
+    }
+    pub fn index(&self) -> usize {
+        self.0
+    }
+}
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct EventManagerIndex(usize);
 impl EventManagerIndex {
     pub(crate) fn new(index: usize) -> Self {
         EventManagerIndex(index)
     }
-    pub(crate) fn value(&self) -> usize {
+    pub(crate) fn index(&self) -> usize {
         self.0
     }
 }
@@ -121,9 +134,16 @@ pub(crate) struct CardEventTracker<EventManager> {
     events: HashMap<
         CardID,
         Vec<(
+            EventActionID,
+            EventManagerID,
             EventManagerIndex,
             Box<dyn AnyClone>,
-            for<'a> fn(&'a mut EventManager, CardID, Box<dyn Any>) -> EventManagerIndex,
+            for<'a> fn(
+                &'a mut EventManager,
+                EventActionID,
+                CardID,
+                Box<dyn Any>,
+            ) -> (EventManagerID, EventManagerIndex),
         )>,
     >,
 }
@@ -138,7 +158,17 @@ impl<EventManager> Clone for CardEventTracker<EventManager> {
         for (card_id, event) in self.events.iter().map(|(card_id, events)| {
             let events = events
                 .iter()
-                .map(|(index, input, add_fn)| (*index, input.any_clone_duplication(), *add_fn))
+                .map(
+                    |(event_action_id, event_manager_id, event_manager_index, input, add_fn)| {
+                        (
+                            *event_action_id,
+                            *event_manager_id,
+                            *event_manager_index,
+                            input.any_clone_duplication(),
+                            *add_fn,
+                        )
+                    },
+                )
                 .collect::<Vec<_>>();
             (*card_id, events)
         }) {
@@ -156,6 +186,8 @@ impl<EventManager> CardEventTracker<EventManager> {
     >(
         &mut self,
         card_id: CardID,
+        event_action_id: EventActionID,
+        id: EventManagerID,
         index: EventManagerIndex,
         listener_input: Listener::Input,
     ) where
@@ -164,18 +196,30 @@ impl<EventManager> CardEventTracker<EventManager> {
             Into<EventManager::Output>,
     {
         let value: (
+            EventActionID,
+            EventManagerID,
             EventManagerIndex,
             Box<dyn AnyClone>,
-            for<'a> fn(&'a mut EventManager, CardID, Box<dyn Any>) -> EventManagerIndex,
+            for<'a> fn(
+                &'a mut EventManager,
+                EventActionID,
+                CardID,
+                Box<dyn Any>,
+            ) -> (EventManagerID, EventManagerIndex),
         ) = (
+            event_action_id,
+            id,
             index,
             Box::new(listener_input),
-            |event_manager: &mut EventManager, card_id: CardID, listener_input: Box<dyn Any>| {
+            |event_manager: &mut EventManager,
+             event_action_id: EventActionID,
+             card_id: CardID,
+             listener_input: Box<dyn Any>| {
                 let listener = Listener::new_listener(
                     SourceCardID(card_id),
                     *listener_input.downcast::<Listener::Input>().unwrap(),
                 );
-                event_manager.add_listener(listener)
+                event_manager.add_listener(event_action_id, listener)
             },
         );
         match self.events.entry(card_id) {
@@ -192,9 +236,10 @@ impl<EventManager> CardEventTracker<EventManager> {
         to_copy_card_id: CardID,
     ) {
         if let Some(events) = self.events.get(&to_copy_card_id) {
-            for (_, listener_input, add_event) in events {
+            for (event_action_id, _, _, listener_input, add_event) in events {
                 add_event(
                     event_manager,
+                    *event_action_id,
                     card_id,
                     (**listener_input).any_clone_duplication(),
                 );
@@ -204,9 +249,9 @@ impl<EventManager> CardEventTracker<EventManager> {
     pub(crate) fn events_for_card<'a>(
         &'a self,
         card_id: CardID,
-    ) -> Option<impl Iterator<Item = EventManagerIndex> + 'a> {
+    ) -> Option<impl Iterator<Item = (EventManagerID, EventManagerIndex)> + 'a> {
         if let Some(events) = self.events.get(&card_id) {
-            Some(events.iter().map(|(index, ..)| *index))
+            Some(events.iter().map(|(_, id, index, ..)| (*id, *index)))
         } else {
             None
         }

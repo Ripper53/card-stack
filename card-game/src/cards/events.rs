@@ -1,7 +1,7 @@
 use card_stack::priority::{Priority, PriorityMut};
 
 use crate::{
-    cards::{CardEventTracker, CardID, CardManager},
+    cards::{CardID, CardManager},
     events::{CollectedActions, Event, EventAction, EventManager, SimultaneousActionManager},
 };
 
@@ -13,6 +13,12 @@ pub struct EventCommand<State> {
 impl<State> EventCommand<State> {
     pub fn new(state: State) -> Self {
         EventCommand { state }
+    }
+    pub fn state(&self) -> &State {
+        &self.state
+    }
+    pub fn take_state(self) -> State {
+        self.state
     }
 }
 
@@ -47,10 +53,10 @@ impl<'a, State, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static, EvM>
     ) -> bool {
         let card_manager = get_card_manager(&self.state);
         let event_tracker = card_manager.event_tracker();
-        let event_manager = get_event_manager(card_manager.event_manager());
         if let Some(mut event_indexes) = event_tracker.events_for_card(card_id) {
+            let event_manager = get_event_manager(card_manager.event_manager());
             event_indexes.any(|index| {
-                if let Some(ev) = event_manager.events().get(index.value()) {
+                if let Some((_id, ev)) = event_manager.events().get(index.1.index()) {
                     ev.get_action(self.state, event).is_ok()
                 } else {
                     false
@@ -80,19 +86,42 @@ impl<State: 'static, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static, E
             return Err(NoEventsFound { state: self.state });
         };
         let event_manager = get_event_manager(card_manager.event_manager());
-        let events = event_indexes
-            .filter_map(|index| {
-                if let Some(ev) = event_manager.events().get(index.value()) {
-                    ev.get_action(&self.state, &event).ok()
+        let (indexes, events) = event_indexes
+            .filter_map(|(event_manager_id, index)| {
+                if let Some((event_action_id, ev)) = event_manager.events().get(index.index())
+                    && let Ok(event_action) = ev.get_action(&self.state, &event)
+                {
+                    Some(((event_manager_id, index), (*event_action_id, event_action)))
                 } else {
                     None
                 }
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+            .into_iter()
+            .unzip();
         Ok(
-            CollectedActions::<Priority<State>, _, _>::new(event, events)
+            CollectedActions::<Priority<State>, _, _>::new(event, indexes, events)
                 .simultaneous_action_manager(self.state),
         )
+    }
+}
+impl<State: 'static, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static>
+    EventCommand<SimultaneousActionManager<Priority<State>, Ev, Output>>
+{
+    pub fn event_triggered_for_card<EvM>(
+        &self,
+        card_id: CardID,
+        get_card_manager: for<'a> fn(
+            &'a SimultaneousActionManager<Priority<State>, Ev, Output>,
+        ) -> &'a CardManager<EvM>,
+    ) -> bool {
+        let card_manager = get_card_manager(&self.state);
+        let event_tracker = card_manager.event_tracker();
+        if let Some(mut event_indexes) = event_tracker.events_for_card(card_id) {
+            event_indexes.any(|index| self.state.indexes.contains(&index))
+        } else {
+            false
+        }
     }
 }
 

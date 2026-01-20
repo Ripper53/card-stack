@@ -1,6 +1,6 @@
 use crate::events::{
-    AddEventListener, DynEventListener, Event, EventListener, EventListenerConstructor,
-    EventValidAction,
+    AddEventListener, DynEventListener, Event, EventActionID, EventActionIDBuilder, EventListener,
+    EventListenerConstructor, EventValidAction,
 };
 use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
 use card_stack::priority::PriorityMut;
@@ -72,6 +72,7 @@ impl std::fmt::Display for CardID {
 
 pub struct CardBuilder<'a, EventManager> {
     card_actions: &'a mut CardActions,
+    event_action_id_builder: &'a mut EventActionIDBuilder,
     event_manager: &'a mut EventManager,
     card_event_tracker: &'a mut CardEventTracker<EventManager>,
     next_id: &'a mut usize,
@@ -80,12 +81,14 @@ pub struct CardBuilder<'a, EventManager> {
 impl<'a, EventManager> CardBuilder<'a, EventManager> {
     pub(crate) fn new(
         card_actions: &'a mut CardActions,
+        event_action_id_builder: &'a mut EventActionIDBuilder,
         event_manager: &'a mut EventManager,
         card_event_tracker: &'a mut CardEventTracker<EventManager>,
         next_id: &'a mut usize,
     ) -> Self {
         CardBuilder {
             card_actions,
+            event_action_id_builder,
             event_manager,
             card_event_tracker,
             next_id,
@@ -96,6 +99,7 @@ impl<'a, EventManager> CardBuilder<'a, EventManager> {
         *self.next_id += 1;
         CardKindBuilder {
             card_actions: self.card_actions,
+            event_action_id_builder: self.event_action_id_builder,
             event_manager: self.event_manager,
             card_event_tracker: self.card_event_tracker,
             card: Card::new(id, kind),
@@ -105,6 +109,7 @@ impl<'a, EventManager> CardBuilder<'a, EventManager> {
 
 pub struct CardKindBuilder<'a, EventManager, Kind> {
     card_actions: &'a mut CardActions,
+    event_action_id_builder: &'a mut EventActionIDBuilder,
     event_manager: &'a mut EventManager,
     card_event_tracker: &'a mut CardEventTracker<EventManager>,
     card: Card<Kind>,
@@ -120,7 +125,37 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
         self.card_actions.copy_actions(self.card.id(), card_id);
         self
     }
-    pub fn with_event<
+    pub fn with_event(self) -> CardKindEffectBuilder<'a, EventManager, Kind> {
+        CardKindEffectBuilder {
+            event_action_id: self.event_action_id_builder.build(),
+            card_actions: self.card_actions,
+            event_action_id_builder: self.event_action_id_builder,
+            event_manager: self.event_manager,
+            card_event_tracker: self.card_event_tracker,
+            card: self.card,
+        }
+    }
+    pub fn copy_events(self, card_id: CardID) -> Self {
+        self.card_event_tracker
+            .copy_events(self.event_manager, self.card.id(), card_id);
+        self
+    }
+    pub fn finish(self) -> Card<Kind> {
+        self.card
+    }
+}
+
+pub struct CardKindEffectBuilder<'a, EventManager, Kind> {
+    event_action_id: EventActionID,
+    card_actions: &'a mut CardActions,
+    event_action_id_builder: &'a mut EventActionIDBuilder,
+    event_manager: &'a mut EventManager,
+    card_event_tracker: &'a mut CardEventTracker<EventManager>,
+    card: Card<Kind>,
+}
+
+impl<'a, EventManager, Kind> CardKindEffectBuilder<'a, EventManager, Kind> {
+    pub fn listen_for<
         State: 'static,
         Ev: Event<PriorityMut<State>>,
         Listener: EventListenerConstructor<State, Ev>,
@@ -135,18 +170,26 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
     {
         let card_id = self.card.id();
         let event_listener = Listener::new_listener(SourceCardID(card_id), listener_input.clone());
-        let index = self.event_manager.add_listener(event_listener);
-        self.card_event_tracker
-            .track_event::<_, _, Listener>(card_id, index, listener_input);
+        let (id, index) = self
+            .event_manager
+            .add_listener(self.event_action_id, event_listener);
+        self.card_event_tracker.track_event::<_, _, Listener>(
+            card_id,
+            self.event_action_id,
+            id,
+            index,
+            listener_input,
+        );
         self
     }
-    pub fn copy_events(self, card_id: CardID) -> Self {
-        self.card_event_tracker
-            .copy_events(self.event_manager, self.card.id(), card_id);
-        self
-    }
-    pub fn finish(self) -> Card<Kind> {
-        self.card
+    pub fn finish_event(self) -> CardKindBuilder<'a, EventManager, Kind> {
+        CardKindBuilder {
+            card_actions: self.card_actions,
+            event_action_id_builder: self.event_action_id_builder,
+            event_manager: self.event_manager,
+            card_event_tracker: self.card_event_tracker,
+            card: self.card,
+        }
     }
 }
 

@@ -256,6 +256,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let mut impls = Vec::new();
     if let Fields::Named(ref mut fields) = ast.fields {
+        let mut i: usize = 0;
         for (state, get_event_manager) in args.states.states {
             let get_event_manager = closure_to_item_fn(
                 get_event_manager,
@@ -279,6 +280,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         event_name.to_snake_case(),
                         state_str.to_snake_case(),
                     );
+                    let field_id_name = quote::format_ident!("{}_id", field_name.to_string());
                     let return_ty: syn::Type = syn::parse_quote!(
                         card_game::events::EventManager<
                             #state,
@@ -300,12 +302,20 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             pub fn #field_name(&self) -> &#return_ty {
                                 &self.#field_name
                             }
+                            pub fn #field_id_name(&self) -> card_game::cards::EventManagerID {
+                                card_game::cards::EventManagerID::new(#i)
+                            }
                         }
                         impl card_game::events::Event<#original_state> for #event {
                             type Stackable = #stackable<#original_state, card_game::events::EventAction<#state, Self, #event_resolution<#state>>>;
                         }
                         impl card_game::events::GetEventManager<#event> for #original_state {
                             type Output = #event_resolution<#state>;
+                            fn event_manager_id(&self) -> card_game::cards::EventManagerID {
+                                #get_event_manager
+                                let event_manager = get_event_manager(self);
+                                event_manager.#field_id_name()
+                            }
                             fn event_manager(
                                 &self,
                             ) -> card_game::events::EventManager<card_game::stack::priority::Priority<Self>, #event, Self::Output> {
@@ -322,14 +332,15 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 Listener: card_game::events::EventListener<#state, #event>,
                             >(
                                 &mut self,
+                                event_action_id: card_game::events::EventActionID,
                                 listener: Listener,
-                            ) -> card_game::cards::EventManagerIndex where
+                            ) -> (card_game::cards::EventManagerID, card_game::cards::EventManagerIndex) where
                                 <Listener::Action as card_game::events::EventValidAction<
                                     card_game::stack::priority::PriorityMut<#state>,
                                     Listener::ActionInput,
                                 >>::Output: Into<Self::Output>,
                             {
-                                self.#field_name.add_listener(listener)
+                                (self.#field_id_name(), self.#field_name.add_listener(event_action_id, listener))
                             }
                         }
                         impl ::std::convert::From<#state> for #event_resolution<#state> {
@@ -339,6 +350,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         }
                     });
                 }
+                i += 1;
                 {
                     let state_str = quote::quote!(#state).to_string().to_snake_case();
                     let priority_state =
@@ -368,6 +380,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 original_event_name,
                             )
                         };
+                        let field_id_name = quote::format_ident!("{}_id", field_name.to_string());
                         let event = &ev.event;
                         let event_resolution = substitute_type(
                             event_resolution,
@@ -408,6 +421,9 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 pub fn #field_name(&self) -> &#return_ty {
                                     &self.#field_name
                                 }
+                                pub fn #field_id_name(&self) -> card_game::cards::EventManagerID {
+                                    card_game::cards::EventManagerID::new(#i)
+                                }
                             }
                             impl card_game::events::Event<
                                 card_game::events::EventPriorityStack<#original_state, #original_event, #original_priority_event_resolution<#priority_state>>
@@ -419,6 +435,11 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 card_game::events::EventAction<card_game::stack::priority::Priority<#original_state>, #original_event, #original_priority_event_resolution<#priority_state>>,
                             > for #original_state {
                                 type Output = #stack_event_resolution<#state>;
+                                fn event_manager_id(&self) -> card_game::cards::EventManagerID {
+                                    #get_event_manager
+                                    let event_manager = get_event_manager(self);
+                                    event_manager.#field_id_name()
+                                }
                                 fn stack_event_manager(
                                     &self,
                                 ) -> card_game::events::EventManager<#state, #event, Self::Output> {
@@ -435,14 +456,15 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                     Listener: card_game::events::EventListener<#state, #event>,
                                 >(
                                     &mut self,
+                                    event_action_id: card_game::events::EventActionID,
                                     listener: Listener,
-                                ) -> card_game::cards::EventManagerIndex where
+                                ) -> (card_game::cards::EventManagerID, card_game::cards::EventManagerIndex) where
                                     <Listener::Action as card_game::events::EventValidAction<
                                         card_game::stack::priority::PriorityMut<#state>,
                                         Listener::ActionInput,
                                     >>::Output: Into<Self::Output>,
                                 {
-                                    self.#field_name.add_listener(listener)
+                                    (self.#field_id_name(), self.#field_name.add_listener(event_action_id, listener))
                                 }
                             }
                             impl ::std::convert::From<#state> for #stack_event_resolution<#state> {
@@ -453,6 +475,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         });
                     }
                 }
+                i += 1;
             }
         }
         for event in args.events.iter() {
@@ -697,8 +720,31 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 )*
             });
         }
+        let event_manager_id_indexes = fields
+            .named
+            .iter()
+            .enumerate()
+            .map(|(i, field)| {
+                let field = &field.ident;
+                quote::quote!(#i => self.#field.contains_index(event_manager_index))
+            })
+            .collect::<Vec<_>>();
         quote::quote! {
             #ast
+            impl #struct_name {
+                pub fn contains_index(
+                    &self,
+                    event_manager_id: card_game::cards::EventManagerID,
+                    event_manager_index: card_game::cards::EventManagerIndex,
+                ) -> bool {
+                    match event_manager_id.index() {
+                        #(
+                            #event_manager_id_indexes,
+                        )*
+                        _ => false,
+                    }
+                }
+            }
             #(#impls)*
         }
         .into()
