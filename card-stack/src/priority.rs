@@ -206,6 +206,10 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
     pub fn state(&self) -> &State {
         self.priority.state()
     }
+    /// Does NOT include the inciting action.
+    pub fn stack_count(&self) -> usize {
+        self.stack.stack.len()
+    }
     pub fn stack(
         mut self,
         stack_action: impl Into<IncitingAction::Stackable>,
@@ -242,6 +246,7 @@ pub trait Resolver<State, Input, IncitingAction: crate::actions::IncitingAction<
         R: IncitingResolver<State, Input, IncitingAction> + StackResolver<State, IncitingAction>,
     >(
         self,
+        resolver: &mut R,
     ) -> ResolveStack<Self, R::Resolved, R::HaltStack>;
 }
 impl<State, Input, IncitingAction: crate::actions::IncitingAction<State, Input>>
@@ -251,9 +256,10 @@ impl<State, Input, IncitingAction: crate::actions::IncitingAction<State, Input>>
         R: IncitingResolver<State, Input, IncitingAction> + StackResolver<State, IncitingAction>,
     >(
         mut self,
+        resolver: &mut R,
     ) -> ResolveStack<Self, R::Resolved, R::HaltStack> {
         if let Some(action) = self.stack.pop() {
-            match R::resolve_stack(
+            match resolver.resolve_stack(
                 PriorityMut::<PriorityStack<State, IncitingAction>>::new(self),
                 action,
             ) {
@@ -262,7 +268,7 @@ impl<State, Input, IncitingAction: crate::actions::IncitingAction<State, Input>>
             }
         } else {
             let inciting_action = self.stack.take_inciting_action();
-            ResolveStack::Complete(R::resolve_inciting(
+            ResolveStack::Complete(resolver.resolve_inciting(
                 PriorityMut::<Priority<State>>::new(self.priority),
                 inciting_action,
             ))
@@ -277,6 +283,7 @@ pub trait IncitingResolver<
 {
     type Resolved;
     fn resolve_inciting(
+        &mut self,
         priority: PriorityMut<Priority<State>>,
         action: IncitingAction,
     ) -> Self::Resolved;
@@ -289,6 +296,7 @@ impl<
 {
     type Resolved = IncitingAction::Resolved;
     fn resolve_inciting(
+        &mut self,
         priority: PriorityMut<Priority<State>>,
         action: IncitingAction,
     ) -> Self::Resolved {
@@ -307,6 +315,7 @@ impl<
         TryNewRequirementActionError<Priority<State>, IncitingAction>,
     >;
     fn resolve_inciting(
+        &mut self,
         priority: PriorityMut<Priority<State>>,
         action: IncitingAction,
     ) -> Self::Resolved {
@@ -319,6 +328,7 @@ impl<
 pub trait StackResolver<State, IncitingAction: crate::actions::IncitingActionInfo<State>> {
     type HaltStack;
     fn resolve_stack(
+        &mut self,
         priority: PriorityMut<PriorityStack<State, IncitingAction>>,
         action: IncitingAction::Stackable,
     ) -> Resolve<PriorityStack<State, IncitingAction>, Self::HaltStack>;
