@@ -60,6 +60,9 @@ impl CardID {
     pub const fn new(id: usize) -> Self {
         CardID(id)
     }
+    pub fn value(&self) -> usize {
+        self.0
+    }
     pub(crate) fn clone_id(&self) -> Self {
         CardID::new(self.0)
     }
