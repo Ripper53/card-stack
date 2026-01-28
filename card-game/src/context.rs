@@ -44,12 +44,19 @@ impl<History, State, Input, Filter: StateFilter<State, Input>>
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ActionHistory<History>(Vec<History>);
 impl<History> ActionHistory<History> {
     pub fn new() -> Self {
         ActionHistory(Vec::new())
     }
-    pub(crate) fn push(&mut self, history: History) {
+    pub fn count(&self) -> usize {
+        self.0.len()
+    }
+    pub fn slice(&self) -> &[History] {
+        &self.0
+    }
+    pub fn push(&mut self, history: History) {
         self.0.push(history)
     }
 }

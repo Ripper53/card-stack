@@ -11,10 +11,10 @@ impl<ID> CommandManager<ID> {
     pub fn new(id: ID) -> Self {
         CommandManager { id }
     }
-    pub fn with_history<History>(
+    pub fn with_history<'a, History>(
         self,
-        history: ActionHistory<History>,
-    ) -> CommandManagerWithHistory<ID, History> {
+        history: &'a mut ActionHistory<History>,
+    ) -> CommandManagerWithHistory<'a, ID, History> {
         CommandManagerWithHistory {
             id: self.id,
             history,
@@ -22,16 +22,16 @@ impl<ID> CommandManager<ID> {
     }
 }
 
-pub struct CommandManagerWithHistory<ID, History> {
+pub struct CommandManagerWithHistory<'a, ID, History> {
     id: ID,
-    history: ActionHistory<History>,
+    history: &'a mut ActionHistory<History>,
 }
 
-impl<ID, History> CommandManagerWithHistory<ID, History> {
+impl<'a, ID, History> CommandManagerWithHistory<'a, ID, History> {
     pub fn validate<State, Filter: StateFilter<State, MutID<ID>>>(
         self,
         state: State,
-    ) -> Result<Command<History, State, MutID<ID>, Filter>, ValidationError<State, Filter::Error>>
+    ) -> Result<Command<'a, History, State, MutID<ID>, Filter>, ValidationError<State, Filter::Error>>
     {
         Ok(Command {
             history: self.history,
@@ -42,7 +42,8 @@ impl<ID, History> CommandManagerWithHistory<ID, History> {
         self,
         state: State,
         get_input: impl FnOnce(MutID<ID>) -> Input,
-    ) -> Result<Command<History, State, Input, Filter>, ValidationError<State, Filter::Error>> {
+    ) -> Result<Command<'a, History, State, Input, Filter>, ValidationError<State, Filter::Error>>
+    {
         Ok(Command {
             history: self.history,
             validator: Validator::try_new(state, get_input(MutID::new(self.id)))?,
@@ -50,13 +51,13 @@ impl<ID, History> CommandManagerWithHistory<ID, History> {
     }
 }
 
-pub struct Command<History, State, Input, Filter: StateFilter<State, Input>> {
-    history: ActionHistory<History>,
+pub struct Command<'a, History, State, Input, Filter: StateFilter<State, Input>> {
+    history: &'a mut ActionHistory<History>,
     validator: Validator<State, Input, Filter>,
 }
 
-impl<History, State, Input, Filter: StateFilter<State, Input>>
-    Command<History, State, Input, Filter>
+impl<'a, History, State, Input, Filter: StateFilter<State, Input>>
+    Command<'a, History, State, Input, Filter>
 {
     pub fn execute<
         Action: ValidAction<State, Input, Filter = Filter>
