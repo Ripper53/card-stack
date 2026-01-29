@@ -11,9 +11,9 @@ impl<ID> CommandManager<ID> {
     pub fn new(id: ID) -> Self {
         CommandManager { id }
     }
-    pub fn with_history<'a, History>(
+    pub fn with_history<'a, History: ActionHistory + ?Sized>(
         self,
-        history: &'a mut ActionHistory<History>,
+        history: &'a mut History,
     ) -> CommandManagerWithHistory<'a, ID, History> {
         CommandManagerWithHistory {
             id: self.id,
@@ -22,12 +22,12 @@ impl<ID> CommandManager<ID> {
     }
 }
 
-pub struct CommandManagerWithHistory<'a, ID, History> {
+pub struct CommandManagerWithHistory<'a, ID, History: ActionHistory + ?Sized> {
     id: ID,
-    history: &'a mut ActionHistory<History>,
+    history: &'a mut History,
 }
 
-impl<'a, ID, History> CommandManagerWithHistory<'a, ID, History> {
+impl<'a, ID, History: ActionHistory + ?Sized> CommandManagerWithHistory<'a, ID, History> {
     pub fn validate<State, Filter: StateFilter<State, MutID<ID>>>(
         self,
         state: State,
@@ -51,17 +51,23 @@ impl<'a, ID, History> CommandManagerWithHistory<'a, ID, History> {
     }
 }
 
-pub struct Command<'a, History, State, Input, Filter: StateFilter<State, Input>> {
-    history: &'a mut ActionHistory<History>,
+pub struct Command<
+    'a,
+    History: ActionHistory + ?Sized,
+    State,
+    Input,
+    Filter: StateFilter<State, Input>,
+> {
+    history: &'a mut History,
     validator: Validator<State, Input, Filter>,
 }
 
-impl<'a, History, State, Input, Filter: StateFilter<State, Input>>
+impl<'a, History: ActionHistory + ?Sized, State, Input, Filter: StateFilter<State, Input>>
     Command<'a, History, State, Input, Filter>
 {
     pub fn execute<
         Action: ValidAction<State, Input, Filter = Filter>
-            + ActionInfo<State, Filter::ValidOutput, History>,
+            + ActionInfo<State, Filter::ValidOutput, History::History>,
     >(
         mut self,
         action: Action,

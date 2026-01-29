@@ -1,13 +1,13 @@
 use card_stack::priority::GetState;
 use state_validation::{StateFilter, ValidAction, ValidationError, Validator};
 
-pub struct HistoricalContext<History, State> {
-    history: ActionHistory<History>,
+pub struct HistoricalContext<History: ActionHistory, State> {
+    history: History,
     state: State,
 }
 
-impl<History, State> HistoricalContext<History, State> {
-    pub fn new(history: ActionHistory<History>, state: State) -> Self {
+impl<History: ActionHistory, State> HistoricalContext<History, State> {
+    pub fn new(history: History, state: State) -> Self {
         HistoricalContext { history, state }
     }
     pub fn validate<Input, Filter: StateFilter<State, Input>>(
@@ -22,57 +22,30 @@ impl<History, State> HistoricalContext<History, State> {
     }
 }
 
-pub struct ValidContext<History, State, Input, Filter: StateFilter<State, Input>> {
-    history: ActionHistory<History>,
+pub struct ValidContext<History: ActionHistory, State, Input, Filter: StateFilter<State, Input>> {
+    history: History,
     validator: Validator<State, Input, Filter>,
 }
 
-impl<History, State, Input, Filter: StateFilter<State, Input>>
+impl<History: ActionHistory, State, Input, Filter: StateFilter<State, Input>>
     ValidContext<History, State, Input, Filter>
 {
     pub fn action<
         Action: ValidAction<State, Input, Filter = Filter>
-            + ActionInfo<State, Filter::ValidOutput, History>,
+            + ActionInfo<State, Filter::ValidOutput, History::History>,
     >(
         mut self,
         action: Action,
     ) -> HistoricalContext<History, Action::Output> {
         self.history
-            .0
             .push(action.info(self.validator.state(), self.validator.valid_output()));
         HistoricalContext::new(self.history, self.validator.execute(action))
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ActionHistory<History>(Vec<History>);
-impl<History> ActionHistory<History> {
-    pub fn new() -> Self {
-        ActionHistory(Vec::new())
-    }
-    pub fn count(&self) -> usize {
-        self.0.len()
-    }
-    pub fn slice(&self) -> &[History] {
-        &self.0
-    }
-    pub fn push(&mut self, history: History) {
-        self.0.push(history)
-    }
-}
-impl<History> IntoIterator for ActionHistory<History> {
-    type Item = History;
-    type IntoIter = std::vec::IntoIter<History>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-impl<'a, History> IntoIterator for &'a ActionHistory<History> {
-    type Item = &'a History;
-    type IntoIter = std::slice::Iter<'a, History>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
+pub trait ActionHistory {
+    type History;
+    fn push(&mut self, history: Self::History);
 }
 
 pub trait ActionInfo<State, Input, Info> {

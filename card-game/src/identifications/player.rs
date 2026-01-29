@@ -10,6 +10,9 @@ impl PlayerID {
     pub fn new(id: usize) -> Self {
         PlayerID(id)
     }
+    pub fn value(&self) -> usize {
+        self.0
+    }
     fn next_player_id(&self, max_players: usize) -> Self {
         PlayerID((self.0 + 1) % max_players)
     }
