@@ -21,6 +21,7 @@ struct StateMapping {
 }
 
 struct EventMapping {
+    event_fn: Option<syn::Ident>,
     event: syn::Type,
     stackable: syn::Type,
     resolution: syn::Type,
@@ -186,6 +187,14 @@ fn closure_to_item_fn(
 
 impl Parse for EventMapping {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let event_fn = if input.peek2(syn::Token![->]) {
+            let event_fn = input.parse::<syn::Ident>()?;
+            let _ = input.parse::<syn::Token![->]>()?;
+            Some(event_fn)
+        } else {
+            None
+        };
+
         let event = input.parse::<syn::Type>()?;
         let _ = input.parse::<syn::Token![^]>()?;
 
@@ -217,6 +226,7 @@ impl Parse for EventMapping {
         };
 
         Ok(EventMapping {
+            event_fn,
             event,
             stackable,
             resolution,
@@ -257,9 +267,9 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut impls = Vec::new();
     if let Fields::Named(ref mut fields) = ast.fields {
         let mut i: usize = 0;
-        for (state, get_event_manager) in args.states.states {
+        for (state, get_event_manager) in args.states.states.iter() {
             let get_event_manager = closure_to_item_fn(
-                get_event_manager,
+                get_event_manager.clone(),
                 "get_event_manager",
                 syn::parse_quote!(#struct_name),
             )
@@ -719,6 +729,103 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 )*
             });
+            if let Some(ref event_fn) = event.event_fn {
+                let (mut states, mut priority_resolutions): (Vec<_>, Vec<_>) = args
+                    .states
+                    .states
+                    .iter()
+                    .map(|(ty, _)| {
+                        let priority_state: syn::Type =
+                            syn::parse_quote!(card_game::stack::priority::Priority<#ty>);
+                        (
+                            ty,
+                            substitute_type(
+                                &event.resolution,
+                                &args.states.placeholder,
+                                &priority_state,
+                            ),
+                        )
+                    })
+                    .unzip();
+                let first_state = states.pop().unwrap();
+                let first_priority_resolutions = priority_resolutions.pop().unwrap();
+                let event = &event.event;
+                let listener_constraints = quote::quote! {
+                    card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event> +
+                    card_game::events::EventListenerConstructor<
+                        card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
+                        #event,
+                        Input = <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event>>::Input,
+                    >
+                    #(
+                        + card_game::events::EventListenerConstructor<
+                            card_game::stack::priority::Priority<#states>,
+                            #event,
+                            Input = <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event>>::Input,
+                        >
+                        + card_game::events::EventListenerConstructor<
+                            card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
+                            #event,
+                            Input = <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event>>::Input,
+                        >
+                    )*
+                };
+                let trait_name =
+                    quote::format_ident!("{}Event", event_fn.to_string().to_upper_camel_case());
+                impls.push(quote::quote! {
+                    pub trait #trait_name {
+                        fn #event_fn<
+                            Listener: #listener_constraints
+                        >(
+                            self,
+                            input: <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event>>::Input,
+                        ) -> Self
+                            where
+                                <<Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#first_state>, #event>>::Action as card_game::events::EventValidAction<
+                                    card_game::stack::priority::PriorityMut<card_game::stack::priority::Priority<#first_state>>,
+                                    <Listener as card_game::events::EventListener<Priority<#first_state>, #event>>::ActionInput,
+                                >>::Output: std::convert::Into<<#struct_name as card_game::events::AddEventListener<card_game::stack::priority::Priority<#first_state>, #event>>::Output>
+                            #(,
+                                <<Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#states>, #event>>::Action as card_game::events::EventValidAction<
+                                    card_game::stack::priority::PriorityMut<card_game::stack::priority::Priority<#states>>,
+                                    <Listener as card_game::events::EventListener<Priority<#states>, #event>>::ActionInput,
+                                >>::Output: std::convert::Into<<#struct_name as card_game::events::AddEventListener<card_game::stack::priority::Priority<#states>, #event>>::Output>
+                            )*,
+                                <<Listener as card_game::events::EventListener<
+                                    card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
+                                    #event,
+                                >>::Action as card_game::events::EventValidAction<
+                                    card_game::stack::priority::PriorityMut<card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>>,
+                                    <Listener as card_game::events::EventListener<
+                                        card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
+                                        #event,
+                                    >>::ActionInput,
+                                >>::Output: Into<
+                                    <#struct_name as card_game::events::AddEventListener<
+                                        card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
+                                        #event,
+                                    >>::Output,
+                                >
+                            #(,
+                                <<Listener as card_game::events::EventListener<
+                                    card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
+                                    #event,
+                                >>::Action as card_game::events::EventValidAction<
+                                    card_game::stack::priority::PriorityMut<card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>>,
+                                    <Listener as card_game::events::EventListener<
+                                        card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
+                                        #event,
+                                    >>::ActionInput,
+                                >>::Output: Into<
+                                    <#struct_name as card_game::events::AddEventListener<
+                                        card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
+                                        #event,
+                                    >>::Output,
+                                >
+                            )*;
+                    }
+                });
+            }
         }
         let event_manager_id_indexes = fields
             .named
