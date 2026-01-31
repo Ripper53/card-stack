@@ -34,7 +34,7 @@ impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> EventManager<State, 
 }
 pub type EventPriorityStack<State, Ev: Event<PriorityMut<State>>, IncitingOutput> =
     PriorityStack<State, EventAction<Priority<State>, Ev, IncitingOutput>>;
-pub(crate) struct DynEventListener<State, Ev: Event<PriorityMut<State>>, Output> {
+pub struct DynEventListener<State, Ev: Event<PriorityMut<State>>, Output> {
     valid_action: Box<dyn AnyClone>,
     filter_input: for<'a> fn(&'a dyn Any, &'a Ev) -> Box<dyn Any>,
     filter: for<'a> fn(&'a State, Box<dyn Any>) -> Result<Box<dyn Any>, Box<dyn std::error::Error>>,
@@ -70,7 +70,7 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
             },
         }
     }
-    pub(crate) fn get_action(
+    pub fn get_action(
         &self,
         state: &State,
         event: &Ev,
@@ -284,8 +284,22 @@ impl<State, Ev: Event<PriorityMut<State>>, Output> SimultaneousActionManager<Sta
     pub fn state(&self) -> &State {
         &self.state
     }
-    pub fn actions(&self) -> impl Iterator<Item = &EventAction<State, Ev, Output>> {
-        self.actions.iter().map(|(id, (_, action))| action)
+    pub fn actions(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            ValidSimultaneousActionID<()>,
+            EventActionID,
+            &EventAction<State, Ev, Output>,
+        ),
+    > {
+        self.actions.iter().map(|(id, (event_action_id, action))| {
+            (
+                ValidSimultaneousActionID::new(*id),
+                *event_action_id,
+                action,
+            )
+        })
     }
     pub fn verify(&self, id: SimultaneousActionID) -> Option<ValidSimultaneousActionID<()>> {
         if self.actions.contains_key(&id) {

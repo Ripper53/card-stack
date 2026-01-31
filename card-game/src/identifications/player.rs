@@ -58,24 +58,13 @@ pub struct ActivePlayer;
 
 #[derive(Debug, Clone)]
 pub struct PlayerManager<P> {
-    current_player_id: PlayerID,
     pub(crate) players: HashMap<PlayerID, P>,
 }
 
 impl<P> PlayerManager<P> {
     /// `players`: must have at least one player
     pub fn new(players: HashMap<PlayerID, P>) -> Self {
-        PlayerManager {
-            current_player_id: PlayerID(0),
-            players,
-        }
-    }
-    pub fn active_player_id(&self) -> ValidPlayerID<ActivePlayer> {
-        ValidPlayerID::new(self.current_player_id)
-    }
-    pub fn next_player_id(&mut self) -> ValidPlayerID<()> {
-        self.current_player_id = self.current_player_id.next_player_id(self.players.len());
-        ValidPlayerID::new(self.current_player_id)
+        PlayerManager { players }
     }
     pub fn player_count(&self) -> usize {
         self.players.len()

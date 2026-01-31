@@ -36,6 +36,7 @@ impl<EventManager> CardManager<EventManager> {
             event_manager,
             event_tracker: CardEventTracker {
                 events: HashMap::new(),
+                event_action_map: HashMap::new(),
             },
         }
     }
@@ -130,7 +131,7 @@ impl EventManagerIndex {
         self.0
     }
 }
-pub(crate) struct CardEventTracker<EventManager> {
+pub struct CardEventTracker<EventManager> {
     events: HashMap<
         CardID,
         Vec<(
@@ -146,6 +147,7 @@ pub(crate) struct CardEventTracker<EventManager> {
             ) -> (EventManagerID, EventManagerIndex),
         )>,
     >,
+    event_action_map: HashMap<EventActionID, CardID>,
 }
 impl<EventManager> std::fmt::Debug for CardEventTracker<EventManager> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -174,11 +176,20 @@ impl<EventManager> Clone for CardEventTracker<EventManager> {
         }) {
             events.insert(card_id, event);
         }
-        CardEventTracker { events }
+        CardEventTracker {
+            events,
+            event_action_map: self.event_action_map.clone(),
+        }
     }
 }
 
 impl<EventManager> CardEventTracker<EventManager> {
+    pub fn get_event_action_id_mapped_to_card_id(
+        &self,
+        event_action_id: EventActionID,
+    ) -> Option<CardID> {
+        self.event_action_map.get(&event_action_id).copied()
+    }
     pub(crate) fn track_event<
         State,
         Ev: Event<PriorityMut<State>>,
@@ -195,6 +206,7 @@ impl<EventManager> CardEventTracker<EventManager> {
         <Listener::Action as EventValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
             Into<EventManager::Output>,
     {
+        let _ = self.event_action_map.insert(event_action_id, card_id);
         let value: (
             EventActionID,
             EventManagerID,
