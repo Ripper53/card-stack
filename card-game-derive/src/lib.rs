@@ -645,18 +645,15 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     #(#stackable_enum_variants),*
                 }
                 impl<State, IncitingAction: card_game::stack::actions::IncitingActionInfo<State>> ::std::fmt::Debug for #stackable<State, IncitingAction>
-                    where IncitingAction::Stackable: ::std::fmt::Debug, #stackable_event_constraints
-                        #(
-                            #stackable_enum_types: ::std::fmt::Debug,
-                        )*
+                    where #stackable_event_constraints
                 {
                     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::result::Result<(), ::std::fmt::Error> {
                         match self {
                             #(
-                                Self::#stackable_event_names(value) => f.debug_tuple(#stackable_event_names_str).field(value).finish(),
+                                Self::#stackable_event_names(_) => f.debug_tuple(#stackable_event_names_str).finish_non_exhaustive(),
                             )*
                             #(
-                                Self::#stackable_enum_variant_names(value) => f.debug_tuple(#stackable_enum_variant_names_str).field(value).finish(),
+                                Self::#stackable_enum_variant_names(_) => f.debug_tuple(#stackable_enum_variant_names_str).finish_non_exhaustive(),
                             )*
                         }
                     }
