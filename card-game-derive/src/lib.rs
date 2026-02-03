@@ -436,7 +436,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 }
                             }
                             impl card_game::events::Event<
-                                card_game::events::EventPriorityStack<#original_state, #original_event, #original_priority_event_resolution<#priority_state>>
+                                #state
                             > for #event {
                                 type Stackable = #stackable<#original_state, card_game::events::EventAction<#priority_state, #original_event, #original_priority_event_resolution<#priority_state>>>;
                             }
