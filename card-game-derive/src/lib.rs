@@ -535,7 +535,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     substitute_type(&ty.ty, &args.states.placeholder, &syn::parse_quote!(State))
                 })
                 .collect::<Vec<_>>();
-            let resolution_enum_variant_names = event
+            let resolution_enum_variant_names_str = event
                 .resolution_enum_types
                 .iter()
                 .map(|ty| {
@@ -544,8 +544,12 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     } else {
                         type_to_ident(&ty.ty).to_string()
                     };
-                    quote::format_ident!("{}", ident.to_upper_camel_case())
+                    format!("{}", ident.to_upper_camel_case())
                 })
+                .collect::<Vec<_>>();
+            let resolution_enum_variant_names = resolution_enum_variant_names_str
+                .iter()
+                .map(|name| quote::format_ident!("{name}"))
                 .collect::<Vec<_>>();
             let resolution_enum_variants = event
                 .resolution_enum_types
@@ -575,20 +579,25 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             stackable_event_names_str,
                             (
                                 resolution_triggered_event_variant_names,
-                                resolution_triggered_event_variant_types,
+                                (resolution_triggered_event_variant_names_str,
+                                resolution_triggered_event_variant_types),
                             ),
                         ),
                     ),
                 ),
-            ): (Vec<_>, (Vec<_>, (Vec<_>, (Vec<_>, (Vec<_>, Vec<_>))))) = args
+            ): (Vec<_>, (Vec<_>, (Vec<_>, (Vec<_>, (Vec<_>, (Vec<_>, Vec<_>)))))) = args
                 .events
                 .iter()
                 .map(|args| {
                     let event = &args.event;
                     let event_name = quote::quote!(#event).to_string();
-                    let stackable_event_name_str =
-                        format!("{}Event", event_name.to_upper_camel_case());
+                    let stackable_event_name_str = format!("{}Event", event_name.to_upper_camel_case());
                     let stackable_event_name = quote::format_ident!("{stackable_event_name_str}");
+                    let resolution_triggered_event_variant_name_str = format!(
+                        "Triggered{}Event",
+                        quote::quote!(#event).to_string().to_upper_camel_case()
+                    );
+                    let resolution_triggered_event_variant_name= quote::format_ident!("{resolution_triggered_event_variant_name_str}");
                     (
                         event,
                         (
@@ -597,11 +606,11 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                                 stackable_event_name,
                                 (stackable_event_name_str,
                                 (
-                                    quote::format_ident!(
-                                        "Triggered{}Event",
-                                        quote::quote!(#event).to_string().to_upper_camel_case()
-                                    ),
-                                    quote::quote!(card_game::events::TriggeredEvent<State, #event>),
+                                    resolution_triggered_event_variant_name,
+                                    (
+                                        resolution_triggered_event_variant_name_str,
+                                        quote::quote!(card_game::events::TriggeredEvent<State, #event>),
+                                    )
                                 )),
                             ),
                         ),
@@ -702,13 +711,28 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         }
                     }
                 )*
-                #[derive(Debug, Clone)]
+                #[derive(Clone)]
                 pub enum #resolution<State>
                     where #resolution_event_constraints
                 {
                     State(State),
                     #(#resolution_triggered_event_variant_names(#resolution_triggered_event_variant_types),)*
                     #(#resolution_enum_variants),*
+                }
+                impl<State> ::std::fmt::Debug for #resolution<State>
+                    where #resolution_event_constraints
+                {
+                    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::result::Result<(), ::std::fmt::Error> {
+                        match self {
+                            Self::State(_) => f.debug_tuple("State").finish_non_exhaustive(),
+                            #(
+                                Self::#resolution_triggered_event_variant_names(_) => f.debug_tuple(#resolution_triggered_event_variant_names_str).finish_non_exhaustive(),
+                            )*
+                            #(
+                                Self::#resolution_enum_variant_names(_) => f.debug_tuple(#resolution_enum_variant_names_str).finish_non_exhaustive(),
+                            )*
+                        }
+                    }
                 }
                 #(
                     impl<State> ::std::convert::From<#resolution_triggered_event_variant_types> for #resolution<State>
