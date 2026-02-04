@@ -1,6 +1,7 @@
 extern crate proc_macro;
 
 use heck::{ToSnakeCase, ToUpperCamelCase};
+use itertools::Itertools;
 use proc_macro::TokenStream;
 use syn::{
     DeriveInput, Field, Fields, Ident, Type, TypePath,
@@ -20,6 +21,7 @@ struct StateMapping {
     placeholder: syn::Ident,
 }
 
+#[derive(Clone)]
 struct EventMapping {
     event_fn: Option<syn::Ident>,
     event: syn::Type,
@@ -236,6 +238,7 @@ impl Parse for EventMapping {
     }
 }
 
+#[derive(Clone)]
 struct IdentAndType {
     ident: Option<Ident>,
     ty: Type,
@@ -768,6 +771,30 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         )
                     })
                     .unzip();
+                let (stack_states, (stack_events, stack_priority_resolutions)): (
+                    Vec<_>,
+                    (Vec<_>, Vec<_>),
+                ) = args
+                    .states
+                    .states
+                    .iter()
+                    .cartesian_product(args.events.iter().cloned())
+                    .map(|((ty, _), event): (_, EventMapping)| {
+                        let priority_state: syn::Type =
+                            syn::parse_quote!(card_game::stack::priority::Priority<#ty>);
+                        (
+                            ty,
+                            (
+                                event.event,
+                                substitute_type(
+                                    &event.resolution,
+                                    &args.states.placeholder,
+                                    &priority_state,
+                                ),
+                            ),
+                        )
+                    })
+                    .unzip();
                 let first_state = states.pop().unwrap();
                 let first_priority_resolutions = priority_resolutions.pop().unwrap();
                 let event = &event.event;
@@ -784,10 +811,56 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             #event,
                             Input = <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event>>::Input,
                         >
+                    )*
+                    #(
                         + card_game::events::EventListenerConstructor<
-                            card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
+                            card_game::events::EventPriorityStack<#stack_states, #stack_events, #stack_priority_resolutions<card_game::stack::priority::Priority<#stack_states>>>,
                             #event,
                             Input = <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event>>::Input,
+                        >
+                    )*
+                };
+                let trait_constraints = quote::quote! {
+                        <<Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#first_state>, #event>>::Action as card_game::events::EventValidAction<
+                            card_game::stack::priority::PriorityMut<card_game::stack::priority::Priority<#first_state>>,
+                            <Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#first_state>, #event>>::ActionInput,
+                        >>::Output: std::convert::Into<<#struct_name as card_game::events::AddEventListener<card_game::stack::priority::Priority<#first_state>, #event>>::Output>
+                    #(,
+                        <<Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#states>, #event>>::Action as card_game::events::EventValidAction<
+                            card_game::stack::priority::PriorityMut<card_game::stack::priority::Priority<#states>>,
+                            <Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#states>, #event>>::ActionInput,
+                        >>::Output: std::convert::Into<<#struct_name as card_game::events::AddEventListener<card_game::stack::priority::Priority<#states>, #event>>::Output>
+                    )*,
+                        <<Listener as card_game::events::EventListener<
+                            card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
+                            #event,
+                        >>::Action as card_game::events::EventValidAction<
+                            card_game::stack::priority::PriorityMut<card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>>,
+                            <Listener as card_game::events::EventListener<
+                                card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
+                                #event,
+                            >>::ActionInput,
+                        >>::Output: Into<
+                            <#struct_name as card_game::events::AddEventListener<
+                                card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
+                                #event,
+                            >>::Output,
+                        >
+                    #(,
+                        <<Listener as card_game::events::EventListener<
+                            card_game::events::EventPriorityStack<#stack_states, #stack_events, #stack_priority_resolutions<card_game::stack::priority::Priority<#stack_states>>>,
+                            #event,
+                        >>::Action as card_game::events::EventValidAction<
+                            card_game::stack::priority::PriorityMut<card_game::events::EventPriorityStack<#stack_states, #stack_events, #stack_priority_resolutions<card_game::stack::priority::Priority<#stack_states>>>>,
+                            <Listener as card_game::events::EventListener<
+                                card_game::events::EventPriorityStack<#stack_states, #stack_events, #stack_priority_resolutions<card_game::stack::priority::Priority<#stack_states>>>,
+                                #event,
+                            >>::ActionInput,
+                        >>::Output: Into<
+                            <#struct_name as card_game::events::AddEventListener<
+                                card_game::events::EventPriorityStack<#stack_states, #stack_events, #stack_priority_resolutions<card_game::stack::priority::Priority<#stack_states>>>,
+                                #event,
+                            >>::Output,
                         >
                     )*
                 };
@@ -801,49 +874,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             self,
                             input: <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event>>::Input,
                         ) -> Self
-                            where
-                                <<Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#first_state>, #event>>::Action as card_game::events::EventValidAction<
-                                    card_game::stack::priority::PriorityMut<card_game::stack::priority::Priority<#first_state>>,
-                                    <Listener as card_game::events::EventListener<Priority<#first_state>, #event>>::ActionInput,
-                                >>::Output: std::convert::Into<<#struct_name as card_game::events::AddEventListener<card_game::stack::priority::Priority<#first_state>, #event>>::Output>
-                            #(,
-                                <<Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#states>, #event>>::Action as card_game::events::EventValidAction<
-                                    card_game::stack::priority::PriorityMut<card_game::stack::priority::Priority<#states>>,
-                                    <Listener as card_game::events::EventListener<Priority<#states>, #event>>::ActionInput,
-                                >>::Output: std::convert::Into<<#struct_name as card_game::events::AddEventListener<card_game::stack::priority::Priority<#states>, #event>>::Output>
-                            )*,
-                                <<Listener as card_game::events::EventListener<
-                                    card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
-                                    #event,
-                                >>::Action as card_game::events::EventValidAction<
-                                    card_game::stack::priority::PriorityMut<card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>>,
-                                    <Listener as card_game::events::EventListener<
-                                        card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
-                                        #event,
-                                    >>::ActionInput,
-                                >>::Output: Into<
-                                    <#struct_name as card_game::events::AddEventListener<
-                                        card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
-                                        #event,
-                                    >>::Output,
-                                >
-                            #(,
-                                <<Listener as card_game::events::EventListener<
-                                    card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
-                                    #event,
-                                >>::Action as card_game::events::EventValidAction<
-                                    card_game::stack::priority::PriorityMut<card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>>,
-                                    <Listener as card_game::events::EventListener<
-                                        card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
-                                        #event,
-                                    >>::ActionInput,
-                                >>::Output: Into<
-                                    <#struct_name as card_game::events::AddEventListener<
-                                        card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
-                                        #event,
-                                    >>::Output,
-                                >
-                            )*;
+                            where #trait_constraints;
                     }
                     impl<'a, Kind> #trait_name for card_game::cards::CardKindBuilder<'a, #struct_name, Kind> {
                         fn #event_fn<
@@ -852,81 +883,40 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             self,
                             input: <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event>>::Input,
                         ) -> Self
-                            where
-                                <<Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#first_state>, #event>>::Action as card_game::events::EventValidAction<
-                                    card_game::stack::priority::PriorityMut<card_game::stack::priority::Priority<#first_state>>,
-                                    <Listener as card_game::events::EventListener<Priority<#first_state>, #event>>::ActionInput,
-                                >>::Output: std::convert::Into<<#struct_name as card_game::events::AddEventListener<card_game::stack::priority::Priority<#first_state>, #event>>::Output>
-                            #(,
-                                <<Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#states>, #event>>::Action as card_game::events::EventValidAction<
-                                    card_game::stack::priority::PriorityMut<card_game::stack::priority::Priority<#states>>,
-                                    <Listener as card_game::events::EventListener<Priority<#states>, #event>>::ActionInput,
-                                >>::Output: std::convert::Into<<#struct_name as card_game::events::AddEventListener<card_game::stack::priority::Priority<#states>, #event>>::Output>
-                            )*,
-                                <<Listener as card_game::events::EventListener<
-                                    card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
-                                    #event,
-                                >>::Action as card_game::events::EventValidAction<
-                                    card_game::stack::priority::PriorityMut<card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>>,
-                                    <Listener as card_game::events::EventListener<
-                                        card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
-                                        #event,
-                                    >>::ActionInput,
-                                >>::Output: Into<
-                                    <#struct_name as card_game::events::AddEventListener<
-                                        card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
-                                        #event,
-                                    >>::Output,
-                                >
-                            #(,
-                                <<Listener as card_game::events::EventListener<
-                                    card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
-                                    #event,
-                                >>::Action as card_game::events::EventValidAction<
-                                    card_game::stack::priority::PriorityMut<card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>>,
-                                    <Listener as card_game::events::EventListener<
-                                        card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
-                                        #event,
-                                    >>::ActionInput,
-                                >>::Output: Into<
-                                    <#struct_name as card_game::events::AddEventListener<
-                                        card_game::events::EventPriorityStack<#states, #event, #priority_resolutions<card_game::stack::priority::Priority<#states>>>,
-                                        #event,
-                                    >>::Output,
-                                >
-                            )* {
-                                self
-                                    .with_event()
-                                    .listen_for::<Priority<#first_state>, #event, Listener>(input.clone())
-                                    #(
-                                        .listen_for::<Priority<#states>, #event, Listener>(input.clone())
-                                    )*
-                                    .listen_for::<EventPriorityStack<#first_state, #event, #first_priority_resolutions<Priority<#first_state>>>, #event, Listener>(
+                            where #trait_constraints
+                        {
+                            self
+                                .with_event()
+                                .listen_for::<card_game::stack::priority::Priority<#first_state>, #event, Listener>(input.clone())
+                                #(
+                                    .listen_for::<card_game::stack::priority::Priority<#states>, #event, Listener>(input.clone())
+                                )*
+                                /*.listen_for::<card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>, #event, Listener>(
+                                    input.clone(),
+                                )*/
+                                #(
+                                    .listen_for::<card_game::events::EventPriorityStack<#stack_states, #stack_events, #stack_priority_resolutions<card_game::stack::priority::Priority<#stack_states>>>, #event, Listener>(
                                         input.clone(),
                                     )
-                                    #(
-                                        .listen_for::<EventPriorityStack<#states, #event, #priority_resolutions<Priority<#states>>>, #event, Listener>(
-                                            input.clone(),
-                                        )
-                                    )*
-                                    .finish_event()
-                            }
+                                )*
+                                .finish_event()
+                        }
                     }
                 });
             }
         }
-        let event_manager_id_indexes = fields
-            .named
-            .iter()
-            .enumerate()
-            .map(|(i, field)| {
-                let field = &field.ident;
-                quote::quote!(#i => self.#field.contains_index(event_manager_index))
-            })
-            .collect::<Vec<_>>();
+        /*let event_manager_id_indexes = fields
+        .named
+        .iter()
+        .enumerate()
+        .map(|(i, field)| {
+            let field = &field.ident;
+            quote::quote!(#i => self.#field.contains_index(event_manager_index))
+        })
+        .collect::<Vec<_>>();*/
         quote::quote! {
             #ast
-            impl #struct_name {
+            /*impl #struct_name {
                 pub fn contains_index(
                     &self,
                     event_manager_id: card_game::cards::EventManagerID,
@@ -939,7 +929,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         _ => false,
                     }
                 }
-            }
+            }*/
             #(#impls)*
         }
         .into()

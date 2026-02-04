@@ -32,7 +32,7 @@ impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> EventManager<State, 
         self.events.as_slice()
     }
 }
-pub type EventPriorityStack<State, Ev: Event<PriorityMut<State>>, IncitingOutput> =
+pub type EventPriorityStack<State, Ev: Event<PriorityMut<Priority<State>>>, IncitingOutput> =
     PriorityStack<State, EventAction<Priority<State>, Ev, IncitingOutput>>;
 pub struct DynEventListener<State, Ev: Event<PriorityMut<State>>, Output> {
     valid_action: Box<dyn AnyClone>,
