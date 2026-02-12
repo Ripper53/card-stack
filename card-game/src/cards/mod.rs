@@ -143,6 +143,9 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
             .copy_events(self.event_manager, self.card.id(), card_id);
         self
     }
+    pub fn kind_mut(&mut self) -> &mut Kind {
+        self.card.kind_mut()
+    }
     pub fn finish(self) -> Card<Kind> {
         self.card
     }

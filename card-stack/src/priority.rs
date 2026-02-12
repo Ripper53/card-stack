@@ -56,6 +56,9 @@ impl<Priority> PriorityMut<Priority> {
     pub fn priority(&self) -> &Priority {
         &self.priority
     }
+    pub fn priority_mut(&mut self) -> &mut Priority {
+        &mut self.priority
+    }
     pub fn take_priority(self) -> Priority {
         self.priority
     }
@@ -123,11 +126,9 @@ impl<State, IncitingAction: crate::actions::IncitingActionInfo<State>>
         PriorityMut::<PriorityStack<_, _>>::new(self.priority.into_state())
     }
 }
-impl<State: GetState<InnerState>, InnerState> GetState<InnerState>
-    for PriorityMut<Priority<State>>
-{
+impl<State: GetState<InnerState>, InnerState> GetState<InnerState> for PriorityMut<State> {
     fn state(&self) -> &InnerState {
-        self.priority.state.state()
+        self.priority.state()
     }
 }
 
@@ -226,16 +227,6 @@ impl<
 {
     fn state(&self) -> &InnerState {
         self.priority.state.state()
-    }
-}
-impl<
-    State: GetState<InnerState>,
-    InnerState,
-    IncitingAction: crate::actions::IncitingActionInfo<State>,
-> GetState<InnerState> for PriorityMut<PriorityStack<State, IncitingAction>>
-{
-    fn state(&self) -> &InnerState {
-        self.priority.priority.state.state()
     }
 }
 

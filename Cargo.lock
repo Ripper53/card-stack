@@ -175,6 +175,7 @@ name = "state-validation-derive"
 version = "0.2.0"
 dependencies = [
  "darling",
+ "heck",
  "itertools",
  "proc-macro2",
  "quote",
