@@ -5,6 +5,7 @@ edition = "2024"
 license = "MIT"
 authors = ["Albar <albarjob@gmail.com>"]
 description = "The Stack for card games"
+repository = "https://github.com/Ripper53/card-stack"
 exclude = [".gitignore"]
 
 [dependencies]
