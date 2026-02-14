@@ -8,7 +8,7 @@ description = "The Stack for card games"
 exclude = [".gitignore"]
 
 [dependencies]
-state-validation = { path = "../state-validation/state-validation", version = "0.2", features = [
+state-validation = { path = "../state-validation/state-validation", version = "0.3", features = [
     "input_collector",
 ] }
 thiserror = "2.0.14"
