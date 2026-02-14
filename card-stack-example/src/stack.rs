@@ -1,106 +1,87 @@
 use crate::{
-    actions::{
-        FulfilledStateAction, ResolvedIncitingAction, ResolvedStackAction, deal_damage::DealDamage,
-        heal::Heal,
-    },
-    game::TurnState,
+    actions::{deal_damage::DealDamage, heal::Heal},
+    game::{Game, GetStateMut},
     identifications::CharacterID,
     requirements::TargetCharacter,
 };
-use card_game::stack::actions::ActionSource;
+use card_game::stack::{actions::ActionSource, requirements::RequirementAction};
+#[cfg(test)]
+use card_game::stack::{actions::IncitingActionInfo, priority::PriorityStack};
 
-pub enum Action<State> {
-    DealDamage(FulfilledStateAction<State, DealDamage, CharacterID>),
-    Heal(FulfilledStateAction<State, Heal, CharacterID>),
+pub enum Action {
+    DealDamage(DealDamage),
+    Heal(Heal),
 }
 
-impl<State> From<FulfilledStateAction<State, DealDamage, CharacterID>> for Action<State> {
-    fn from(deal_damage: FulfilledStateAction<State, DealDamage, CharacterID>) -> Self {
+impl From<DealDamage> for Action {
+    fn from(deal_damage: DealDamage) -> Self {
         Action::DealDamage(deal_damage)
     }
 }
-impl<State> From<FulfilledStateAction<State, Heal, CharacterID>> for Action<State> {
-    fn from(heal: FulfilledStateAction<State, Heal, CharacterID>) -> Self {
+impl From<Heal> for Action {
+    fn from(heal: Heal) -> Self {
         Action::Heal(heal)
     }
 }
 
-pub enum IncitingAction<State> {
-    Action(Action<State>),
+pub enum IncitingAction {
+    Action(Action),
 }
 
-impl<State> From<Action<State>> for IncitingAction<State> {
-    fn from(action: Action<State>) -> Self {
+impl From<Action> for IncitingAction {
+    fn from(action: Action) -> Self {
         IncitingAction::Action(action)
     }
 }
 
-impl<State: Send + Sync> ActionSource for IncitingAction<State> {
-    type Source = CharacterID;
+pub enum StackAction {
+    Action(Action),
+    #[cfg(test)]
+    RemoveCharacters(RemoveCharacters),
 }
-impl<State: TurnState> card_game::stack::actions::IncitingAction<State> for IncitingAction<State> {
-    type EmptyStackRequirement = TargetCharacter;
-    fn requirement(&self) -> Self::EmptyStackRequirement {
-        TargetCharacter
-    }
-
-    type Stackable = StackAction<State>;
-    type ResolvedIncitingAction = ResolvedIncitingAction<State, Self>;
-    fn resolve(
-        self,
-        priority: card_game::stack::priority::PriorityMut<
-            card_game::stack::priority::Priority<State>,
-        >,
-    ) -> Self::ResolvedIncitingAction {
-        match self {
-            IncitingAction::Action(action) => match action {
-                Action::DealDamage(deal_damage) => {
-                    card_game::stack::actions::IncitingAction::resolve(deal_damage, priority)
-                }
-                Action::Heal(heal) => {
-                    card_game::stack::actions::IncitingAction::resolve(heal, priority)
-                }
-            },
-        }
-    }
-}
-
-pub enum StackAction<State> {
-    Action(Action<State>),
-}
-impl<State> From<Action<State>> for StackAction<State> {
-    fn from(action: Action<State>) -> Self {
+impl From<Action> for StackAction {
+    fn from(action: Action) -> Self {
         StackAction::Action(action)
     }
 }
 
-impl<State: Send + Sync> ActionSource for StackAction<State> {
-    type Source = CharacterID;
-}
-impl<State: TurnState, IncitingAction: card_game::stack::actions::IncitingAction<State>>
-    card_game::stack::actions::StackAction<State, IncitingAction> for StackAction<State>
-{
-    type StackedRequirement = TargetCharacter;
-    fn requirement(&self) -> Self::StackedRequirement {
-        TargetCharacter
+#[cfg(test)]
+pub struct RemoveCharacters(CharacterID);
+#[cfg(test)]
+impl Default for RemoveCharacters {
+    fn default() -> Self {
+        RemoveCharacters(CharacterID::new(0))
     }
-
-    type ResolvedStackAction = ResolvedStackAction<State, IncitingAction>;
+}
+#[cfg(test)]
+impl ActionSource for RemoveCharacters {
+    type Source = CharacterID;
+    fn source(&self) -> &Self::Source {
+        &self.0
+    }
+}
+#[cfg(test)]
+impl<State: GetStateMut<Game>, IncitingAction: IncitingActionInfo<State>>
+    card_game::stack::actions::StackAction<State, (), IncitingAction> for RemoveCharacters
+{
+    type Requirement = ();
+    type Resolved = PriorityStack<State, IncitingAction>;
     fn resolve(
         self,
-        priority: card_game::stack::priority::PriorityMut<
+        mut priority: card_game::stack::priority::PriorityMut<
             card_game::stack::priority::PriorityStack<State, IncitingAction>,
         >,
-    ) -> Self::ResolvedStackAction {
-        match self {
-            StackAction::Action(action) => match action {
-                Action::DealDamage(deal_damage) => {
-                    card_game::stack::actions::StackAction::resolve(deal_damage, priority)
-                }
-                Action::Heal(heal) => {
-                    card_game::stack::actions::StackAction::resolve(heal, priority)
-                }
-            },
-        }
+        _: <<Self::Requirement as card_game::stack::requirements::ActionRequirement<
+            card_game::stack::priority::PriorityStack<State, IncitingAction>,
+            (),
+        >>::Filter as state_validation::StateFilter<
+            card_game::stack::priority::PriorityStack<State, IncitingAction>,
+            (),
+        >>::ValidOutput,
+    ) -> Self::Resolved {
+        let state = priority.state_mut().state_mut();
+        state.characters.remove(&CharacterID::new(0)).unwrap();
+        state.characters.remove(&CharacterID::new(1)).unwrap();
+        priority.take_priority()
     }
 }

@@ -1,33 +1,34 @@
+#![doc = include_str!("../README.md")]
+
 #[cfg(feature = "derive")]
 pub use card_game_derive::*;
 pub use card_stack as stack;
+//pub use state_validation as validation;
+pub use variadics_please;
 
-use crate::{
-    cards::{CardBuilder, CardID, CardManager},
-    identifications::{PlayerID, PlayerIDBuilder, ValidPlayerID},
-    zones::{ValidCardID, Zone},
-};
+use crate::{cards::CardManager, identifications::PlayerIDBuilder};
 
 pub mod abilities;
 pub mod cards;
 pub mod commands;
+mod context;
+pub mod events;
 pub mod identifications;
-pub mod steps;
-pub mod validation;
 pub mod zones;
+pub use context::*;
 
-pub trait CardGameBuilder: Sized {
+pub trait CardGameBuilder<EventManager: Default>: Sized {
     type GenerationData;
     type Game;
     fn generate(
         player_id_builder: PlayerIDBuilder,
-        card_manager: CardManager,
+        card_manager: CardManager<EventManager>,
         generation_data: Self::GenerationData,
     ) -> Self::Game;
     fn new(data: Self::GenerationData) -> Self::Game {
         Self::generate(
             PlayerIDBuilder::new(),
-            CardManager::new(CardBuilder::new()),
+            CardManager::new(EventManager::default()),
             data,
         )
     }

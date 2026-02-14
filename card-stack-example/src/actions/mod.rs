@@ -2,13 +2,13 @@ use deal_damage::DealDamage;
 use heal::Heal;
 
 use card_game::stack::{
-    actions::{ActionSource, IncitingAction},
-    priority::{IncitingPriority, Priority, PriorityStack, StackPriority},
-    requirements::FulfilledAction,
+    actions::{ActionSource, IncitingAction, IncitingActionInfo},
+    priority::{GetState, Priority, PriorityStack},
+    requirements::{FulfilledAction, RequirementAction},
 };
 
 use crate::{
-    game::TurnState,
+    game::{Game, GetStateMut},
     identifications::CharacterID,
     requirements::TargetCharacter,
     stack::{Action, StackAction},
@@ -17,78 +17,40 @@ use crate::{
 pub mod deal_damage;
 pub mod heal;
 
-pub struct FulfilledStateAction<State, Action: ActionSource, Value> {
-    fulfilled_action: FulfilledAction<Action, Value>,
-    _state: std::marker::PhantomData<State>,
+#[derive(Debug)]
+pub struct StackDamageAndHeal {
+    source: CharacterID,
 }
-impl<State, Action: ActionSource, Value> FulfilledStateAction<State, Action, Value> {
-    pub fn action(&self) -> &FulfilledAction<Action, Value> {
-        &self.fulfilled_action
-    }
-    pub fn take_action(self) -> FulfilledAction<Action, Value> {
-        self.fulfilled_action
+impl StackDamageAndHeal {
+    pub fn new(source: CharacterID) -> Self {
+        StackDamageAndHeal { source }
     }
 }
-impl<State: Send + Sync, Action: ActionSource, Value: Send + Sync> ActionSource
-    for FulfilledStateAction<State, Action, Value>
-{
-    type Source = Action::Source;
-}
-impl<State, Action: ActionSource, Value> From<FulfilledAction<Action, Value>>
-    for FulfilledStateAction<State, Action, Value>
-{
-    fn from(fulfilled_action: FulfilledAction<Action, Value>) -> Self {
-        FulfilledStateAction {
-            fulfilled_action,
-            _state: std::marker::PhantomData::default(),
-        }
-    }
-}
-
-pub enum ResolvedIncitingAction<State, IncitingAction: crate::actions::IncitingAction<State>> {
-    Complete(Priority<State>),
-    Continue(PriorityStack<State, IncitingAction>),
-}
-pub enum ResolvedStackAction<State, IncitingAction: crate::actions::IncitingAction<State>> {
-    Continue(PriorityStack<State, IncitingAction>),
-}
-
-pub struct StackDamageAndHeal;
 impl ActionSource for StackDamageAndHeal {
     type Source = CharacterID;
-}
-impl<State: TurnState> IncitingAction<State>
-    for FulfilledStateAction<State, StackDamageAndHeal, (CharacterID, CharacterID)>
-{
-    type EmptyStackRequirement = (TargetCharacter, TargetCharacter);
-    type Stackable = StackAction<State>;
-    fn requirement(&self) -> Self::EmptyStackRequirement {
-        (TargetCharacter, TargetCharacter)
+    fn source(&self) -> &Self::Source {
+        &self.source
     }
-
-    type ResolvedIncitingAction =
-        ResolvedIncitingAction<State, FulfilledStateAction<State, DealDamage, CharacterID>>;
+}
+impl<State: GetStateMut<Game>> IncitingAction<State, ()> for StackDamageAndHeal {
+    type Requirement = ();
     fn resolve(
         self,
-        priority: card_game::stack::priority::PriorityMut<Priority<State>>,
-    ) -> Self::ResolvedIncitingAction {
-        let (target_0, target_1) = *self.action().value();
-        let priority = priority.stack(FulfilledStateAction::from(FulfilledAction::<
-            DealDamage,
-            CharacterID,
-        >::new(
-            DealDamage::new(1),
-            *self.action().source(),
-            target_0,
-        )));
-        let priority = priority.stack(Action::Heal(FulfilledStateAction::from(FulfilledAction::<
-            Heal,
-            CharacterID,
-        >::new(
-            Heal::new(1),
-            *self.action().source(),
-            target_1,
+        mut priority: card_game::stack::priority::PriorityMut<Priority<State>>,
+        _: <<Self::Requirement as card_game::stack::requirements::ActionRequirement<
+            Priority<State>,
+            (),
+        >>::Filter as state_validation::StateFilter<Priority<State>, ()>>::ValidOutput,
+    ) -> Self::Resolved {
+        let priority = priority.stack(Heal::new(self.source, 1));
+        let priority = priority.stack(StackAction::Action(Action::DealDamage(DealDamage::new(
+            self.source,
+            1,
         ))));
-        ResolvedIncitingAction::Continue(priority.take_priority())
+        priority.take_priority()
     }
+}
+impl<State: GetStateMut<Game>> IncitingActionInfo<State> for StackDamageAndHeal {
+    type Resolved = PriorityStack<State, Heal>;
+    type Stackable = StackAction;
 }

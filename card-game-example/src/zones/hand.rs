@@ -2,12 +2,19 @@ use std::collections::BTreeMap;
 
 use card_game::{
     cards::{Card, CardID},
-    identifications::PlayerID,
-    zones::{ArrayZone, FiniteZone, InfiniteZone, ValidCardID, Zone},
+    identifications::{MutID, PlayerID, ValidCardID, ValidPlayerID},
+    zones::{ArrayZone, FiniteZone, InfiniteZone, Zone},
 };
-use indexmap::{IndexMap, map::Slice};
+use indexmap::IndexMap;
 
-use crate::cards::CardKind;
+use crate::{
+    cards::{
+        CardKind,
+        monster::{MonsterCard, MonsterCardType},
+    },
+    filters::{CardIn, OfType},
+    zones::{ContainsMonsterCards, GetZone, monster::MonsterZone},
+};
 
 pub struct HandZone {
     player_id: PlayerID,
@@ -28,16 +35,36 @@ impl FiniteZone for HandZone {
         10
     }
     fn add_card_unchecked(&mut self, card: Card<Self::CardKind>) {
-        self.cards.insert(card.id(), card).unwrap();
+        let _ = self.cards.insert(card.id(), card);
     }
 }
 impl ArrayZone for HandZone {
-    fn remove_card<'id>(&mut self, zone_card_id: ValidCardID<'id, Self>) -> Card<Self::CardKind> {
-        zone_card_id.remove(|id| self.cards.remove(&id.card_id()))
+    fn remove_card(&mut self, zone_card_id: ValidCardID<CardIn<Self>>) -> Card<Self::CardKind> {
+        zone_card_id.remove(|id| self.cards.remove(&id.id()))
+    }
+}
+impl ContainsMonsterCards for HandZone {
+    fn get_zone_mut<'a, F>(game: &'a mut crate::Game, player_id: ValidPlayerID<F>) -> &'a mut Self {
+        game.zone_manager_mut()
+            .valid_zone_mut(player_id)
+            .hand_zone_mut()
+    }
+    fn remove_monster_card(
+        &mut self,
+        zone_card_id: ValidCardID<(CardIn<Self>, OfType<MonsterCard>)>,
+    ) -> Card<MonsterCard> {
+        let card = zone_card_id.remove(|id| self.cards.remove(&id.id()));
+        let id = card.id();
+        if let CardKind::Monster(MonsterCardType::Monster(monster_card)) = card.take_kind() {
+            Card::new(id, monster_card)
+        } else {
+            unreachable!();
+        }
     }
 }
 impl Zone for HandZone {
     type CardKind = CardKind;
+    type CardFilter = CardIn<Self>;
     fn player_id(&self) -> PlayerID {
         self.player_id
     }
@@ -47,10 +74,18 @@ impl Zone for HandZone {
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>> {
         self.cards.get(&card_id)
     }
+    fn get_card_mut(&mut self, card_id: MutID<CardID>) -> Option<&mut Card<Self::CardKind>> {
+        self.cards.get_mut(card_id.id())
+    }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>> {
         self.cards.get_index(index).map(|(_k, v)| v)
     }
     fn cards(&self) -> impl Iterator<Item = &Card<Self::CardKind>> {
         self.cards.iter().map(|(card_id, card)| card)
+    }
+}
+impl GetZone for HandZone {
+    fn get_zone<'a, F>(game: &'a crate::Game, valid_player_id: &'a ValidPlayerID<F>) -> &'a Self {
+        game.zone_manager().valid_zone(valid_player_id).hand_zone()
     }
 }

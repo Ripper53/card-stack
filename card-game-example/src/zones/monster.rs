@@ -1,25 +1,32 @@
 use card_game::{
     cards::Card,
     define_slot_iter,
-    identifications::PlayerID,
+    identifications::{MutID, PlayerID, ValidCardID},
     zones::{Slot, SlotZone, Zone},
 };
 
-use crate::cards::monster::MonsterCard;
+use crate::{
+    cards::monster::{MonsterCard, MonsterCardType, MonsterZoneCard, SpecialMonsterZoneCard},
+    filters::{CardIn, OfType},
+    identifications::ValidSlotID,
+    zones::GetZone,
+};
 
 pub struct MonsterZone {
     player_id: PlayerID,
-    slot_a: Slot<MonsterCard>,
-    slot_b: Slot<MonsterCard>,
-    slot_c: Slot<MonsterCard>,
-    slot_d: Slot<MonsterCard>,
-    slot_e: Slot<MonsterCard>,
+    special_slot: Slot<SpecialMonsterZoneCard>,
+    slot_a: Slot<MonsterZoneCard>,
+    slot_b: Slot<MonsterZoneCard>,
+    slot_c: Slot<MonsterZoneCard>,
+    slot_d: Slot<MonsterZoneCard>,
+    slot_e: Slot<MonsterZoneCard>,
 }
 
 impl MonsterZone {
     pub fn new(player_id: PlayerID) -> Self {
         MonsterZone {
             player_id,
+            special_slot: Slot::new(),
             slot_a: Slot::new(),
             slot_b: Slot::new(),
             slot_c: Slot::new(),
@@ -27,35 +34,51 @@ impl MonsterZone {
             slot_e: Slot::new(),
         }
     }
-    pub fn slot_a(&self) -> &Slot<MonsterCard> {
+    pub fn special_slot(&self) -> &Slot<SpecialMonsterZoneCard> {
+        &self.special_slot
+    }
+    pub fn slot_a(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_a
     }
-    pub fn slot_b(&self) -> &Slot<MonsterCard> {
+    pub fn slot_b(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_b
     }
-    pub fn slot_c(&self) -> &Slot<MonsterCard> {
+    pub fn slot_c(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_c
     }
-    pub fn slot_d(&self) -> &Slot<MonsterCard> {
+    pub fn slot_d(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_d
     }
-    pub fn slot_e(&self) -> &Slot<MonsterCard> {
+    pub fn slot_e(&self) -> &Slot<MonsterZoneCard> {
         &self.slot_e
     }
-    pub fn slot_a_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn special_slot_mut(&mut self) -> &mut Slot<SpecialMonsterZoneCard> {
+        &mut self.special_slot
+    }
+    pub fn slot_a_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_a
     }
-    pub fn slot_b_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn slot_b_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_b
     }
-    pub fn slot_c_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn slot_c_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_c
     }
-    pub fn slot_d_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn slot_d_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_d
     }
-    pub fn slot_e_mut(&mut self) -> &mut Slot<MonsterCard> {
+    pub fn slot_e_mut(&mut self) -> &mut Slot<MonsterZoneCard> {
         &mut self.slot_e
+    }
+    pub fn valid_slot<F>(&mut self, slot_id: ValidSlotID<F>) -> &mut Slot<MonsterZoneCard> {
+        match slot_id.index() {
+            0 => &mut self.slot_a,
+            1 => &mut self.slot_b,
+            2 => &mut self.slot_c,
+            3 => &mut self.slot_d,
+            4 => &mut self.slot_e,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -65,7 +88,8 @@ impl SlotZone for MonsterZone {
     }
 }
 impl Zone for MonsterZone {
-    type CardKind = MonsterCard;
+    type CardKind = MonsterZoneCard;
+    type CardFilter = (CardIn<Self>, OfType<MonsterZoneCard>);
     fn player_id(&self) -> PlayerID {
         self.player_id
     }
@@ -89,7 +113,57 @@ impl Zone for MonsterZone {
         count
     }
     fn get_card(&self, card_id: card_game::cards::CardID) -> Option<&Card<Self::CardKind>> {
-        todo!()
+        if let Some(card) = self.slot_a.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_b.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_c.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_d.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_e.occupier()
+            && card.id() == card_id
+        {
+            Some(card)
+        } else {
+            None
+        }
+    }
+    fn get_card_mut(
+        &mut self,
+        card_id: MutID<card_game::cards::CardID>,
+    ) -> Option<&mut Card<Self::CardKind>> {
+        if let Some(card) = self.slot_a.occupier_mut()
+            && card.id() == *card_id.id()
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_b.occupier_mut()
+            && card.id() == *card_id.id()
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_c.occupier_mut()
+            && card.id() == *card_id.id()
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_d.occupier_mut()
+            && card.id() == *card_id.id()
+        {
+            Some(card)
+        } else if let Some(card) = self.slot_e.occupier_mut()
+            && card.id() == *card_id.id()
+        {
+            Some(card)
+        } else {
+            None
+        }
     }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>> {
         match index {
@@ -105,7 +179,7 @@ impl Zone for MonsterZone {
         define_slot_iter!(
             I,
             MonsterZone,
-            MonsterCard,
+            MonsterZoneCard,
             0 => slot_a,
             1 => slot_b,
             2 => slot_c,
@@ -116,5 +190,38 @@ impl Zone for MonsterZone {
             index: 0,
             zone: self,
         }
+    }
+}
+impl MonsterZone {
+    pub fn valid_monster_card(
+        &self,
+        valid_card_id: &ValidCardID<(CardIn<Self>, OfType<MonsterCard>)>,
+    ) -> &MonsterCard {
+        let card = self.get_card(valid_card_id.id()).unwrap();
+        if let MonsterCardType::Monster(monster) = card.kind().kind() {
+            monster
+        } else {
+            unreachable!()
+        }
+    }
+    pub fn valid_monster_card_mut(
+        &mut self,
+        valid_card_id: MutID<ValidCardID<(CardIn<Self>, OfType<MonsterCard>)>>,
+    ) -> &mut MonsterCard {
+        let card = self.get_card_mut(valid_card_id.into_id()).unwrap();
+        if let MonsterCardType::Monster(monster) = card.kind_mut().kind_mut() {
+            monster
+        } else {
+            unreachable!()
+        }
+    }
+}
+
+impl GetZone for MonsterZone {
+    fn get_zone<'a, F>(
+        game: &'a crate::Game,
+        player_id: &'a card_game::identifications::ValidPlayerID<F>,
+    ) -> &'a Self {
+        &game.zone_manager().valid_zone(player_id).monster_zone
     }
 }

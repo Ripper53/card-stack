@@ -1,0 +1,49 @@
+use card_game::{
+    identifications::{ActivePlayer, PlayerDoesNotExist, PlayerID, ValidPlayerID},
+    stack::priority::GetState,
+};
+use state_validation::StateFilter;
+
+use crate::{
+    Game,
+    cards::CardName,
+    filters::{In, With},
+    zones::GetZone,
+};
+
+pub struct Any<T>(std::marker::PhantomData<T>);
+
+pub trait StaticName {
+    fn name() -> &'static str;
+}
+
+impl<State: GetState<Game>, Z: GetZone, N: StaticName> StateFilter<State, PlayerID>
+    for Any<(With<N>, In<Z>)>
+where
+    Z::CardKind: CardName,
+{
+    type ValidOutput = ValidPlayerID<()>;
+    type Error = CardWithNameError;
+    fn filter(state: &State, player_id: PlayerID) -> Result<Self::ValidOutput, Self::Error> {
+        let valid_player_id: ValidPlayerID<()> =
+            ValidPlayerID::try_new(state.state().player_manager(), player_id)?;
+        if Z::get_zone(state.state(), &valid_player_id)
+            .cards()
+            .any(|card| card.name().contains(N::name()))
+        {
+            Ok(valid_player_id)
+        } else {
+            Err(CardWithNameNotFoundError(N::name()).into())
+        }
+    }
+}
+#[derive(thiserror::Error, Debug)]
+#[error("card with name {0} not found")]
+pub struct CardWithNameNotFoundError(&'static str);
+#[derive(thiserror::Error, Debug)]
+pub enum CardWithNameError {
+    #[error(transparent)]
+    Player(#[from] PlayerDoesNotExist),
+    #[error(transparent)]
+    NameNotFound(#[from] CardWithNameNotFoundError),
+}

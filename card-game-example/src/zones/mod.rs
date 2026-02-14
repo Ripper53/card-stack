@@ -1,8 +1,18 @@
-use card_game::identifications::PlayerID;
+use card_game::{
+    cards::Card,
+    identifications::{PlayerID, ValidCardID, ValidPlayerID},
+    stack::NonEmptyInput,
+    zones::Zone,
+};
 
-use crate::zones::{
-    deck::DeckZone, graveyard::GraveyardZone, hand::HandZone, monster::MonsterZone,
-    spell::SpellZone,
+use crate::{
+    Game,
+    cards::monster::MonsterCard,
+    filters::{CardIn, OfType},
+    zones::{
+        deck::DeckZone, graveyard::GraveyardZone, hand::HandZone, monster::MonsterZone,
+        spell::SpellZone,
+    },
 };
 
 pub mod deck;
@@ -20,8 +30,17 @@ pub struct Zones {
 }
 
 impl Zones {
+    pub fn monster_zone(&self) -> &MonsterZone {
+        &self.monster_zone
+    }
+    pub fn monster_zone_mut(&mut self) -> &mut MonsterZone {
+        &mut self.monster_zone
+    }
     pub fn hand_zone(&self) -> &HandZone {
         &self.hand_zone
+    }
+    pub fn hand_zone_mut(&mut self) -> &mut HandZone {
+        &mut self.hand_zone
     }
 }
 
@@ -34,5 +53,33 @@ impl card_game::zones::Zones for Zones {
             deck_zone: DeckZone::new(player_id),
             hand_zone: HandZone::new(player_id),
         }
+    }
+}
+
+pub trait GetZone: Zone {
+    fn get_zone<'a, F>(game: &'a Game, player_id: &'a ValidPlayerID<F>) -> &'a Self;
+}
+pub trait ContainsMonsterCards: Zone {
+    fn get_zone_mut<'a, F>(game: &'a mut Game, player_id: ValidPlayerID<F>) -> &'a mut Self;
+    fn remove_monster_card(
+        &mut self,
+        zone_card_id: ValidCardID<(CardIn<Self>, OfType<MonsterCard>)>,
+    ) -> Card<MonsterCard>;
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+pub struct SlotID(usize);
+impl NonEmptyInput for SlotID {}
+impl SlotID {
+    pub fn new(id: usize) -> Self {
+        SlotID(id)
+    }
+    pub fn index(&self) -> usize {
+        self.0
+    }
+}
+impl std::fmt::Display for SlotID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }

@@ -1,11 +1,11 @@
 use card_game::{
     cards::Card,
     define_slot_iter,
-    identifications::PlayerID,
+    identifications::{MutID, PlayerID},
     zones::{Slot, SlotZone, Zone},
 };
 
-use crate::cards::spell::SpellCard;
+use crate::{cards::spell::SpellCard, filters::CardIn};
 
 pub struct SpellZone {
     player_id: PlayerID,
@@ -66,6 +66,7 @@ impl SlotZone for SpellZone {
 }
 impl Zone for SpellZone {
     type CardKind = SpellCard;
+    type CardFilter = CardIn<Self>;
     fn player_id(&self) -> PlayerID {
         self.player_id
     }
@@ -89,6 +90,12 @@ impl Zone for SpellZone {
         count
     }
     fn get_card(&self, card_id: card_game::cards::CardID) -> Option<&Card<Self::CardKind>> {
+        todo!()
+    }
+    fn get_card_mut(
+        &mut self,
+        card_id: MutID<card_game::cards::CardID>,
+    ) -> Option<&mut Card<Self::CardKind>> {
         todo!()
     }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>> {

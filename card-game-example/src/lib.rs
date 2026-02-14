@@ -1,40 +1,81 @@
 use std::collections::HashMap;
 
 use card_game::{
+    ActionHistory,
+    cards::CardManager,
     identifications::{PlayerID, PlayerManager},
+    stack::priority::GetState,
     zones::ZoneManager,
 };
 
-use crate::{commands::Commands, player::Player, steps::StartStep, zones::Zones};
+use crate::{
+    events::EventManager,
+    player::Player,
+    steps::{GetStateMut, StartStep},
+    zones::Zones,
+};
 
 pub mod cards;
-pub mod commands;
+pub mod events;
+pub mod filters;
+pub mod identifications;
 pub mod player;
 pub mod steps;
+pub mod valid_actions;
+pub mod validators;
 pub mod zones;
 
 pub struct Game {
     player_manager: PlayerManager<Player>,
     zone_manager: ZoneManager<Zones>,
+    card_manager: CardManager<EventManager>,
+    action_history: ActionHistory<()>,
+}
+/// To allow foreign type impl
+pub struct GameState<T: GetState<Game>>(pub T);
+impl GetState<Game> for Game {
+    fn state(&self) -> &Game {
+        self
+    }
+}
+impl GetStateMut<Game> for Game {
+    fn state_mut(&mut self) -> &mut Game {
+        self
+    }
 }
 
 impl Game {
-    pub fn start_step(player_manager: PlayerManager<Player>) -> StartStep {
-        StartStep::new(Self::new(player_manager))
+    pub fn start_step(
+        player_manager: PlayerManager<Player>,
+        card_manager: CardManager<EventManager>,
+    ) -> StartStep {
+        StartStep::new(Self::new(player_manager, card_manager))
     }
-    pub fn new(player_manager: PlayerManager<Player>) -> Self {
+    pub fn new(
+        player_manager: PlayerManager<Player>,
+        card_manager: CardManager<EventManager>,
+    ) -> Self {
         Game {
             zone_manager: ZoneManager::new(&player_manager),
             player_manager,
+            card_manager,
+            action_history: ActionHistory::new(),
         }
     }
-    pub fn active_player_zones(&self) -> &Zones {
-        let active_player_id = self.player_manager.active_player_id();
-        active_player_id.get(|id| self.zone_manager.get_zone(id.player_id()))
+    pub fn player_manager(&self) -> &PlayerManager<Player> {
+        &self.player_manager
     }
-    pub fn active_player_zones_mut(&mut self) -> &mut Zones {
-        let active_player_id = self.player_manager.active_player_id();
-        active_player_id.get_mut(|id| self.zone_manager.get_zone_mut(id.player_id()))
+    pub fn zone_manager(&self) -> &ZoneManager<Zones> {
+        &self.zone_manager
+    }
+    pub fn zone_manager_mut(&mut self) -> &mut ZoneManager<Zones> {
+        &mut self.zone_manager
+    }
+    pub fn card_manager(&self) -> &CardManager<EventManager> {
+        &self.card_manager
+    }
+    pub fn card_manager_mut(&mut self) -> &mut CardManager<EventManager> {
+        &mut self.card_manager
     }
 }
 

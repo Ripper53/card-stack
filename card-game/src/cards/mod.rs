@@ -1,23 +1,67 @@
-mod manager;
+use crate::events::{
+    AddEventListener, DynEventListener, Event, EventActionID, EventActionIDBuilder, EventListener,
+    EventListenerConstructor, EventValidAction,
+};
+use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
+use card_stack::priority::PriorityMut;
+use card_stack::{NonEmptyInput, priority::GetState};
+use state_validation::{
+    StateFilter, StateFilterInputCombination, StateFilterInputConversion, ValidAction,
+};
 
+mod events;
+mod manager;
+pub use events::*;
 pub use manager::*;
 
+#[derive(Debug, Clone)]
 pub struct Card<Kind> {
     id: CardID,
     kind: Kind,
 }
 
 impl<Kind> Card<Kind> {
+    pub fn new(card_id: CardID, kind: Kind) -> Self {
+        Card { id: card_id, kind }
+    }
     pub fn id(&self) -> CardID {
         self.id
+    }
+    pub fn kind(&self) -> &Kind {
+        &self.kind
+    }
+    pub fn kind_mut(&mut self) -> &mut Kind {
+        &mut self.kind
+    }
+    pub fn take_kind(self) -> Kind {
+        self.kind
+    }
+    pub fn replace_kind<NewKind>(self, f: impl FnOnce(Kind) -> NewKind) -> Card<NewKind> {
+        Card {
+            id: self.id,
+            kind: f(self.kind),
+        }
+    }
+    pub fn into_kind<NewKind>(self) -> Card<NewKind>
+    where
+        Kind: Into<NewKind>,
+    {
+        Card {
+            id: self.id,
+            kind: self.kind.into(),
+        }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
+impl NonEmptyInput for CardID {}
 impl CardID {
-    pub(crate) const fn new(id: usize) -> Self {
+    pub const fn new(id: usize) -> Self {
         CardID(id)
+    }
+    pub fn value(&self) -> usize {
+        self.0
     }
     pub(crate) fn clone_id(&self) -> Self {
         CardID::new(self.0)
@@ -25,21 +69,159 @@ impl CardID {
 }
 impl std::fmt::Display for CardID {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        self.0.fmt(f)
     }
 }
 
-pub struct CardBuilder {
-    next_id: usize,
+pub struct CardBuilder<'a, EventManager> {
+    card_actions: &'a mut CardActions,
+    event_action_id_builder: &'a mut EventActionIDBuilder,
+    event_manager: &'a mut EventManager,
+    card_event_tracker: &'a mut CardEventTracker<EventManager>,
+    next_id: &'a mut usize,
 }
 
-impl CardBuilder {
-    pub(crate) fn new() -> Self {
-        CardBuilder { next_id: 0 }
+impl<'a, EventManager> CardBuilder<'a, EventManager> {
+    pub(crate) fn new(
+        card_actions: &'a mut CardActions,
+        event_action_id_builder: &'a mut EventActionIDBuilder,
+        event_manager: &'a mut EventManager,
+        card_event_tracker: &'a mut CardEventTracker<EventManager>,
+        next_id: &'a mut usize,
+    ) -> Self {
+        CardBuilder {
+            card_actions,
+            event_action_id_builder,
+            event_manager,
+            card_event_tracker,
+            next_id,
+        }
     }
-    pub fn build<Kind>(&mut self, kind: Kind) -> Card<Kind> {
-        let id = CardID::new(self.next_id);
-        self.next_id += 1;
-        Card { id, kind }
+    pub fn build<Kind>(&mut self, kind: Kind) -> CardKindBuilder<'_, EventManager, Kind> {
+        let id = CardID::new(*self.next_id);
+        *self.next_id += 1;
+        CardKindBuilder {
+            card_actions: self.card_actions,
+            event_action_id_builder: self.event_action_id_builder,
+            event_manager: self.event_manager,
+            card_event_tracker: self.card_event_tracker,
+            card: Card::new(id, kind),
+        }
     }
 }
+
+pub struct CardKindBuilder<'a, EventManager, Kind> {
+    card_actions: &'a mut CardActions,
+    event_action_id_builder: &'a mut EventActionIDBuilder,
+    event_manager: &'a mut EventManager,
+    card_event_tracker: &'a mut CardEventTracker<EventManager>,
+    card: Card<Kind>,
+}
+
+impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
+    pub fn with_action<Action: ActionIdentifier>(self) -> Self {
+        self.card_actions
+            .insert_action(Action::action_id(), self.card.id());
+        self
+    }
+    pub fn copy_actions(self, card_id: CardID) -> Self {
+        self.card_actions.copy_actions(self.card.id(), card_id);
+        self
+    }
+    pub fn with_event(self) -> CardKindEffectBuilder<'a, EventManager, Kind> {
+        CardKindEffectBuilder {
+            event_action_id: self.event_action_id_builder.build(),
+            card_actions: self.card_actions,
+            event_action_id_builder: self.event_action_id_builder,
+            event_manager: self.event_manager,
+            card_event_tracker: self.card_event_tracker,
+            card: self.card,
+        }
+    }
+    pub fn copy_events(self, card_id: CardID) -> Self {
+        self.card_event_tracker
+            .copy_events(self.event_manager, self.card.id(), card_id);
+        self
+    }
+    pub fn kind_mut(&mut self) -> &mut Kind {
+        self.card.kind_mut()
+    }
+    pub fn finish(self) -> Card<Kind> {
+        self.card
+    }
+}
+
+pub struct CardKindEffectBuilder<'a, EventManager, Kind> {
+    event_action_id: EventActionID,
+    card_actions: &'a mut CardActions,
+    event_action_id_builder: &'a mut EventActionIDBuilder,
+    event_manager: &'a mut EventManager,
+    card_event_tracker: &'a mut CardEventTracker<EventManager>,
+    card: Card<Kind>,
+}
+
+impl<'a, EventManager, Kind> CardKindEffectBuilder<'a, EventManager, Kind> {
+    pub fn listen_for<
+        State: 'static,
+        Ev: Event<PriorityMut<State>>,
+        Listener: EventListenerConstructor<State, Ev>,
+    >(
+        self,
+        listener_input: Listener::Input,
+    ) -> Self
+    where
+        EventManager: AddEventListener<State, Ev>,
+        <Listener::Action as EventValidAction<PriorityMut<State>, Listener::ActionInput>>::Output:
+            Into<EventManager::Output>,
+    {
+        let card_id = self.card.id();
+        let event_listener = Listener::new_listener(SourceCardID(card_id), listener_input.clone());
+        let (id, index) = self
+            .event_manager
+            .add_listener(self.event_action_id, event_listener);
+        self.card_event_tracker.track_event::<_, _, Listener>(
+            card_id,
+            self.event_action_id,
+            id,
+            index,
+            listener_input,
+        );
+        self
+    }
+    pub fn finish_event(self) -> CardKindBuilder<'a, EventManager, Kind> {
+        CardKindBuilder {
+            card_actions: self.card_actions,
+            event_action_id_builder: self.event_action_id_builder,
+            event_manager: self.event_manager,
+            card_event_tracker: self.card_event_tracker,
+            card: self.card,
+        }
+    }
+}
+
+pub struct SourceCardFilter<Action>(std::marker::PhantomData<Action>);
+impl<
+    Input: StateFilterInputConversion<SourceCardID>,
+    Action: ValidAction<State, Input> + ActionIdentifier,
+    State: GetState<CardActions>,
+> StateFilter<State, Input> for SourceCardFilter<Action>
+where
+    Input::Remainder: StateFilterInputCombination<ValidCardID<()>>,
+{
+    type ValidOutput = <Input::Remainder as StateFilterInputCombination<ValidCardID<()>>>::Combined;
+    type Error = InvalidSourceCardError;
+    fn filter(state: &State, value: Input) -> Result<Self::ValidOutput, Self::Error> {
+        let (source_card_id, remainder) = value.split_take();
+        if state
+            .state()
+            .contains_action(Action::action_id(), source_card_id.0)
+        {
+            Ok(remainder.combine(ValidCardID::new(source_card_id.0)))
+        } else {
+            Err(InvalidSourceCardError(source_card_id))
+        }
+    }
+}
+#[derive(thiserror::Error, Debug)]
+#[error("invalid source card {0}")]
+pub struct InvalidSourceCardError(SourceCardID);

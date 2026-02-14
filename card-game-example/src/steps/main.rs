@@ -1,26 +1,81 @@
 use card_game::{
+    cards::{CardActions, CardManager},
     commands::{Command, CommandManager},
+    events::GetEventManager,
     identifications::PlayerID,
     stack::priority::GetState,
     steps::Step,
-    validation::{CardIn, ValidState},
-    zones::{ArrayZone, ValidCardID},
+    zones::ArrayZone,
 };
 
 use crate::{
     Game,
-    commands::{Commands, PlayCardCommand},
-    steps::EndStep,
+    events::{
+        EventManager,
+        summon::{NormalSummoned, SpecialSummoned},
+    },
+    steps::{EndStep, GetStateMut, StepMut},
     zones::hand::HandZone,
 };
 
 pub struct MainStep {
     pub(crate) game: Game,
+    available_normal_summons: usize,
+}
+impl From<MainStep> for Game {
+    fn from(main_step: MainStep) -> Self {
+        main_step.game
+    }
+}
+impl GetState<MainStep> for MainStep {
+    fn state(&self) -> &MainStep {
+        &self
+    }
+}
+impl GetState<CardActions> for MainStep {
+    fn state(&self) -> &CardActions {
+        self.game.card_manager().card_actions()
+    }
+}
+impl GetState<CardManager<EventManager>> for MainStep {
+    fn state(&self) -> &CardManager<EventManager> {
+        self.game.card_manager()
+    }
+}
+impl GetEventManager<MainStep, NormalSummoned> for MainStep {
+    type Output = MainStep;
+    fn event_manager(
+        &self,
+    ) -> card_game::events::EventManager<MainStep, NormalSummoned, Self::Output> {
+        self.game.card_manager().event_manager().event_manager()
+    }
+}
+impl GetEventManager<MainStep, SpecialSummoned> for MainStep {
+    type Output = MainStep;
+    fn event_manager(
+        &self,
+    ) -> card_game::events::EventManager<MainStep, SpecialSummoned, Self::Output> {
+        self.game.card_manager().event_manager().event_manager()
+    }
 }
 
 impl MainStep {
     pub(crate) fn new(game: Game) -> Self {
-        MainStep { game }
+        MainStep {
+            game,
+            available_normal_summons: usize::MAX,
+        }
+    }
+    pub fn game(&self) -> &Game {
+        &self.game
+    }
+    pub fn use_normal_summon(&mut self) -> bool {
+        if self.available_normal_summons == 0 {
+            false
+        } else {
+            self.available_normal_summons -= 1;
+            true
+        }
     }
 }
 
@@ -31,33 +86,18 @@ impl Step for MainStep {
         EndStep::new(self.game)
     }
 }
-
+impl StepMut for MainStep {
+    fn state_mut(&mut self) -> &mut Self::State {
+        &mut self.game
+    }
+}
 impl GetState<Game> for MainStep {
     fn state(&self) -> &Game {
         &self.game
     }
 }
-
-impl MainStep {
-    pub fn work_as_mut(&mut self) {
-        // PRETEND MUTATE
+impl GetStateMut<Game> for MainStep {
+    fn state_mut(&mut self) -> &mut Game {
+        &mut self.game
     }
-}
-impl<'a> PlayCardTrait for ValidState<'a, MainStep, CardIn<HandZone>> {
-    fn play_card(mut self) -> MainStep {
-        let (mut main_step, valid_player_id, valid_card_id) = self.take_all();
-        let card = main_step
-            .game
-            .active_player_zones_mut()
-            .hand_zone
-            .remove_card(valid_card_id);
-        main_step
-    }
-}
-pub trait PlayCardTrait {
-    fn play_card(self) -> MainStep;
-}
-
-pub struct PlayCard<'a> {
-    zone_card_id: ValidCardID<'a, HandZone>,
 }

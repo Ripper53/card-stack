@@ -1,50 +1,67 @@
-use card_game::stack::priority::{Priority, PriorityStack};
+use card_game::stack::{
+    EmptyInput, NonEmptyInput,
+    actions::ActionSource,
+    priority::{GetState, Priority, PriorityStack},
+    requirements::{ActionRequirement, RequirementAction, TryNewRequirementActionError},
+};
+use state_validation::StateFilterInput;
 
 use crate::{
-    actions::{ResolvedIncitingAction, ResolvedStackAction},
-    game::TurnState,
+    actions::{deal_damage::DealDamage, heal::Heal},
+    game::{Game, GetStateMut},
+    identifications::CharacterID,
+    stack::{Action, StackAction},
 };
 
-pub struct Resolver<T>(std::marker::PhantomData<T>);
+pub struct Resolver;
 
 impl<
-    T: card_game::stack::actions::IncitingAction<State>,
-    State: TurnState,
-    IncitingAction: card_game::stack::actions::IncitingAction<
-            State,
-            ResolvedIncitingAction = ResolvedIncitingAction<State, T>,
-        >,
-> card_game::stack::priority::Resolver<State, IncitingAction> for Resolver<T>
-where
-    IncitingAction::Stackable: card_game::stack::actions::StackAction<
-            State,
-            IncitingAction,
-            ResolvedStackAction = ResolvedStackAction<State, IncitingAction>,
-        >,
+    State: GetStateMut<Game>,
+    IncitingAction: card_game::stack::actions::IncitingActionInfo<State, Stackable = crate::stack::StackAction>,
+> card_game::stack::priority::StackResolver<State, IncitingAction> for Resolver
 {
-    type Resolved = Resolved<State, T>;
-    fn resolve_inciting(action: IncitingAction::ResolvedIncitingAction) -> Self::Resolved {
-        match action {
-            ResolvedIncitingAction::Complete(priority) => Resolved::Priority(priority),
-            ResolvedIncitingAction::Continue(stack) => Resolved::Stack(stack),
-        }
-    }
+    type HaltStack = HaltStack<PriorityStack<State, IncitingAction>>;
     fn resolve_stack(
-        action: <IncitingAction::Stackable as card_game::stack::actions::StackAction<
-            State,
-            IncitingAction,
-        >>::ResolvedStackAction,
-    ) -> card_game::stack::priority::Resolve<PriorityStack<State, IncitingAction>, Self::Resolved>
+        priority: card_game::stack::priority::PriorityMut<PriorityStack<State, IncitingAction>>,
+        action: <IncitingAction as card_game::stack::actions::IncitingActionInfo<State>>::Stackable,
+    ) -> card_game::stack::priority::Resolve<PriorityStack<State, IncitingAction>, Self::HaltStack>
     {
         match action {
-            ResolvedStackAction::Continue(priority) => {
-                card_game::stack::priority::Resolve::Continue(priority)
+            StackAction::Action(action) => match action {
+                Action::DealDamage(deal_damage) => {
+                    match RequirementAction::<PriorityStack<State, IncitingAction>, _, _>::try_new(
+                        priority.take_priority(),
+                        deal_damage,
+                    ) {
+                        Ok(requirement) => card_game::stack::priority::Resolve::Halt(
+                            HaltStack::DealDamageRequirement(requirement),
+                        ),
+                        Err(e) => card_game::stack::priority::Resolve::Continue(e.priority),
+                    }
+                }
+                Action::Heal(heal) => {
+                    match RequirementAction::<PriorityStack<State, IncitingAction>, _, _>::try_new(
+                        priority.take_priority(),
+                        heal,
+                    ) {
+                        Ok(requirement) => card_game::stack::priority::Resolve::Halt(
+                            HaltStack::HealRequirement(requirement),
+                        ),
+                        Err(e) => card_game::stack::priority::Resolve::Continue(e.priority),
+                    }
+                }
+            },
+            #[cfg(test)]
+            StackAction::RemoveCharacters(remove_characters) => {
+                use card_game::stack::actions::StackAction;
+                card_game::stack::priority::Resolve::Continue(
+                    remove_characters.resolve(priority, ()),
+                )
             }
         }
     }
 }
-
-pub enum Resolved<State, IncitingAction: card_game::stack::actions::IncitingAction<State>> {
-    Priority(Priority<State>),
-    Stack(PriorityStack<State, IncitingAction>),
+pub enum HaltStack<Priority> {
+    DealDamageRequirement(RequirementAction<Priority, CharacterID, DealDamage>),
+    HealRequirement(RequirementAction<Priority, CharacterID, Heal>),
 }

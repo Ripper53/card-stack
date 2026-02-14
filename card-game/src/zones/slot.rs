@@ -1,6 +1,6 @@
 use crate::{
-    cards::{Card, CardID},
-    zones::{ArrayZone, FiniteZone, InfiniteZone, Zone, ValidCardID},
+    cards::Card,
+    zones::{FiniteZone, InfiniteZone, Zone},
 };
 
 pub trait SlotZone: Zone {
@@ -21,6 +21,9 @@ impl<CardKind> Slot<CardKind> {
     }
     pub fn occupier(&self) -> Option<&Card<CardKind>> {
         self.card.as_ref()
+    }
+    pub fn occupier_mut(&mut self) -> Option<&mut Card<CardKind>> {
+        self.card.as_mut()
     }
     pub fn transfer_to_slot<'a, ToCardKind>(
         &'a mut self,

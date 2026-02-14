@@ -1,11 +1,11 @@
 use card_game::{
     cards::{Card, CardID},
-    identifications::PlayerID,
-    zones::{ArrayZone, InfiniteZone, ValidCardID, Zone, ZoneContext},
+    identifications::{MutID, PlayerID, ValidCardID},
+    zones::{ArrayZone, InfiniteZone, Zone, ZoneContext},
 };
 use indexmap::IndexMap;
 
-use crate::cards::CardKind;
+use crate::{cards::CardKind, filters::CardIn};
 
 pub struct DeckZone {
     player_id: PlayerID,
@@ -27,12 +27,13 @@ impl InfiniteZone for DeckZone {
     }
 }
 impl ArrayZone for DeckZone {
-    fn remove_card<'id>(&mut self, zone_card_id: ValidCardID<'id, Self>) -> Card<Self::CardKind> {
-        zone_card_id.remove(|card| self.cards.shift_remove(&card.card_id()))
+    fn remove_card(&mut self, zone_card_id: ValidCardID<CardIn<Self>>) -> Card<Self::CardKind> {
+        zone_card_id.remove(|card| self.cards.shift_remove(&card.id()))
     }
 }
 impl Zone for DeckZone {
     type CardKind = CardKind;
+    type CardFilter = CardIn<Self>;
     fn player_id(&self) -> PlayerID {
         self.player_id
     }
@@ -41,6 +42,9 @@ impl Zone for DeckZone {
     }
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>> {
         self.cards.get(&card_id)
+    }
+    fn get_card_mut(&mut self, card_id: MutID<CardID>) -> Option<&mut Card<Self::CardKind>> {
+        self.cards.get_mut(card_id.id())
     }
     fn get_card_from_index(&self, index: usize) -> Option<&Card<Self::CardKind>> {
         self.cards.get_index(index).map(|(_k, v)| v)

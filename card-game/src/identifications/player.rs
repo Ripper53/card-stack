@@ -1,80 +1,91 @@
 use std::collections::HashMap;
 
-use crate::validation::StateFilter;
+use crate::{cards::CardID, create_valid_identification, identifications::MutID};
+use card_stack::NonEmptyInput;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerID(usize);
-impl StateFilter for PlayerID {
-    type Value = Self;
-}
+impl NonEmptyInput for PlayerID {}
 impl PlayerID {
+    pub fn new(id: usize) -> Self {
+        PlayerID(id)
+    }
+    pub fn value(&self) -> usize {
+        self.0
+    }
     fn next_player_id(&self, max_players: usize) -> Self {
         PlayerID((self.0 + 1) % max_players)
     }
 }
-pub struct ValidPlayerID<'a>(PlayerID, std::marker::PhantomData<(&'a (), *const ())>);
-impl<'a> ValidPlayerID<'a> {
+impl std::fmt::Display for PlayerID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+use crate as card_game;
+create_valid_identification!(ValidPlayerID, PlayerID, with_copy);
+impl From<ValidPlayerID<ActivePlayer>> for ValidPlayerID<()> {
+    fn from(valid_id: ValidPlayerID<ActivePlayer>) -> Self {
+        ValidPlayerID(valid_id.0, std::marker::PhantomData::default())
+    }
+}
+impl<F> ValidPlayerID<F> {
     pub(crate) fn new(player_id: PlayerID) -> Self {
         ValidPlayerID(player_id, std::marker::PhantomData::default())
     }
-    pub fn player_id(&self) -> PlayerID {
-        self.0
+}
+impl ValidPlayerID<()> {
+    pub fn try_new<P>(
+        player_manager: &PlayerManager<P>,
+        player_id: PlayerID,
+    ) -> Result<Self, PlayerDoesNotExist> {
+        if player_manager.players.contains_key(&player_id) {
+            Ok(ValidPlayerID(
+                player_id,
+                std::marker::PhantomData::default(),
+            ))
+        } else {
+            Err(PlayerDoesNotExist(player_id))
+        }
     }
 }
+#[derive(thiserror::Error, Debug)]
+#[error("player {0} does not exist")]
+pub struct PlayerDoesNotExist(PlayerID);
+#[derive(Debug)]
+pub struct ActivePlayer;
 
+#[derive(Debug, Clone)]
 pub struct PlayerManager<P> {
-    current_player_id: PlayerID,
     pub(crate) players: HashMap<PlayerID, P>,
 }
 
-pub struct ActivePlayerID<'a>(PlayerID, std::marker::PhantomData<&'a ()>);
-impl<'a> ActivePlayerID<'a> {
-    fn new(player_id: PlayerID) -> Self {
-        ActivePlayerID(player_id, std::marker::PhantomData::default())
-    }
-    pub fn player_id(&self) -> PlayerID {
-        self.0
-    }
-    pub fn get<'b, T>(self, f: impl FnOnce(Self) -> Option<&'b T>) -> &'b T {
-        f(self).unwrap()
-    }
-    pub fn get_mut<'b, T>(self, f: impl FnOnce(Self) -> Option<&'b mut T>) -> &'b mut T {
-        f(self).unwrap()
-    }
-}
-impl<'a> std::fmt::Debug for ActivePlayerID<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "ActivePlayerID({:?})", self.0)
-    }
-}
-impl<'a> PartialEq for ActivePlayerID<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-impl<'a> Eq for ActivePlayerID<'a> {}
-impl<'a> std::hash::Hash for ActivePlayerID<'a> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
-}
 impl<P> PlayerManager<P> {
     /// `players`: must have at least one player
     pub fn new(players: HashMap<PlayerID, P>) -> Self {
-        PlayerManager {
-            current_player_id: PlayerID(0),
-            players,
-        }
-    }
-    pub fn active_player_id(&self) -> ActivePlayerID<'_> {
-        ActivePlayerID::new(self.current_player_id)
-    }
-    pub fn next_player_id(&mut self) -> ActivePlayerID<'_> {
-        self.current_player_id = self.current_player_id.next_player_id(self.players.len());
-        ActivePlayerID::new(self.current_player_id)
+        PlayerManager { players }
     }
     pub fn player_count(&self) -> usize {
         self.players.len()
+    }
+    pub fn players(&self) -> impl Iterator<Item = ValidPlayerID<()>> {
+        self.players
+            .keys()
+            .copied()
+            .map(|player_id| ValidPlayerID::new(player_id))
+    }
+    pub fn get_player(&self, player_id: PlayerID) -> Option<&P> {
+        self.players.get(&player_id)
+    }
+    pub fn get_player_mut(&mut self, player_id: MutID<PlayerID>) -> Option<&mut P> {
+        self.players.get_mut(player_id.id())
+    }
+    pub fn valid_player<F>(&self, valid_player_id: &ValidPlayerID<F>) -> &P {
+        self.get_player(valid_player_id.id()).unwrap()
+    }
+    pub fn valid_player_mut<F>(&mut self, valid_player_id: MutID<ValidPlayerID<F>>) -> &mut P {
+        self.players.get_mut(&valid_player_id.id().id()).unwrap()
     }
 }
 

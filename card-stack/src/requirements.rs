@@ -1,166 +1,28 @@
+use state_validation::{CollectedInputs, StateFilter};
+
 use crate::{
-    actions::{ActionSource, NeverError},
-    priority::{
-        IncitingPriority, Priority, PriorityError, PriorityMut, PriorityStack, StackPriority,
-    },
+    actions::ActionSource,
+    priority::{Priority, PriorityMut, PriorityStack},
 };
 
-pub trait SatisfyRequirement<Priority>: Send + Sync {
-    type Value: Send + Sync;
-    type RequirementError: std::error::Error + Send + Sync;
+pub trait ActionRequirement<State, Input> {
     /// Satisfy the requirement.
-    fn satisfy(
-        &self,
-        priority: &Priority,
-        value: &Self::Value,
-    ) -> Result<(), Self::RequirementError>;
-    /// Is there only one available selection,
-    /// and if there is, what is it?
-    fn single_selection(&self, priority: &Priority) -> Option<Self::Value>;
-    /// Force a selection, can be used when turn's time runs out.
-    /// `ActionRequirement::can_satisfy` is always called before this function.
-    fn force_selection(&self, priority: &Priority) -> Self::Value;
+    type Filter: StateFilter<State, Input>;
+    /// All the possible inputs for the requirement (but does not necessarily pass the filter).
+    fn collect_inputs(state: &State) -> CollectedInputs<State, impl Iterator<Item = Input>>;
 }
-impl<Priority> SatisfyRequirement<Priority> for () {
-    type Value = ();
-    type RequirementError = NeverError;
-    fn satisfy(
-        &self,
-        _priority: &Priority,
-        _value: &Self::Value,
-    ) -> Result<(), Self::RequirementError> {
-        Ok(())
-    }
-    fn force_selection(&self, _priority: &Priority) -> Self::Value {}
-    fn single_selection(&self, _priority: &Priority) -> Option<Self::Value> {
-        Some(())
+struct NoIter<Item>(std::marker::PhantomData<Item>);
+impl<Item> Iterator for NoIter<Item> {
+    type Item = Item;
+    fn next(&mut self) -> Option<Self::Item> {
+        None
     }
 }
-impl<Priority, R0: SatisfyRequirement<Priority>, R1: SatisfyRequirement<Priority>>
-    SatisfyRequirement<Priority> for (R0, R1)
-{
-    type Value = (R0::Value, R1::Value);
-    type RequirementError = TwoSatisfyError<R0::RequirementError, R1::RequirementError>;
-    fn satisfy(
-        &self,
-        priority: &Priority,
-        (value_0, value_1): &Self::Value,
-    ) -> Result<(), Self::RequirementError> {
-        if let Err(e) = self.0.satisfy(priority, value_0) {
-            Err(TwoSatisfyError::First(e))
-        } else if let Err(e) = self.1.satisfy(priority, value_1) {
-            Err(TwoSatisfyError::Second(e))
-        } else {
-            Ok(())
-        }
+impl<State> ActionRequirement<State, ()> for () {
+    type Filter = ();
+    fn collect_inputs(_state: &State) -> CollectedInputs<State, impl Iterator<Item = ()>> {
+        CollectedInputs::new(NoIter(std::marker::PhantomData::default()))
     }
-    fn force_selection(&self, priority: &Priority) -> Self::Value {
-        (
-            self.0.force_selection(priority),
-            self.1.force_selection(priority),
-        )
-    }
-    fn single_selection(&self, priority: &Priority) -> Option<Self::Value> {
-        if let Some(value_0) = self.0.single_selection(priority) {
-            if let Some(value_1) = self.1.single_selection(priority) {
-                Some((value_0, value_1))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-}
-#[derive(thiserror::Error, Debug)]
-pub enum TwoSatisfyError<E0: std::error::Error, E1: std::error::Error> {
-    #[error(transparent)]
-    First(E0),
-    #[error(transparent)]
-    Second(E1),
-}
-pub trait ActionRequirement<Priority, Action: crate::actions::ActionSource>: Send + Sync {
-    type Satisfy: SatisfyRequirement<Priority>;
-    type RequirementError: std::error::Error + Send + Sync;
-    /// Can this requirement even be satisfied?
-    ///
-    /// **TIP:** use `SatisfyRequirement::satisfy` within this function to check if it is compatible.
-    fn can_satisfy(
-        &self,
-        priority: Priority,
-        action: Action,
-        source: Action::Source,
-    ) -> Result<
-        RequirementAction<Priority, Action, Self::Satisfy>,
-        PriorityError<Priority, Self::RequirementError>,
-    >;
-}
-impl<Priority, Action: crate::actions::ActionSource> ActionRequirement<Priority, Action> for () {
-    type Satisfy = ();
-    type RequirementError = NeverError;
-    fn can_satisfy(
-        &self,
-        priority: Priority,
-        action: Action,
-        source: Action::Source,
-    ) -> Result<
-        RequirementAction<Priority, Action, Self::Satisfy>,
-        PriorityError<Priority, Self::RequirementError>,
-    > {
-        Ok(RequirementAction::new(priority, action, source, ()))
-    }
-}
-impl<
-    Priority,
-    Action: crate::actions::ActionSource,
-    R0: ActionRequirement<Priority, Action>,
-    R1: ActionRequirement<Priority, Action>,
-> ActionRequirement<Priority, Action> for (R0, R1)
-{
-    type Satisfy = (R0::Satisfy, R1::Satisfy);
-    type RequirementError = TwoRequirementError<R0::RequirementError, R1::RequirementError>;
-    fn can_satisfy(
-        &self,
-        priority: Priority,
-        action: Action,
-        source: Action::Source,
-    ) -> Result<
-        RequirementAction<Priority, Action, Self::Satisfy>,
-        PriorityError<Priority, Self::RequirementError>,
-    > {
-        match self.0.can_satisfy(priority, action, source) {
-            Ok(requirement_action) => {
-                let (priority, action, source, satisfy_0) = requirement_action.take_contents();
-                match self.1.can_satisfy(priority, action, source) {
-                    Ok(requirement_action) => {
-                        let (priority, action, source, satisfy_1) =
-                            requirement_action.take_contents();
-                        Ok(RequirementAction::new(
-                            priority,
-                            action,
-                            source,
-                            (satisfy_0, satisfy_1),
-                        ))
-                    }
-                    Err(e) => Err(PriorityError {
-                        priority: e.priority,
-                        error: TwoRequirementError::Second(e.error),
-                    }),
-                }
-            }
-            Err(e) => Err(PriorityError {
-                priority: e.priority,
-                error: TwoRequirementError::First(e.error),
-            }),
-        }
-    }
-}
-#[derive(thiserror::Error, Debug)]
-pub enum TwoRequirementError<E0: std::error::Error, E1: std::error::Error> {
-    #[error(transparent)]
-    First(E0),
-    #[error(transparent)]
-    Second(E1),
 }
 
 pub struct FulfilledAction<Action: crate::actions::ActionSource, Value> {
@@ -192,97 +54,184 @@ impl<Action: crate::actions::ActionSource, Value: Send + Sync> ActionSource
     for FulfilledAction<Action, Value>
 {
     type Source = Action::Source;
+    fn source(&self) -> &Self::Source {
+        self.action.source()
+    }
 }
 
-pub struct RequirementAction<Priority, Action: crate::actions::ActionSource, Satisfy> {
+pub struct RequirementAction<Priority, Input, Action> {
     priority: Priority,
     action: Action,
-    source: Action::Source,
-    satisfy: Satisfy,
+    _m: std::marker::PhantomData<Input>,
 }
 
-impl<Priority, Action: crate::actions::ActionSource, Satisfy>
-    RequirementAction<Priority, Action, Satisfy>
-{
-    pub fn new(
-        priority: Priority,
-        action: Action,
-        source: Action::Source,
-        satisfy: Satisfy,
-    ) -> Self {
-        RequirementAction {
-            priority,
-            action,
-            source,
-            satisfy,
-        }
-    }
+impl<Priority, Input, Action> RequirementAction<Priority, Input, Action> {
     pub fn priority(&self) -> &Priority {
         &self.priority
     }
     pub fn action(&self) -> &Action {
         &self.action
     }
-    pub fn source(&self) -> &Action::Source {
-        &self.source
-    }
-    pub fn satisfy(&self) -> &Satisfy {
-        &self.satisfy
-    }
-    pub(crate) fn take_contents(self) -> (Priority, Action, Action::Source, Satisfy) {
-        (self.priority, self.action, self.source, self.satisfy)
-    }
 }
-impl<State, Action: crate::actions::ActionSource, Satisfy: SatisfyRequirement<Priority<State>>>
-    RequirementAction<Priority<State>, Action, Satisfy>
+impl<State, Input, Action: crate::actions::IncitingAction<State, Input>>
+    RequirementAction<Priority<State>, Input, Action>
+where
+    Action::Requirement: ActionRequirement<Priority<State>, Input>,
 {
+    /// If the current state has any inputs that fit the requirement,
+    /// return `Some`, otherwise `None`.
+    pub fn try_new(
+        priority: Priority<State>,
+        action: Action,
+    ) -> Result<
+        RequirementAction<Priority<State>, Input, Action>,
+        TryNewRequirementActionError<Priority<State>, Action>,
+    > {
+        let collected_inputs =
+            <Action::Requirement as ActionRequirement<Priority<State>, Input>>::collect_inputs(
+                &priority,
+            );
+        if collected_inputs
+            .fits_any::<<Action::Requirement as ActionRequirement<Priority<State>, Input>>::Filter>(
+            &priority,
+        ) {
+            Ok(RequirementAction {
+                priority,
+                action,
+                _m: std::marker::PhantomData::default(),
+            })
+        } else {
+            Err(TryNewRequirementActionError { priority, action })
+        }
+    }
     pub fn select(
         self,
-        value: Satisfy::Value,
+        value: Input,
     ) -> Result<
-        crate::priority::PriorityStack<State, FulfilledAction<Action, Satisfy::Value>>,
-        Satisfy::RequirementError,
-    >
-    where
-        FulfilledAction<Action, Satisfy::Value>: crate::actions::IncitingAction<State>,
-    {
-        if let Err(e) = self.satisfy.satisfy(&self.priority, &value) {
-            Err(e)
-        } else {
-            Ok(PriorityMut::<Priority<State>>::new(self.priority)
-                .stack::<FulfilledAction<Action, Satisfy::Value>>(FulfilledAction::new(
-                    self.action,
-                    self.source,
-                    value,
-                ))
-                .take_priority())
+        Action::Resolved,
+        RequirementActionSelectionError<
+            Self,
+            <<Action::Requirement as ActionRequirement<Priority<State>, Input>>::Filter as StateFilter<Priority<State>, Input>>::Error,
+        >,
+    >{
+        let result = <<Action::Requirement as ActionRequirement<Priority<State>, Input>>::Filter as StateFilter<Priority<State>, Input>>::filter(
+            &self.priority,
+            value,
+        );
+        match result {
+            Ok(input) => Ok(self
+                .action
+                .resolve(PriorityMut::<Priority<State>>::new(self.priority), input)),
+            Err(error) => Err(RequirementActionSelectionError {
+                action: self,
+                error,
+            }),
         }
+    }
+}
+#[derive(thiserror::Error)]
+#[error("requirement for action is impossible to fulfill")]
+pub struct TryNewRequirementActionError<Priority, Action> {
+    pub priority: Priority,
+    pub action: Action,
+}
+impl<Priority, Action> std::fmt::Debug for TryNewRequirementActionError<Priority, Action> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "requirement for action is impossible to fulfill")
     }
 }
 impl<
     State,
-    IncitingAction: crate::actions::IncitingAction<State>,
-    Action: crate::actions::ActionSource,
-    Satisfy: SatisfyRequirement<PriorityStack<State, IncitingAction>>,
-> RequirementAction<PriorityStack<State, IncitingAction>, Action, Satisfy>
+    Input,
+    IncitingAction: crate::actions::IncitingActionInfo<State>,
+    Action: crate::actions::StackAction<State, Input, IncitingAction>,
+> RequirementAction<PriorityStack<State, IncitingAction>, Input, Action>
 where
-    IncitingAction::Stackable: crate::actions::StackAction<State, IncitingAction>,
+    Action::Requirement: ActionRequirement<PriorityStack<State, IncitingAction>, Input>,
 {
+    /// If the current state has any inputs that fit the requirement,
+    /// return `Some`, otherwise `None`.
+    pub fn try_new(
+        priority: PriorityStack<State, IncitingAction>,
+        action: Action,
+    ) -> Result<
+        RequirementAction<PriorityStack<State, IncitingAction>, Input, Action>,
+        TryNewRequirementActionError<PriorityStack<State, IncitingAction>, Action>,
+    > {
+        let collected_inputs = <Action::Requirement as ActionRequirement<
+            PriorityStack<State, IncitingAction>,
+            Input,
+        >>::collect_inputs(&priority);
+        if collected_inputs.fits_any::<<Action::Requirement as ActionRequirement<
+            PriorityStack<State, IncitingAction>,
+            Input,
+        >>::Filter>(&priority)
+        {
+            Ok(RequirementAction {
+                priority,
+                action,
+                _m: std::marker::PhantomData::default(),
+            })
+        } else {
+            Err(TryNewRequirementActionError { priority, action })
+        }
+    }
     pub fn select(
         self,
-        value: Satisfy::Value,
-    ) -> Result<PriorityStack<State, IncitingAction>, Satisfy::RequirementError>
-    where
-        FulfilledAction<Action, Satisfy::Value>: Into<IncitingAction::Stackable>,
-    {
-        if let Err(e) = self.satisfy.satisfy(&self.priority, &value) {
-            Err(e)
-        } else {
-            Ok(
-                PriorityMut::<PriorityStack<State, IncitingAction>>::new(self.priority)
-                    .stack(FulfilledAction::new(self.action, self.source, value).into())
-                    .take_priority(),
-            )
+        value: Input,
+    ) -> Result<
+        Action::Resolved,
+        RequirementActionSelectionError<
+            Self,
+            <<Action::Requirement as ActionRequirement<
+                PriorityStack<State, IncitingAction>,
+                Input,
+            >>::Filter as StateFilter<PriorityStack<State, IncitingAction>, Input>>::Error,
+        >,
+    > {
+        let result = <<Action::Requirement as ActionRequirement<
+            PriorityStack<State, IncitingAction>,
+            Input,
+        >>::Filter as StateFilter<PriorityStack<State, IncitingAction>, Input>>::filter(
+            &self.priority,
+            value,
+        );
+        match result {
+            Ok(input) => Ok(self.action.resolve(
+                PriorityMut::<PriorityStack<State, IncitingAction>>::new(self.priority),
+                input,
+            )),
+            Err(error) => Err(RequirementActionSelectionError {
+                action: self,
+                error,
+            }),
         }
+    }
+}
+pub struct RequirementActionSelectionError<Action, E: std::error::Error> {
+    action: Action,
+    error: E,
+}
+impl<Action, E: std::error::Error> std::fmt::Debug for RequirementActionSelectionError<Action, E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self.error, f)
+    }
+}
+impl<Action, E: std::error::Error> std::fmt::Display
+    for RequirementActionSelectionError<Action, E>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.error, f)
+    }
+}
+impl<Action, E: std::error::Error> RequirementActionSelectionError<Action, E> {
+    pub fn take_requirement_action(self) -> Action {
+        self.action
+    }
+    pub fn take_all(self) -> (Action, E) {
+        (self.action, self.error)
+    }
+    pub fn error(&self) -> &E {
+        &self.error
     }
 }

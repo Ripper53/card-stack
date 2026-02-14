@@ -2,6 +2,17 @@
 name = "card-stack"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+authors = ["Albar <albarjob@gmail.com>"]
+description = "The Stack for card games"
+repository = "https://github.com/Ripper53/card-stack"
+exclude = [".gitignore"]
 
 [dependencies]
+state-validation = { path = "../state-validation/state-validation", version = "0.3", features = [
+    "input_collector",
+] }
 thiserror = "2.0.14"
+
+[features]
+internals = []
