@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "card-game"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "card-game-derive",
  "card-stack",
@@ -15,7 +15,7 @@ dependencies = [
 
 [[package]]
 name = "card-game-derive"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "darling",
  "heck",
@@ -27,7 +27,7 @@ dependencies = [
 
 [[package]]
 name = "card-stack"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "state-validation",
  "thiserror",

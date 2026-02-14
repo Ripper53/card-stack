@@ -1,6 +1,6 @@
 [package]
 name = "card-game"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MIT"
 authors = ["Albar <albarjob@gmail.com>"]
@@ -8,12 +8,12 @@ repository = "https://github.com/Ripper53/card-stack"
 description = "Framework for building card games"
 
 [dependencies]
-card-game-derive = { path = "../card-game-derive", version = "0.1", optional = true }
+card-game-derive = { path = "../card-game-derive", version = "0.2", optional = true }
 state-validation = { path = "../state-validation/state-validation", version = "0.3", default-features = false, features = [
     "input_collector",
     "dynamic",
 ] }
-card-stack = { path = "../card-stack", version = "0.1", features = [
+card-stack = { path = "../card-stack", version = "0.2", features = [
     "internals",
 ] }
 thiserror = "2.0.14"
