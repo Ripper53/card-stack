@@ -1,16 +1,18 @@
 use crate::events::{
-    AddEventListener, DynEventListener, Event, EventActionID, EventActionIDBuilder, EventListener,
-    EventListenerConstructor, EventValidAction,
+    AddEventListener, DynEventListener, Event, EventActionID, EventActionIDBuilder,
+    EventDescription, EventListener, EventListenerConstructor, EventValidAction,
 };
-use crate::identifications::{ActionIdentifier, SourceCardID, ValidCardID};
+use crate::identifications::{ActionDescription, ActionIdentifier, SourceCardID, ValidCardID};
 use card_stack::priority::PriorityMut;
 use card_stack::{NonEmptyInput, priority::GetState};
 use state_validation::{
     StateFilter, StateFilterInputCombination, StateFilterInputConversion, ValidAction,
 };
 
+mod description;
 mod events;
 mod manager;
+pub use description::*;
 pub use events::*;
 pub use manager::*;
 
@@ -73,17 +75,19 @@ impl std::fmt::Display for CardID {
     }
 }
 
-pub struct CardBuilder<'a, EventManager> {
+pub struct CardBuilder<'a, EventManager, Description> {
     card_actions: &'a mut CardActions,
+    card_descriptions: &'a mut CardDescriptions<Description>,
     event_action_id_builder: &'a mut EventActionIDBuilder,
     event_manager: &'a mut EventManager,
     card_event_tracker: &'a mut CardEventTracker<EventManager>,
     next_id: &'a mut usize,
 }
 
-impl<'a, EventManager> CardBuilder<'a, EventManager> {
+impl<'a, EventManager, Description> CardBuilder<'a, EventManager, Description> {
     pub(crate) fn new(
         card_actions: &'a mut CardActions,
+        card_descriptions: &'a mut CardDescriptions<Description>,
         event_action_id_builder: &'a mut EventActionIDBuilder,
         event_manager: &'a mut EventManager,
         card_event_tracker: &'a mut CardEventTracker<EventManager>,
@@ -91,17 +95,22 @@ impl<'a, EventManager> CardBuilder<'a, EventManager> {
     ) -> Self {
         CardBuilder {
             card_actions,
+            card_descriptions,
             event_action_id_builder,
             event_manager,
             card_event_tracker,
             next_id,
         }
     }
-    pub fn build<Kind>(&mut self, kind: Kind) -> CardKindBuilder<'_, EventManager, Kind> {
+    pub fn build<Kind>(
+        &mut self,
+        kind: Kind,
+    ) -> CardKindBuilder<'_, EventManager, Description, Kind> {
         let id = CardID::new(*self.next_id);
         *self.next_id += 1;
         CardKindBuilder {
             card_actions: self.card_actions,
+            card_descriptions: self.card_descriptions,
             event_action_id_builder: self.event_action_id_builder,
             event_manager: self.event_manager,
             card_event_tracker: self.card_event_tracker,
@@ -110,28 +119,36 @@ impl<'a, EventManager> CardBuilder<'a, EventManager> {
     }
 }
 
-pub struct CardKindBuilder<'a, EventManager, Kind> {
+pub struct CardKindBuilder<'a, EventManager, Description, Kind> {
     card_actions: &'a mut CardActions,
+    card_descriptions: &'a mut CardDescriptions<Description>,
     event_action_id_builder: &'a mut EventActionIDBuilder,
     event_manager: &'a mut EventManager,
     card_event_tracker: &'a mut CardEventTracker<EventManager>,
     card: Card<Kind>,
 }
 
-impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
-    pub fn with_action<Action: ActionIdentifier>(self) -> Self {
+impl<'a, EventManager, Description: Clone, Kind>
+    CardKindBuilder<'a, EventManager, Description, Kind>
+{
+    pub fn with_action<Action: ActionIdentifier + ActionDescription<Description>>(self) -> Self {
         self.card_actions
             .insert_action(Action::action_id(), self.card.id());
+        self.card_descriptions
+            .add_description(self.card.id(), Action::description());
         self
     }
     pub fn copy_actions(self, card_id: CardID) -> Self {
         self.card_actions.copy_actions(self.card.id(), card_id);
+        self.card_descriptions
+            .copy_description(self.card.id(), card_id);
         self
     }
-    pub fn with_event(self) -> CardKindEffectBuilder<'a, EventManager, Kind> {
+    pub fn with_event(self) -> CardKindEffectBuilder<'a, EventManager, Description, Kind> {
         CardKindEffectBuilder {
             event_action_id: self.event_action_id_builder.build(),
             card_actions: self.card_actions,
+            card_descriptions: self.card_descriptions,
             event_action_id_builder: self.event_action_id_builder,
             event_manager: self.event_manager,
             card_event_tracker: self.card_event_tracker,
@@ -151,20 +168,23 @@ impl<'a, EventManager, Kind> CardKindBuilder<'a, EventManager, Kind> {
     }
 }
 
-pub struct CardKindEffectBuilder<'a, EventManager, Kind> {
+pub struct CardKindEffectBuilder<'a, EventManager, Description, Kind> {
     event_action_id: EventActionID,
     card_actions: &'a mut CardActions,
+    card_descriptions: &'a mut CardDescriptions<Description>,
     event_action_id_builder: &'a mut EventActionIDBuilder,
     event_manager: &'a mut EventManager,
     card_event_tracker: &'a mut CardEventTracker<EventManager>,
     card: Card<Kind>,
 }
 
-impl<'a, EventManager, Kind> CardKindEffectBuilder<'a, EventManager, Kind> {
+impl<'a, EventManager, Kind, Description>
+    CardKindEffectBuilder<'a, EventManager, Description, Kind>
+{
     pub fn listen_for<
         State: 'static,
         Ev: Event<PriorityMut<State>>,
-        Listener: EventListenerConstructor<State, Ev>,
+        Listener: EventListenerConstructor<State, Ev> + EventDescription<Ev, Description>,
     >(
         self,
         listener_input: Listener::Input,
@@ -176,6 +196,7 @@ impl<'a, EventManager, Kind> CardKindEffectBuilder<'a, EventManager, Kind> {
     {
         let card_id = self.card.id();
         let event_listener = Listener::new_listener(SourceCardID(card_id), listener_input.clone());
+        let description = event_listener.description();
         let (id, index) = self
             .event_manager
             .add_listener(self.event_action_id, event_listener);
@@ -186,11 +207,14 @@ impl<'a, EventManager, Kind> CardKindEffectBuilder<'a, EventManager, Kind> {
             index,
             listener_input,
         );
+        self.card_descriptions
+            .add_event_description(self.event_action_id, card_id, description);
         self
     }
-    pub fn finish_event(self) -> CardKindBuilder<'a, EventManager, Kind> {
+    pub fn finish_event(self) -> CardKindBuilder<'a, EventManager, Description, Kind> {
         CardKindBuilder {
             card_actions: self.card_actions,
+            card_descriptions: self.card_descriptions,
             event_action_id_builder: self.event_action_id_builder,
             event_manager: self.event_manager,
             card_event_tracker: self.card_event_tracker,

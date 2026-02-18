@@ -9,3 +9,6 @@ impl ActionID {
 pub trait ActionIdentifier {
     fn action_id() -> ActionID;
 }
+pub trait ActionDescription<T> {
+    fn description() -> T;
+}

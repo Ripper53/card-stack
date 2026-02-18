@@ -22,33 +22,41 @@ impl<State> EventCommand<State> {
     }
 }
 
-pub trait EventForCardExists<State, Ev: Event<PriorityMut<State>>, Output: 'static, EvM> {
-    fn event_for_card_exists(
-        &self,
-        card_id: CardID,
-        event: &Ev,
-        get_card_manager: for<'a> fn(&'a State) -> &'a CardManager<EvM>,
-        get_event_manager: for<'a> fn(&'a EvM) -> &'a EventManager<State, Ev, Output>,
-    ) -> bool;
-}
-pub trait EventsForCard<State, Ev: Event<PriorityMut<State>>, Output: 'static, EvM> {
-    fn events_for_card(
-        self,
-        card_id: CardID,
-        event: Ev,
-        get_card_manager: for<'a> fn(&'a State) -> &'a CardManager<EvM>,
-        get_event_manager: for<'a> fn(&'a EvM) -> &'a EventManager<State, Ev, Output>,
-    ) -> Result<SimultaneousActionManager<State, Ev, Output>, NoEventsFound<State>>;
-}
-
-impl<'a, State, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static, EvM>
-    EventForCardExists<Priority<State>, Ev, Output, EvM> for EventCommand<&'a Priority<State>>
+pub trait EventForCardExists<
+    State,
+    Ev: Event<PriorityMut<State>>,
+    Output: 'static,
+    EvM,
+    Description,
+>
 {
     fn event_for_card_exists(
         &self,
         card_id: CardID,
         event: &Ev,
-        get_card_manager: for<'b> fn(&'b Priority<State>) -> &'b CardManager<EvM>,
+        get_card_manager: for<'a> fn(&'a State) -> &'a CardManager<EvM, Description>,
+        get_event_manager: for<'a> fn(&'a EvM) -> &'a EventManager<State, Ev, Output>,
+    ) -> bool;
+}
+pub trait EventsForCard<State, Ev: Event<PriorityMut<State>>, Output: 'static, EvM, Description> {
+    fn events_for_card(
+        self,
+        card_id: CardID,
+        event: Ev,
+        get_card_manager: for<'a> fn(&'a State) -> &'a CardManager<EvM, Description>,
+        get_event_manager: for<'a> fn(&'a EvM) -> &'a EventManager<State, Ev, Output>,
+    ) -> Result<SimultaneousActionManager<State, Ev, Output>, NoEventsFound<State>>;
+}
+
+impl<'a, State, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static, EvM, Description>
+    EventForCardExists<Priority<State>, Ev, Output, EvM, Description>
+    for EventCommand<&'a Priority<State>>
+{
+    fn event_for_card_exists(
+        &self,
+        card_id: CardID,
+        event: &Ev,
+        get_card_manager: for<'b> fn(&'b Priority<State>) -> &'b CardManager<EvM, Description>,
         get_event_manager: for<'b> fn(&'b EvM) -> &'b EventManager<Priority<State>, Ev, Output>,
     ) -> bool {
         let card_manager = get_card_manager(&self.state);
@@ -67,14 +75,14 @@ impl<'a, State, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static, EvM>
         }
     }
 }
-impl<State: 'static, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static, EvM>
-    EventsForCard<Priority<State>, Ev, Output, EvM> for EventCommand<Priority<State>>
+impl<State: 'static, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static, EvM, Description>
+    EventsForCard<Priority<State>, Ev, Output, EvM, Description> for EventCommand<Priority<State>>
 {
     fn events_for_card(
         self,
         card_id: CardID,
         event: Ev,
-        get_card_manager: for<'a> fn(&'a Priority<State>) -> &'a CardManager<EvM>,
+        get_card_manager: for<'a> fn(&'a Priority<State>) -> &'a CardManager<EvM, Description>,
         get_event_manager: for<'a> fn(&'a EvM) -> &'a EventManager<Priority<State>, Ev, Output>,
     ) -> Result<
         SimultaneousActionManager<Priority<State>, Ev, Output>,
@@ -108,12 +116,12 @@ impl<State: 'static, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static, E
 impl<State: 'static, Ev: Event<PriorityMut<Priority<State>>>, Output: 'static>
     EventCommand<SimultaneousActionManager<Priority<State>, Ev, Output>>
 {
-    pub fn event_triggered_for_card<EvM>(
+    pub fn event_triggered_for_card<EvM, Description>(
         &self,
         card_id: CardID,
         get_card_manager: for<'a> fn(
             &'a SimultaneousActionManager<Priority<State>, Ev, Output>,
-        ) -> &'a CardManager<EvM>,
+        ) -> &'a CardManager<EvM, Description>,
     ) -> bool {
         let card_manager = get_card_manager(&self.state);
         let event_tracker = card_manager.event_tracker();

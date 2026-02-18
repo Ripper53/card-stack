@@ -799,6 +799,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 let first_priority_resolutions = priority_resolutions.pop().unwrap();
                 let event = &event.event;
                 let listener_constraints = quote::quote! {
+                    card_game::events::EventDescription<#event, Description> +
                     card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event> +
                     card_game::events::EventListenerConstructor<
                         card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>,
@@ -867,7 +868,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 let trait_name =
                     quote::format_ident!("{}Event", event_fn.to_string().to_upper_camel_case());
                 impls.push(quote::quote! {
-                    pub trait #trait_name {
+                    pub trait #trait_name<Description: Clone> {
                         fn #event_fn<
                             Listener: #listener_constraints
                         >(
@@ -876,7 +877,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         ) -> Self
                             where #trait_constraints;
                     }
-                    impl<'a, Kind> #trait_name for card_game::cards::CardKindBuilder<'a, #struct_name, Kind> {
+                    impl<'a, Description: Clone, Kind> #trait_name<Description> for card_game::cards::CardKindBuilder<'a, #struct_name, Description, Kind> {
                         fn #event_fn<
                             Listener: #listener_constraints
                         >(

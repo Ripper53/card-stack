@@ -18,7 +18,7 @@ pub trait CastTo<T> {
 #[derive(Debug)]
 pub struct MutID<ID>(ID);
 impl<ID> MutID<ID> {
-    pub(crate) fn new(id: ID) -> Self {
+    pub fn new(id: ID) -> Self {
         MutID(id)
     }
     pub fn id(&self) -> &ID {

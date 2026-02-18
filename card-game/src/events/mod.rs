@@ -966,6 +966,9 @@ where
         <T as ValidAction<State, Input>>::with_valid_input(self, state, valid)
     }
 }
+pub trait EventDescription<Event, T> {
+    fn description(&self) -> T;
+}
 pub trait EventListener<State, Ev: Event<PriorityMut<State>>>: Clone + 'static {
     /// Trigger event ONLY if this filter passes!
     type Filter: EventStateFilter<State, Self::FilterInput>;

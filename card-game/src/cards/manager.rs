@@ -7,7 +7,7 @@ use card_stack::priority::{GetState, PriorityMut};
 use state_validation::{StateFilter, ValidAction};
 
 use crate::{
-    cards::{CardBuilder, CardID},
+    cards::{CardBuilder, CardDescriptions, CardID},
     events::{
         AddEventListener, AnyClone, DynEventListener, Event, EventActionID, EventActionIDBuilder,
         EventListener, EventListenerConstructor, EventValidAction, SimultaneousActionManager,
@@ -16,15 +16,16 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct CardManager<EventManager> {
+pub struct CardManager<EventManager, Description> {
     next_card_id_index: usize,
     event_action_id_builder: EventActionIDBuilder,
     card_actions: CardActions,
     event_manager: EventManager,
     event_tracker: CardEventTracker<EventManager>,
+    card_descriptions: CardDescriptions<Description>,
 }
 
-impl<EventManager> CardManager<EventManager> {
+impl<EventManager, Description> CardManager<EventManager, Description> {
     pub(crate) fn new(event_manager: EventManager) -> Self {
         CardManager {
             next_card_id_index: 0,
@@ -38,10 +39,14 @@ impl<EventManager> CardManager<EventManager> {
                 events: HashMap::new(),
                 event_action_map: HashMap::new(),
             },
+            card_descriptions: CardDescriptions::new(),
         }
     }
     pub fn card_actions(&self) -> &CardActions {
         &self.card_actions
+    }
+    pub fn card_descriptions(&self) -> &CardDescriptions<Description> {
+        &self.card_descriptions
     }
     pub fn event_manager(&self) -> &EventManager {
         &self.event_manager
@@ -49,9 +54,10 @@ impl<EventManager> CardManager<EventManager> {
     pub fn event_tracker(&self) -> &CardEventTracker<EventManager> {
         &self.event_tracker
     }
-    pub fn builder(&mut self) -> CardBuilder<'_, EventManager> {
+    pub fn builder(&mut self) -> CardBuilder<'_, EventManager, Description> {
         CardBuilder::new(
             &mut self.card_actions,
+            &mut self.card_descriptions,
             &mut self.event_action_id_builder,
             &mut self.event_manager,
             &mut self.event_tracker,
@@ -59,7 +65,7 @@ impl<EventManager> CardManager<EventManager> {
         )
     }
 }
-impl<EventManager> GetState<CardActions> for CardManager<EventManager> {
+impl<EventManager, Description> GetState<CardActions> for CardManager<EventManager, Description> {
     fn state(&self) -> &CardActions {
         self.card_actions()
     }
@@ -98,8 +104,8 @@ impl CardActions {
             }
         }
     }
-    pub fn copy_actions(&mut self, card_id: CardID, to_copy_card_id: CardID) {
-        if let Some(actions) = self.card_actions_tracker.get(&to_copy_card_id) {
+    pub(crate) fn copy_actions(&mut self, card_id: CardID, copy_from_card_id: CardID) {
+        if let Some(actions) = self.card_actions_tracker.get(&copy_from_card_id) {
             for action_id in actions.iter().copied() {
                 let _ = self
                     .card_actions

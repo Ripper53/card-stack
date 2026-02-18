@@ -17,12 +17,12 @@ pub mod identifications;
 pub mod zones;
 pub use context::*;
 
-pub trait CardGameBuilder<EventManager: Default>: Sized {
+pub trait CardGameBuilder<EventManager: Default, Description>: Sized {
     type GenerationData;
     type Game;
     fn generate(
         player_id_builder: PlayerIDBuilder,
-        card_manager: CardManager<EventManager>,
+        card_manager: CardManager<EventManager, Description>,
         generation_data: Self::GenerationData,
     ) -> Self::Game;
     fn new(data: Self::GenerationData) -> Self::Game {
