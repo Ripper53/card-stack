@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{cards::CardID, create_valid_identification, identifications::MutID};
 use card_stack::NonEmptyInput;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlayerID(usize);
 impl NonEmptyInput for PlayerID {}

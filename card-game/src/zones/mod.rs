@@ -8,6 +8,7 @@ use crate::{
 mod slot;
 pub use slot::*;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct ZoneManager<Z: Zones> {
     zones: HashMap<PlayerID, Z>,

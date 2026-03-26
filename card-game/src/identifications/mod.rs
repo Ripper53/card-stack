@@ -105,6 +105,15 @@ where
     }
 }*/
 
+pub trait InternalID<ID> {
+    fn internal_id(&self) -> &ID;
+}
+impl<T> InternalID<T> for T {
+    fn internal_id(&self) -> &T {
+        self
+    }
+}
+
 pub trait UncheckedReplaceFilter {
     type Output<F>;
     fn unchecked_replace_filter<F>(self) -> Self::Output<F>;
@@ -238,6 +247,11 @@ macro_rules! create_valid_identification {
         {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "Valid({:?})", &self.0)
+            }
+        }
+        impl<F> card_game::identifications::InternalID<$internal_id> for $name<F> {
+            fn internal_id(&self) -> &$internal_id {
+                &self.0
             }
         }
         impl<F> card_game::stack::NonEmptyInput for $name<F> {}

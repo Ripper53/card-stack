@@ -16,6 +16,7 @@ pub use description::*;
 pub use events::*;
 pub use manager::*;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct Card<Kind> {
     id: CardID,
@@ -55,6 +56,7 @@ impl<Kind> Card<Kind> {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CardID(usize);
 impl NonEmptyInput for CardID {}

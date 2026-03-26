@@ -28,6 +28,7 @@ impl<Z: Zone> GetValidCardIDFromZone<Z> for ValidCardID<Z::CardFilter> {
 #[error("card {0} does not exist")]
 pub struct CardDoesNotExist(pub CardID);
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct SourceCardID(pub CardID);
 impl std::fmt::Display for SourceCardID {
@@ -35,6 +36,7 @@ impl std::fmt::Display for SourceCardID {
         self.0.fmt(f)
     }
 }
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct TargetCardID(pub CardID);
 impl std::fmt::Display for TargetCardID {

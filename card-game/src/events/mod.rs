@@ -60,10 +60,10 @@ impl<State, Ev: Event<PriorityMut<State>>, Output: 'static> DynEventListener<Sta
                 Ok(v) => Ok(Box::new(v)),
                 Err(e) => Err(Box::new(e)),
             },
-            get_action: |valid_action, state, event, valid| {
+            get_action: |mut valid_action, state, event, valid| {
                 EventAction::new::<T>(
                     state,
-                    valid_action.downcast_ref().unwrap(),
+                    valid_action.downcast_mut().unwrap(),
                     event,
                     *valid.downcast().unwrap(),
                 )
@@ -97,10 +97,10 @@ impl<State, Ev: Event<PriorityMut<State>>, Output> Clone for DynEventListener<St
         }
     }
 }
-pub(crate) trait AnyClone: Any {
+pub(crate) trait AnyClone: Send + Sync + Any {
     fn any_clone(&self) -> Box<dyn AnyClone>;
 }
-impl<T: Clone + 'static> AnyClone for T {
+impl<T: Clone + Send + Sync + 'static> AnyClone for T {
     fn any_clone(&self) -> Box<dyn AnyClone> {
         Box::new(self.clone())
     }
@@ -499,7 +499,7 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output: 'static>
 {
     fn new<T: EventListener<EventState, Ev>>(
         state: &EventState,
-        event_listener: &T,
+        event_listener: &mut T,
         event: &Ev,
         valid: <T::Filter as EventStateFilter<EventState, T::FilterInput>>::ValidOutput,
     ) -> Self
@@ -918,7 +918,7 @@ impl<
 pub trait EventListenerConstructor<State, Ev: Event<PriorityMut<State>>>:
     EventListener<State, Ev>
 {
-    type Input: Clone + 'static;
+    type Input: Clone + Send + Sync + 'static;
     fn new_listener(source_card_id: SourceCardID, input: Self::Input) -> Self;
 }
 pub trait EventStateFilter<State, Input> {
@@ -969,17 +969,19 @@ where
 pub trait EventDescription<Event, T> {
     fn description(&self) -> T;
 }
-pub trait EventListener<State, Ev: Event<PriorityMut<State>>>: Clone + 'static {
+pub trait EventListener<State, Ev: Event<PriorityMut<State>>>:
+    Clone + Send + Sync + 'static
+{
     /// Trigger event ONLY if this filter passes!
     type Filter: EventStateFilter<State, Self::FilterInput>;
     type FilterInput: 'static;
     fn filter_input(&self, event: &Ev) -> Self::FilterInput;
 
     type Action: EventValidAction<PriorityMut<State>, Self::ActionInput>;
-    type ActionInput: Clone + 'static;
+    type ActionInput: Clone + Send + Sync + 'static;
     /// The action to execute when its event is triggered, along with its input.
     fn action(
-        &self,
+        &mut self,
         state: &State,
         event: &Ev,
         value: <Self::Filter as EventStateFilter<State, Self::FilterInput>>::ValidOutput,

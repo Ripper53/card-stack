@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet, hash_map::Entry};
 
 use crate::{cards::CardID, events::EventActionID};
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
 pub struct CardDescriptions<T> {
     descriptions: HashMap<CardID, Vec<T>>,
