@@ -239,13 +239,13 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output>
         }
     }
 }
-pub struct SimultaneousActionManager<State, Ev: Event<PriorityMut<State>>, Output> {
+pub struct SimultaneousActionManager<State, Ev, Output> {
     state: State,
     event: Ev,
     pub(crate) indexes: HashSet<(EventManagerID, EventManagerIndex)>,
     actions: HashMap<SimultaneousActionID, (EventActionID, EventAction<State, Ev, Output>)>,
 }
-impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>>, Output> std::fmt::Debug
+impl<State: std::fmt::Debug, Ev, Output> std::fmt::Debug
     for SimultaneousActionManager<State, Ev, Output>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -326,9 +326,7 @@ impl<State, Ev: Event<PriorityMut<State>>, Output> SimultaneousActionManager<Sta
             .map(|(index, _action)| ValidSimultaneousActionID::new(SimultaneousActionID(index)))
     }
 }
-impl<State: Clone, Ev: Event<PriorityMut<State>>, Output> Clone
-    for SimultaneousActionManager<State, Ev, Output>
-{
+impl<State: Clone, Ev: Clone, Output> Clone for SimultaneousActionManager<State, Ev, Output> {
     fn clone(&self) -> Self {
         SimultaneousActionManager {
             state: self.state.clone(),
@@ -471,7 +469,7 @@ where
         Ok(stack)
     }
 }
-pub struct EventAction<EventState, Ev: Event<PriorityMut<EventState>>, Output> {
+pub struct EventAction<EventState, Ev, Output> {
     event_input: Box<dyn AnyClone>,
     action: DynValidAction<PriorityMut<EventState>, Box<dyn Any>, Output>,
     _m: std::marker::PhantomData<Ev>,
@@ -483,9 +481,7 @@ impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> std::fmt::Debug
         f.debug_struct("EventAction").finish_non_exhaustive()
     }
 }
-impl<EventState, Ev: Event<PriorityMut<EventState>>, Output> Clone
-    for EventAction<EventState, Ev, Output>
-{
+impl<EventState, Ev, Output> Clone for EventAction<EventState, Ev, Output> {
     fn clone(&self) -> Self {
         EventAction {
             event_input: (*self.event_input).any_clone(),
@@ -652,14 +648,12 @@ impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>>, Output> std::fmt::De
 }
 
 #[derive(Clone)]
-pub struct TriggeredEvent<State, Ev: Event<PriorityMut<State>>> {
+pub struct TriggeredEvent<State, Ev> {
     state: State,
     event: Ev,
 }
 
-impl<State: std::fmt::Debug, Ev: Event<PriorityMut<State>> + std::fmt::Debug> std::fmt::Debug
-    for TriggeredEvent<State, Ev>
-{
+impl<State: std::fmt::Debug, Ev: std::fmt::Debug> std::fmt::Debug for TriggeredEvent<State, Ev> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TriggeredEvent")
             .field("state", &self.state)

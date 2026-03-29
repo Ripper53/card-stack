@@ -18,9 +18,9 @@ impl<Item> Iterator for NoIter<Item> {
         None
     }
 }
-impl<State> ActionRequirement<State, ()> for () {
+impl<State, Input> ActionRequirement<State, Input> for () {
     type Filter = ();
-    fn collect_inputs(_state: &State) -> CollectedInputs<State, impl Iterator<Item = ()>> {
+    fn collect_inputs(_state: &State) -> CollectedInputs<State, impl Iterator<Item = Input>> {
         CollectedInputs::new(NoIter(std::marker::PhantomData::default()))
     }
 }
