@@ -713,14 +713,14 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 )*
                 #[derive(Clone)]
                 pub enum #resolution<State>
-                    where #resolution_event_constraints
+                    //where #resolution_event_constraints
                 {
                     State(State),
                     #(#resolution_triggered_event_variant_names(#resolution_triggered_event_variant_types),)*
                     #(#resolution_enum_variants),*
                 }
                 impl<State> ::std::fmt::Debug for #resolution<State>
-                    where #resolution_event_constraints
+                    //where #resolution_event_constraints
                 {
                     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::result::Result<(), ::std::fmt::Error> {
                         match self {
@@ -736,7 +736,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
                 #(
                     impl<State> ::std::convert::From<#resolution_triggered_event_variant_types> for #resolution<State>
-                        where #resolution_event_constraints
+                        //where #resolution_event_constraints
                     {
                         fn from(value: #resolution_triggered_event_variant_types) -> Self {
                             Self::#resolution_triggered_event_variant_names(value)
@@ -745,7 +745,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                 )*
                 #(
                     impl<State> ::std::convert::From<#resolution_enum_types> for #resolution<State>
-                        where #resolution_event_constraints
+                        //where #resolution_event_constraints
                     {
                         fn from(value: #resolution_enum_types) -> Self {
                             Self::#resolution_enum_variant_names(value)
