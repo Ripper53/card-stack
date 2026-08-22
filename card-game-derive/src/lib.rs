@@ -4,10 +4,7 @@ use heck::{ToSnakeCase, ToUpperCamelCase};
 use itertools::Itertools;
 use proc_macro::TokenStream;
 use syn::{
-    DeriveInput, Field, Fields, Ident, Type, TypePath,
-    parse::{Parse, Parser},
-    parse_macro_input,
-    spanned::Spanned,
+    Field, Fields, Ident, Type, TypePath, parse::Parse, parse_macro_input, spanned::Spanned,
     visit_mut::VisitMut,
 };
 
@@ -400,7 +397,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                             &args.states.placeholder,
                             &priority_state,
                         );
-                        let event_resolution = substitute_type(
+                        let _event_resolution = substitute_type(
                             &ev.resolution,
                             &args.states.placeholder,
                             &syn::parse_quote!(card_game::events::EventAction<
@@ -627,7 +624,7 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                     >>,
                 )*
             };
-            let resolution_event_constraints = quote::quote! {
+            let _resolution_event_constraints = quote::quote! {
                 #(
                     #events: card_game::events::Event<card_game::stack::priority::PriorityMut<State>>,
                 )*
@@ -795,9 +792,22 @@ pub fn event_manager(args: TokenStream, input: TokenStream) -> TokenStream {
                         )
                     })
                     .unzip();
+                let event = &event.event;
+                for (state, priority_resolutions) in states.iter().zip(priority_resolutions.iter())
+                {
+                    impls.push(
+                        impl_for_each_state(
+                            struct_name,
+                            event_fn,
+                            event,
+                            state,
+                            priority_resolutions,
+                        )
+                        .into(),
+                    );
+                }
                 let first_state = states.pop().unwrap();
                 let first_priority_resolutions = priority_resolutions.pop().unwrap();
-                let event = &event.event;
                 let listener_constraints = quote::quote! {
                     card_game::events::EventDescription<#event, Description> +
                     card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#first_state>, #event> +
@@ -976,3 +986,140 @@ fn type_to_ident(ty: &Type) -> &Ident {
         _ => unimplemented!(),
     }
 }
+
+fn impl_for_each_state(
+    struct_name: &Ident,
+    event_fn: &Ident,
+    event: &Type,
+    state: &Type,
+    priority_resolutions: &Type,
+) -> TokenStream {
+    let listener_constraints = quote::quote! {
+        card_game::events::EventDescription<#event, Description> +
+        card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#state>, #event> +
+        card_game::events::EventListenerConstructor<
+            card_game::events::EventPriorityStack<#state, #event, #priority_resolutions<card_game::stack::priority::Priority<#state>>>,
+            #event,
+            Input = <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#state>, #event>>::Input,
+        >
+    };
+    let trait_constraints = quote::quote! {
+            <<Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#state>, #event>>::Action as card_game::events::EventValidAction<
+                card_game::stack::priority::PriorityMut<card_game::stack::priority::Priority<#state>>,
+                <Listener as card_game::events::EventListener<card_game::stack::priority::Priority<#state>, #event>>::ActionInput,
+            >>::Output: std::convert::Into<<#struct_name as card_game::events::AddEventListener<card_game::stack::priority::Priority<#state>, #event>>::Output>,
+            <<Listener as card_game::events::EventListener<
+                card_game::events::EventPriorityStack<#state, #event, #priority_resolutions<card_game::stack::priority::Priority<#state>>>,
+                #event,
+            >>::Action as card_game::events::EventValidAction<
+                card_game::stack::priority::PriorityMut<card_game::events::EventPriorityStack<#state, #event, #priority_resolutions<card_game::stack::priority::Priority<#state>>>>,
+                <Listener as card_game::events::EventListener<
+                    card_game::events::EventPriorityStack<#state, #event, #priority_resolutions<card_game::stack::priority::Priority<#state>>>,
+                    #event,
+                >>::ActionInput,
+            >>::Output: Into<
+                <#struct_name as card_game::events::AddEventListener<
+                    card_game::events::EventPriorityStack<#state, #event, #priority_resolutions<card_game::stack::priority::Priority<#state>>>,
+                    #event,
+                >>::Output,
+            >
+    };
+
+    let event_fn = event_fn.to_string();
+    let state_str = type_to_ident(state).to_string();
+    let trait_name = quote::format_ident!(
+        "{}EventDuring{}",
+        event_fn.to_upper_camel_case(),
+        state_str.to_upper_camel_case(),
+    );
+    let event_fn = quote::format_ident!(
+        "{}_during_{}",
+        event_fn.to_snake_case(),
+        state_str.to_snake_case(),
+    );
+    quote::quote! {
+        pub trait #trait_name<Description: Clone> {
+            fn #event_fn<
+                Listener: #listener_constraints
+            >(
+                self,
+                input: <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#state>, #event>>::Input,
+            ) -> Self
+                where #trait_constraints;
+        }
+        impl<'a, Description: Clone, Kind> #trait_name<Description> for card_game::cards::CardKindBuilder<'a, #struct_name, Description, Kind> {
+            fn #event_fn<
+                Listener: #listener_constraints
+            >(
+                self,
+                input: <Listener as card_game::events::EventListenerConstructor<card_game::stack::priority::Priority<#state>, #event>>::Input,
+            ) -> Self
+                where #trait_constraints
+            {
+                self
+                    .with_event()
+                    .listen_for::<card_game::stack::priority::Priority<#state>, #event, Listener>(input.clone())
+                    /*.listen_for::<card_game::events::EventPriorityStack<#first_state, #event, #first_priority_resolutions<card_game::stack::priority::Priority<#first_state>>>, #event, Listener>(
+                        input.clone(),
+                    )*/
+                    .finish_event()
+            }
+        }
+    }.into()
+}
+
+/*struct AbilityArgs {
+    //description_type: syn::Type,
+    states: StateMapping,
+    events: StateMapping,
+}
+
+impl Parse for AbilityArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut states = None;
+        let mut events = None;
+
+        while !input.is_empty() {
+            let key: Ident = input.parse()?;
+            let _ = input.parse::<syn::Token![=]>()?;
+
+            match key.to_string().as_str() {
+                "states" => {
+                    states = Some(input.parse()?);
+                }
+                "events" => {
+                    events = Some(input.parse()?);
+                }
+                _ => {
+                    return Err(syn::Error::new_spanned(key, "Unknown key"));
+                }
+            }
+
+            let _ = input.parse::<syn::Token![,]>();
+        }
+
+        Ok(AbilityArgs {
+            states: states.ok_or_else(|| input.error("missing `states`"))?,
+            events: events.ok_or_else(|| input.error("missing `events`"))?,
+        })
+    }
+}
+
+#[proc_macro_attribute]
+fn ability(args: TokenStream, input: TokenStream) -> TokenStream {
+    let mut ast = parse_macro_input!(input as syn::Item);
+    let args = parse_macro_input!(args as AbilityArgs);
+    let ability_name = &ast.ident;
+    let (states, states_fn): (Vec<_>, Vec<_>) = args.states.states.iter().unzip();
+    let (events, events_fn): (Vec<_>, Vec<_>) = args.events.states.iter().unzip();
+    quote::quote! {
+        #(
+        impl ::card_game::events::EventDescription<$events, $description_type> for #ability_name {
+            fn description(&self) -> $description_type {
+                $description.into()
+            }
+        }
+        )*
+    }
+    .into()
+}*/

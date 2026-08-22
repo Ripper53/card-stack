@@ -19,6 +19,7 @@ card-stack = { path = "../card-stack", version = "0.2", features = [
 thiserror = "2.0.14"
 variadics_please = "1.1.0"
 serde = { version = "1.0.228", features = ["derive"], optional = true }
+indexmap = "2.14.0"
 
 [features]
 default = ["derive"]

@@ -1,6 +1,6 @@
 use std::{
     any::Any,
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet},
     hash::Hash,
 };
 
@@ -10,13 +10,10 @@ use crate::{
     identifications::SourceCardID,
 };
 use card_stack::{
-    actions::{ActionSource, IncitingAction, IncitingActionInfo, StackAction},
-    priority::{GetState, IncitingResolver, Priority, PriorityMut, PriorityStack},
+    actions::{IncitingAction, IncitingActionInfo, StackAction},
+    priority::{Priority, PriorityMut, PriorityStack},
 };
-use state_validation::{
-    Condition, StateFilter, StateFilterConversion, ValidAction,
-    dynamic::{DynStateFilter, DynValidAction, DynValidActionExecutionError},
-};
+use state_validation::{Condition, StateFilter, ValidAction, dynamic::DynValidAction};
 
 mod event_action_id;
 pub use event_action_id::*;
@@ -32,7 +29,7 @@ impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> EventManager<State, 
         self.events.as_slice()
     }
 }
-pub type EventPriorityStack<State, Ev: Event<PriorityMut<Priority<State>>>, IncitingOutput> =
+pub type EventPriorityStack<State, Ev, IncitingOutput> =
     PriorityStack<State, EventAction<Priority<State>, Ev, IncitingOutput>>;
 pub struct DynEventListener<State, Ev: Event<PriorityMut<State>>, Output> {
     valid_action: Box<dyn AnyClone>,
@@ -145,11 +142,6 @@ impl<State: 'static, Ev: Event<PriorityMut<State>>, Output> EventManager<State, 
 impl<EventState: 'static, Ev: Event<PriorityMut<EventState>>, Output: 'static>
     EventManager<EventState, Ev, Output>
 {
-    pub(crate) fn new(
-        events: Vec<(EventActionID, DynEventListener<EventState, Ev, Output>)>,
-    ) -> Self {
-        EventManager { events }
-    }
     pub fn add_listener<Listener: EventListener<EventState, Ev>>(&mut self, event_action_id: EventActionID, listener: Listener) -> EventManagerIndex
     where
         <Listener::Action as EventValidAction<PriorityMut<EventState>, Listener::ActionInput>>::Output:
@@ -755,7 +747,7 @@ where
         let event_manager = self.state.state().stack_event_manager();
         // TODO: I don't like the fact that we are instantiating a priority mut!
         let priority_mut = PriorityMut::<PriorityStack<_, _>>::new(self.state);
-        let mut simultaneous_action_manager = event_manager
+        let simultaneous_action_manager = event_manager
             .collect_actions(event_manager_id, &priority_mut, self.event)
             .simultaneous_action_manager(priority_mut.take_priority());
         match simultaneous_action_manager.simultaneous_action_count() {
@@ -792,7 +784,7 @@ where
         let to_remove_ids = simultaneous_action_manager
             .actions
             .iter()
-            .filter_map(|(sim_id, (id, event_action))| {
+            .filter_map(|(sim_id, (id, _event_action))| {
                 if event_action_id == *id {
                     Some(*sim_id)
                 } else {

@@ -1,4 +1,3 @@
-use card_stack::priority::GetState;
 use state_validation::{StateFilter, ValidAction, ValidationError, Validator};
 
 use crate::{ActionHistory, ActionInfo, identifications::MutID};
@@ -69,7 +68,7 @@ impl<'a, History: ActionHistory + ?Sized, State, Input, Filter: StateFilter<Stat
         Action: ValidAction<State, Input, Filter = Filter>
             + ActionInfo<State, Filter::ValidOutput, History::History>,
     >(
-        mut self,
+        self,
         action: Action,
     ) -> Action::Output {
         self.history

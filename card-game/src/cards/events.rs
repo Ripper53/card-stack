@@ -2,7 +2,7 @@ use card_stack::priority::{Priority, PriorityMut};
 
 use crate::{
     cards::{CardID, CardManager},
-    events::{CollectedActions, Event, EventAction, EventManager, SimultaneousActionManager},
+    events::{CollectedActions, Event, EventManager, SimultaneousActionManager},
 };
 
 #[derive(Debug)]

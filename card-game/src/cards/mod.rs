@@ -1,6 +1,6 @@
 use crate::events::{
-    AddEventListener, DynEventListener, Event, EventActionID, EventActionIDBuilder,
-    EventDescription, EventListener, EventListenerConstructor, EventValidAction,
+    AddEventListener, Event, EventActionID, EventActionIDBuilder, EventDescription,
+    EventListenerConstructor, EventValidAction,
 };
 use crate::identifications::{ActionDescription, ActionIdentifier, SourceCardID, ValidCardID};
 use card_stack::priority::PriorityMut;
@@ -66,9 +66,6 @@ impl CardID {
     }
     pub fn value(&self) -> usize {
         self.0
-    }
-    pub(crate) fn clone_id(&self) -> Self {
-        CardID::new(self.0)
     }
 }
 impl std::fmt::Display for CardID {

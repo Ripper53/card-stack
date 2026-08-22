@@ -16,7 +16,7 @@ impl<T> CardDescriptions<T> {
             event_ids: HashSet::new(),
         }
     }
-    pub(crate) fn add_description(&mut self, card_id: CardID, description: T) {
+    pub fn add_description(&mut self, card_id: CardID, description: T) {
         match self.descriptions.entry(card_id) {
             Entry::Occupied(o) => {
                 o.into_mut().push(description);
@@ -42,7 +42,7 @@ impl<T> CardDescriptions<T> {
 }
 
 impl<T: Clone> CardDescriptions<T> {
-    pub(crate) fn copy_description(&mut self, card_id: CardID, copy_from_card_id: CardID) {
+    pub(crate) fn copy_description(&mut self, card_id: CardID, _copy_from_card_id: CardID) {
         let Some(descriptions) = self.descriptions.get(&card_id).cloned() else {
             return;
         };

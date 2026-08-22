@@ -1,5 +1,5 @@
 use crate::{
-    EmptyInput, NonEmptyInput,
+    NonEmptyInput,
     requirements::{RequirementAction, TryNewRequirementActionError},
 };
 

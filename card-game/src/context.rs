@@ -1,4 +1,3 @@
-use card_stack::priority::GetState;
 use state_validation::{StateFilter, ValidAction, ValidationError, Validator};
 
 pub struct HistoricalContext<History: ActionHistory, State> {

@@ -4,13 +4,12 @@ use std::{
 };
 
 use card_stack::priority::{GetState, PriorityMut};
-use state_validation::{StateFilter, ValidAction};
 
 use crate::{
     cards::{CardBuilder, CardDescriptions, CardID},
     events::{
-        AddEventListener, AnyClone, DynEventListener, Event, EventActionID, EventActionIDBuilder,
-        EventListener, EventListenerConstructor, EventValidAction, SimultaneousActionManager,
+        AddEventListener, AnyClone, Event, EventActionID, EventActionIDBuilder,
+        EventListenerConstructor, EventValidAction,
     },
     identifications::{ActionID, SourceCardID},
 };
@@ -45,14 +44,32 @@ impl<EventManager, Description> CardManager<EventManager, Description> {
     pub fn card_actions(&self) -> &CardActions {
         &self.card_actions
     }
+    pub fn copy_actions(
+        &mut self,
+        card_id: CardID,
+        to_copy_card_id: CardID,
+    ) -> Option<&[ActionID]> {
+        self.card_actions.copy_actions(card_id, to_copy_card_id)
+    }
     pub fn card_descriptions(&self) -> &CardDescriptions<Description> {
         &self.card_descriptions
+    }
+    pub fn card_descriptions_mut(&mut self) -> &mut CardDescriptions<Description> {
+        &mut self.card_descriptions
     }
     pub fn event_manager(&self) -> &EventManager {
         &self.event_manager
     }
     pub fn event_tracker(&self) -> &CardEventTracker<EventManager> {
         &self.event_tracker
+    }
+    pub fn copy_event(
+        &mut self,
+        card_id: CardID,
+        to_copy_card_id: CardID,
+    ) -> Option<impl Iterator<Item = EventActionID>> {
+        self.event_tracker
+            .copy_events(&mut self.event_manager, card_id, to_copy_card_id)
     }
     pub fn builder(&mut self) -> CardBuilder<'_, EventManager, Description> {
         CardBuilder::new(
@@ -104,7 +121,11 @@ impl CardActions {
             }
         }
     }
-    pub(crate) fn copy_actions(&mut self, card_id: CardID, copy_from_card_id: CardID) {
+    pub(crate) fn copy_actions(
+        &mut self,
+        card_id: CardID,
+        copy_from_card_id: CardID,
+    ) -> Option<&[ActionID]> {
         if let Some(actions) = self.card_actions_tracker.get(&copy_from_card_id) {
             for action_id in actions.iter().copied() {
                 let _ = self
@@ -113,6 +134,9 @@ impl CardActions {
                     .unwrap()
                     .insert(card_id);
             }
+            Some(actions)
+        } else {
+            None
         }
     }
 }
@@ -252,7 +276,7 @@ impl<EventManager> CardEventTracker<EventManager> {
         event_manager: &mut EventManager,
         card_id: CardID,
         to_copy_card_id: CardID,
-    ) {
+    ) -> Option<impl Iterator<Item = EventActionID>> {
         if let Some(events) = self.events.get(&to_copy_card_id) {
             for (event_action_id, _, _, listener_input, add_event) in events {
                 add_event(
@@ -262,6 +286,9 @@ impl<EventManager> CardEventTracker<EventManager> {
                     (**listener_input).any_clone_duplication(),
                 );
             }
+            Some(events.iter().map(|(event_action_id, ..)| *event_action_id))
+        } else {
+            None
         }
     }
     pub(crate) fn events_for_card<'a>(

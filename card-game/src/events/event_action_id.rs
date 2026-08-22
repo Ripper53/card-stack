@@ -2,12 +2,6 @@
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct EventActionID(usize);
 
-impl EventActionID {
-    pub(crate) fn new(value: usize) -> Self {
-        EventActionID(value)
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 pub(crate) struct EventActionIDBuilder {
     next_value: usize,

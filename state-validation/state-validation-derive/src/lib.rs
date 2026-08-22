@@ -5,8 +5,8 @@ use itertools::Itertools;
 use proc_macro::TokenStream;
 use quote::TokenStreamExt;
 use syn::{
-    Expr, GenericArgument, GenericParam, Generics, Ident, Lifetime, Type, TypePath, ext,
-    parse_macro_input, parse_quote,
+    GenericArgument, GenericParam, Generics, Ident, Lifetime, Type, TypePath, parse_macro_input,
+    parse_quote,
 };
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -320,7 +320,7 @@ pub fn state_filter_conversion(input: TokenStream) -> TokenStream {
                 }
                 (field_names, field_types, generics)
             });
-            for (k, (field_names, field_types, field_generics)) in cartesian_product.enumerate() {
+            for (_k, (field_names, field_types, field_generics)) in cartesian_product.enumerate() {
                 let mut all_field_generics = Generics::default();
                 for field_generics in field_generics.iter() {
                     all_field_generics = merge_generics(all_field_generics, field_generics);
@@ -336,7 +336,7 @@ pub fn state_filter_conversion(input: TokenStream) -> TokenStream {
                         for (
                             current_field_names,
                             current_field_types,
-                            current_field_generics,
+                            _current_field_generics,
                             other_field_names,
                             other_field_types,
                             other_field_generics,
@@ -506,7 +506,7 @@ fn create_original_conversion_combinations(
                     .cloned()
                     .sorted()
                     .collect::<Vec<_>>();
-                let combined_struct_name = combination_names.get(&r).expect(&format!(
+                let _combined_struct_name = combination_names.get(&r).expect(&format!(
                     "1: expected a combined struct: {:#?}\nCOMBINATION NAMES: {:#?}",
                     r, combination_names,
                 ));
@@ -522,7 +522,7 @@ fn create_original_conversion_combinations(
                     current_field_generic =
                         merge_generics(current_field_generic, &current_generics);
                 }
-                let current_field_generics = current_field_generic;
+                let _current_field_generics = current_field_generic;
                 let mut other_field_generic = Generics::default();
                 for other_generics in other_field_generics {
                     other_field_generic = merge_generics(other_field_generic, &other_generics);

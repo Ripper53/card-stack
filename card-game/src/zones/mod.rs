@@ -55,9 +55,13 @@ pub trait Zone: Sized {
     type CardFilter;
     fn filled_count(&self) -> usize;
     fn get_card(&self, card_id: CardID) -> Option<&Card<Self::CardKind>>;
+    fn get_card_index(&self, card_id: CardID) -> Option<usize>;
     fn get_card_mut(&mut self, card_id: MutID<CardID>) -> Option<&mut Card<Self::CardKind>>;
     fn valid_card(&self, valid_card_id: &ValidCardID<Self::CardFilter>) -> &Card<Self::CardKind> {
         self.get_card(valid_card_id.id()).unwrap()
+    }
+    fn valid_card_index(&self, valid_card_id: &ValidCardID<Self::CardFilter>) -> usize {
+        self.get_card_index(valid_card_id.id()).unwrap()
     }
     fn valid_card_mut(
         &mut self,
@@ -155,7 +159,7 @@ where
     Card<<FromZ as Zone>::CardKind>: Into<Card<ToCardKind>>,
 {
     pub fn transport(
-        mut self,
+        self,
         zone_card_id: ValidCardID<FromZ::CardFilter>,
     ) -> Result<(), ZoneFullError> {
         if self.to_slot.is_occupied() {
@@ -181,7 +185,7 @@ where
     Card<<FromZ as Zone>::CardKind>: Into<Card<<ToZ as Zone>::CardKind>>,
 {
     pub fn transport(
-        mut self,
+        self,
         zone_card_id: ValidCardID<FromZ::CardFilter>,
     ) -> Result<(), ZoneFullError> {
         if self.to_zone.has_space() {
@@ -202,7 +206,7 @@ impl<'a, FromZ: ArrayZone, ToZ: InfiniteZone> ZoneToInfiniteZoneTransport<'a, Fr
 where
     Card<<FromZ as Zone>::CardKind>: Into<Card<<ToZ as Zone>::CardKind>>,
 {
-    pub fn transport(mut self, zone_card_id: ValidCardID<FromZ::CardFilter>) {
+    pub fn transport(self, zone_card_id: ValidCardID<FromZ::CardFilter>) {
         let card = self.from_zone.remove_card(zone_card_id);
         self.to_zone.add_card(card.into());
     }

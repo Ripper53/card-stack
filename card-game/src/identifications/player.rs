@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{cards::CardID, create_valid_identification, identifications::MutID};
+use crate::{create_valid_identification, identifications::MutID};
 use card_stack::NonEmptyInput;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -13,9 +13,6 @@ impl PlayerID {
     }
     pub fn value(&self) -> usize {
         self.0
-    }
-    fn next_player_id(&self, max_players: usize) -> Self {
-        PlayerID((self.0 + 1) % max_players)
     }
 }
 impl std::fmt::Display for PlayerID {

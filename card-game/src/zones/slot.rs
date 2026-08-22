@@ -89,7 +89,7 @@ impl<'a, FromCardKind, ToCardKind> SlotToSlotTransport<'a, FromCardKind, ToCardK
 where
     Card<FromCardKind>: Into<Card<ToCardKind>>,
 {
-    pub fn transport(mut self) -> Result<(), SlotToSlotTransportError> {
+    pub fn transport(self) -> Result<(), SlotToSlotTransportError> {
         if self.to_slot.is_occupied() {
             Err(SlotToSlotTransportError::SlotOccupied(
                 ZoneSlotOccupiedError,
@@ -120,7 +120,7 @@ impl<'a, FromCardKind, ToZone: FiniteZone> SlotToFiniteZoneTransport<'a, FromCar
 where
     Card<FromCardKind>: Into<Card<<ToZone as Zone>::CardKind>>,
 {
-    pub fn transport(mut self) -> Result<(), SlotToFiniteZoneTransportError> {
+    pub fn transport(self) -> Result<(), SlotToFiniteZoneTransportError> {
         if self.to_zone.has_space() {
             if let Some(card) = self.from_slot.card.take() {
                 self.to_zone.add_card_unchecked(card.into());
@@ -147,7 +147,7 @@ impl<'a, FromCardKind, ToZone: InfiniteZone> SlotToInfiniteZoneTransport<'a, Fro
 where
     Card<FromCardKind>: Into<Card<<ToZone as Zone>::CardKind>>,
 {
-    pub fn transport(mut self) -> Result<(), CardNotInSlotError> {
+    pub fn transport(self) -> Result<(), CardNotInSlotError> {
         if let Some(card) = self.from_slot.card.take() {
             self.to_zone.add_card(card.into());
             Ok(())
